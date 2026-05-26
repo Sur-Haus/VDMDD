@@ -64,53 +64,132 @@
             overflow-y: auto;
         }
 
-        .games-grid {
-            flex: 1;
+        .trail-section {
             display: flex;
-            flex-wrap: wrap;
-            gap: 20px;
-            margin-bottom: 40px;
-            align-content: flex-start;
-            justify-content: center;
+            flex-direction: column;
+            width: 100%;
+            margin-bottom: 20px;
         }
 
-        .game-button {
-            width: 100px;
-            height: 100px;
-            border-radius: 20px;
-            border: none;
-            cursor: pointer;
-            transition: transform 0.2s, box-shadow 0.2s;
+        .trail-title {
+            font-size: 13px;
+            font-weight: bold;
+            color: #2e5931;
+            text-align: center;
+            padding: 8px 0 0;
+            letter-spacing: 1.5px;
+            text-transform: uppercase;
+        }
+
+        .secret-path-title {
+            font-size: 13px;
+            font-weight: bold;
+            color: #8B6914;
+            text-align: center;
+            padding: 6px 0 0;
+            letter-spacing: 1.5px;
+            text-transform: uppercase;
+        }
+
+        .trail-container {
+            position: relative;
+            width: 100%;
+        }
+
+        .trail-node {
+            position: absolute;
+            width: 72px;
+            height: 72px;
+            border-radius: 50%;
+            border: 4px solid #5c3d1e;
+            background: #2e5931;
             display: flex;
             align-items: center;
             justify-content: center;
-            font-size: 48px;
-            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-            position: relative;
-            overflow: hidden;
-            background-color: #2e5931;
-            padding: 20px;
+            cursor: pointer;
+            z-index: 2;
+            transition: transform 0.2s, box-shadow 0.2s;
+            box-shadow: 0 3px 10px rgba(0,0,0,0.2);
         }
 
-        .game-button:hover {
-            transform: translateY(-5px);
-            box-shadow: 0 5px 20px rgba(0, 0, 0, 0.2);
+        .trail-node.locked {
+            background: #b0a090;
+            border-color: #8a7060;
+            cursor: default;
         }
 
-        .game-button:active {
-            transform: translateY(-2px);
-            box-shadow: 0 3px 10px rgba(0, 0, 0, 0.15);
+        .trail-node.completed {
+            border-color: #3b7a57;
+            background: #1e5c30;
+            box-shadow: 0 0 14px rgba(59, 122, 87, 0.6);
         }
 
-        .game-button img {
-            width: 100%;
-            height: 100%;
-            object-fit: contain;
+        .trail-node.current {
+            border-color: #f0c040;
+            animation: pulse-node 2s ease-in-out infinite;
         }
 
-        .game-button.completed {
-            padding: 0;
+        @keyframes pulse-node {
+            0%, 100% { box-shadow: 0 3px 10px rgba(0,0,0,0.2), 0 0 0 0 rgba(240,192,64,0.5); }
+            50% { box-shadow: 0 3px 10px rgba(0,0,0,0.2), 0 0 0 10px rgba(240,192,64,0); }
         }
+
+        .trail-node:not(.locked):hover {
+            transform: scale(1.12);
+            box-shadow: 0 6px 20px rgba(0,0,0,0.35);
+        }
+
+        .trail-label {
+            position: absolute;
+            font-size: 10px;
+            color: #4a3520;
+            font-weight: bold;
+            text-align: center;
+            z-index: 2;
+            background: rgba(250, 246, 240, 0.88);
+            padding: 2px 6px;
+            border-radius: 8px;
+            pointer-events: none;
+            white-space: nowrap;
+        }
+
+        .trail-end-flag {
+            position: absolute;
+            font-size: 24px;
+            z-index: 2;
+            animation: wave-flag 2s ease-in-out infinite;
+        }
+
+        @keyframes wave-flag {
+            0%, 100% { transform: rotate(-8deg); }
+            50% { transform: rotate(8deg); }
+        }
+
+        .secret-path-section {
+            border-top: 2px dashed #c8a060;
+            padding-top: 4px;
+            margin-top: 8px;
+        }
+
+        .trail-lock-msg {
+            position: fixed;
+            bottom: 30px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(46, 89, 49, 0.95);
+            color: white;
+            padding: 10px 20px;
+            border-radius: 20px;
+            font-size: 14px;
+            font-weight: bold;
+            z-index: 3000;
+            opacity: 0;
+            transition: opacity 0.3s;
+            pointer-events: none;
+            white-space: nowrap;
+        }
+
+        .trail-lock-msg.visible { opacity: 1; }
 
         .footer {
             text-align: center;
@@ -601,39 +680,6 @@
             flex-wrap: wrap;
         }
 
-        .fundraising-button {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            gap: 4px;
-            background: linear-gradient(135deg, #2e5931, #3b7a57);
-            color: white;
-            border: none;
-            padding: 14px 36px;
-            border-radius: 50px;
-            cursor: pointer;
-            transition: transform 0.2s, box-shadow 0.2s;
-            box-shadow: 0 3px 12px rgba(46, 89, 49, 0.3);
-        }
-
-        .fundraising-button:hover {
-            transform: translateY(-3px);
-            box-shadow: 0 6px 20px rgba(46, 89, 49, 0.4);
-        }
-
-        .fundraising-label {
-            font-size: 12px;
-            opacity: 0.85;
-            letter-spacing: 0.5px;
-        }
-
-        .fundraising-amount {
-            font-size: 26px;
-            font-weight: 900;
-            letter-spacing: 1px;
-        }
-
-        /* Game idea button */
         .game-idea-button {
             background: linear-gradient(135deg, #8B5E3C, #A0522D) !important;
         }
@@ -642,7 +688,6 @@
             box-shadow: 0 6px 20px rgba(139, 94, 60, 0.4) !important;
         }
 
-        /* Game idea modal */
         .game-idea-modal {
             display: none;
             position: fixed;
@@ -731,6 +776,38 @@
 
         .close-game-idea-btn:hover {
             background-color: #bbb;
+        }
+
+        .fundraising-button {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 4px;
+            background: linear-gradient(135deg, #2e5931, #3b7a57);
+            color: white;
+            border: none;
+            padding: 14px 36px;
+            border-radius: 50px;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+            box-shadow: 0 3px 12px rgba(46, 89, 49, 0.3);
+        }
+
+        .fundraising-button:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 6px 20px rgba(46, 89, 49, 0.4);
+        }
+
+        .fundraising-label {
+            font-size: 12px;
+            opacity: 0.85;
+            letter-spacing: 0.5px;
+        }
+
+        .fundraising-amount {
+            font-size: 26px;
+            font-weight: 900;
+            letter-spacing: 1px;
         }
 
         /* ===== Story overlay (from old index.html) ===== */
@@ -894,16 +971,6 @@
                 display: none;
             }
 
-            .games-grid {
-                gap: 15px;
-            }
-
-            .game-button {
-                width: 80px;
-                height: 80px;
-                font-size: 36px;
-            }
-
             .contact-modal-content {
                 width: 90%;
                 max-width: 350px;
@@ -957,7 +1024,14 @@
         <div class="left-section"></div>
         <div class="divider"></div>
         <div class="right-section">
-            <div class="games-grid" id="gamesGrid"></div>
+            <div class="trail-section">
+                <div class="trail-title">🌿 Jungle Trail</div>
+                <div class="trail-container" id="trailContainer"></div>
+                <div class="secret-path-section" id="secretPathSection" style="display:none">
+                    <div class="secret-path-title">🔑 Secret Donors' Trail</div>
+                    <div class="trail-container" id="secretTrailContainer"></div>
+                </div>
+            </div>
 
             <div class="fundraising-section">
                 <button class="fundraising-button" onclick="showOverlayModal()">
@@ -1125,7 +1199,6 @@
         });
         var db = firebase.firestore();
         var campaignRef = db.collection('campaigns').doc('vdmdd-2026');
-
         var campaignData = null;
 
         // =============================================
@@ -1262,66 +1335,154 @@
         }
 
         // =============================================
-        // Games
+        // Games & Trail
         // =============================================
-        var games = [
-            { id: 1, name: 'Toucan Fly', emoji: '🦜', color: '#FF6347', file: 'games/1-toucan-fly.html' },
-            { id: 2, name: 'Monkey Jump', emoji: '🐒', color: '#8B4513', file: 'games/1-monkey-jump.html' },
-            { id: 3, name: 'Snake vs Frog', emoji: '🐸', color: '#FFD700', file: 'games/1-snake-v-frog.html' },
-            { id: 4, name: 'Crocodile Lunch', emoji: '🐊', color: '#00CED1', file: 'games/1-crocodile-lunch.html' },
-            { id: 5, name: 'Jaguar Rain', emoji: '🐆', color: '#228B22', file: 'games/1-jaguar-rain.html' },
-            { id: 6, name: 'Jungle Search', emoji: '🌳', color: '#9370DB', file: 'games/1-jungle-search.html' },
-            { id: 7, name: 'Snake Dinner', emoji: '🐍', color: '#32CD32', file: 'games/1-snake-dinner.html' },
-            { id: 8, name: 'Llama Escape', emoji: '🦙', color: '#3FBB89', file: 'games/1-llama-escape.html' },
-            { id: 9, name: 'Monkey Maze', emoji: '🐒', color: '#EEFF00', file: 'games/1-monkey-maze.html' },
-            { id: 18, name: 'Create Your Own Game!', emoji: '', color: '#8B7355', file: 'games/blank.html' }
+        var mainTrailGames = [
+            { id: 2, name: 'Jaguar Rain',      emoji: '🐆', color: '#228B22', file: 'games/1-jaguar-rain.html' },
+            { id: 3, name: 'Snake vs Frog',    emoji: '🐸', color: '#FFD700', file: 'games/1-snake-v-frog.html' },
+            { id: 4, name: 'Monkey Jump',      emoji: '🐒', color: '#8B4513', file: 'games/1-monkey-jump.html' },
+            { id: 5, name: 'Toucan Fly',       emoji: '🦜', color: '#FF6347', file: 'games/1-toucan-fly.html' },
+            { id: 7, name: 'Snake Dinner',     emoji: '🐍', color: '#32CD32', file: 'games/1-snake-dinner.html' },
+            { id: 1, name: 'Jungle Search',    emoji: '🌳', color: '#9370DB', file: 'games/1-jungle-search.html' },
+            { id: 6, name: 'Crocodile Lunch',  emoji: '🐊', color: '#00CED1', file: 'games/1-crocodile-lunch.html' },
+            { id: 8, name: 'Llama Escape',     emoji: '🦙', color: '#3FBB89', file: 'games/1-llama-escape.html' }
+        ];
+
+        var donorTrailGames = [
+            { id: 11, name: 'Tiger vs Leopard', emoji: '🐯', color: '#FF8C00', file: 'games/1-tiger-v-leopard.html' },
+            { id: 12, name: 'Monkey Maze',      emoji: '🐒', color: '#c8d400', file: 'games/1-monkey-maze.html' },
+            { id: 13, name: 'Forest Defender',  emoji: '🌲', color: '#2d8b3a', file: 'games/2-forest-defender.html' }
         ];
 
         var currentGame = null;
         var gameCompletionStatus = {};
 
-        function generateGames() {
-            var grid = document.getElementById('gamesGrid');
-            games.forEach(function(game) {
-                var btn = document.createElement('button');
-                btn.className = 'game-button';
-                btn.dataset.gameId = game.id;
-                btn.title = game.name;
-                btn.onclick = function() { openGame(game); };
-                if (gameCompletionStatus[game.id] && gameCompletionStatus[game.id].completed) {
-                    btn.classList.add('completed');
-                    btn.style.backgroundColor = game.color;
-                    btn.innerHTML = game.emoji;
-                } else {
-                    btn.innerHTML = '<img src="images/logo-white.png" alt="Game">';
-                }
-                grid.appendChild(btn);
+        var NODE_R = 36;
+        var STEP_H = 150;
+
+        function isUnlocked(gameList, index) {
+            if (index === 0) return true;
+            var prevId = gameList[index - 1].id;
+            return !!(gameCompletionStatus[prevId] && gameCompletionStatus[prevId].completed);
+        }
+
+        function buildTrail(gameList, containerId) {
+            var container = document.getElementById(containerId);
+            if (!container) return;
+            var W = container.offsetWidth || Math.floor(window.innerWidth * 0.46);
+            var LEFT_X = Math.min(70, Math.floor(W * 0.18));
+            var RIGHT_X = W - LEFT_X;
+            var topMargin = 20;
+            var totalH = gameList.length * STEP_H + topMargin + 60;
+            container.style.height = totalH + 'px';
+            container.innerHTML = '';
+
+            var positions = gameList.map(function(g, i) {
+                return { x: i % 2 === 0 ? LEFT_X : RIGHT_X, y: topMargin + i * STEP_H + NODE_R };
             });
+
+            var svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+            svg.style.cssText = 'position:absolute;top:0;left:0;width:100%;height:100%;overflow:visible;pointer-events:none;';
+
+            if (positions.length > 1) {
+                var pathD = 'M ' + positions[0].x + ' ' + positions[0].y;
+                for (var i = 1; i < positions.length; i++) {
+                    var p0 = positions[i - 1], p1 = positions[i];
+                    var midY = (p0.y + p1.y) / 2;
+                    pathD += ' C ' + p0.x + ' ' + midY + ', ' + p1.x + ' ' + midY + ', ' + p1.x + ' ' + p1.y;
+                }
+                var pathBg = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+                pathBg.setAttribute('d', pathD); pathBg.setAttribute('stroke', '#5c3d1e');
+                pathBg.setAttribute('stroke-width', '14'); pathBg.setAttribute('fill', 'none');
+                pathBg.setAttribute('stroke-linecap', 'round');
+                svg.appendChild(pathBg);
+
+                var pathFg = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+                pathFg.setAttribute('d', pathD); pathFg.setAttribute('stroke', '#c8a060');
+                pathFg.setAttribute('stroke-width', '8'); pathFg.setAttribute('fill', 'none');
+                pathFg.setAttribute('stroke-dasharray', '14 8'); pathFg.setAttribute('stroke-linecap', 'round');
+                svg.appendChild(pathFg);
+            }
+            container.appendChild(svg);
+
+            gameList.forEach(function(game, i) {
+                var pos = positions[i];
+                var completed = !!(gameCompletionStatus[game.id] && gameCompletionStatus[game.id].completed);
+                var unlocked = isUnlocked(gameList, i);
+                var nodeClass = completed ? 'completed' : (unlocked ? 'current' : 'locked');
+
+                var node = document.createElement('div');
+                node.className = 'trail-node ' + nodeClass;
+                node.dataset.gameId = game.id;
+                node.style.left = (pos.x - NODE_R) + 'px';
+                node.style.top = (pos.y - NODE_R) + 'px';
+                node.innerHTML = (completed || unlocked)
+                    ? '<span style="font-size:28px">' + game.emoji + '</span>'
+                    : '<span style="font-size:22px">🔒</span>';
+
+                node.onclick = (function(g, idx, gList) {
+                    return function() {
+                        isUnlocked(gList, idx) ? openGame(g) : showLockMsg(gList[idx - 1].name);
+                    };
+                })(game, i, gameList);
+
+                container.appendChild(node);
+
+                var label = document.createElement('div');
+                label.className = 'trail-label';
+                label.textContent = game.name;
+                var labelW = 110;
+                label.style.left = Math.max(4, Math.min(W - labelW - 4, pos.x - labelW / 2)) + 'px';
+                label.style.top = (pos.y + NODE_R + 6) + 'px';
+                label.style.width = labelW + 'px';
+                container.appendChild(label);
+            });
+
+            var lastPos = positions[positions.length - 1];
+            var allDone = gameList.every(function(g) { return gameCompletionStatus[g.id] && gameCompletionStatus[g.id].completed; });
+            var flag = document.createElement('div');
+            flag.className = 'trail-end-flag';
+            flag.textContent = allDone ? '🏆' : '🏁';
+            flag.style.left = (lastPos.x - 16) + 'px';
+            flag.style.top = (lastPos.y + NODE_R + 34) + 'px';
+            container.appendChild(flag);
+        }
+
+        function generateTrail() {
+            buildTrail(mainTrailGames, 'trailContainer');
+            if (HAS_DONATED) {
+                document.getElementById('secretPathSection').style.display = 'block';
+                buildTrail(donorTrailGames, 'secretTrailContainer');
+            }
+        }
+
+        function showLockMsg(prevName) {
+            var msg = document.getElementById('trailLockMsg');
+            if (!msg) {
+                msg = document.createElement('div');
+                msg.id = 'trailLockMsg';
+                msg.className = 'trail-lock-msg';
+                document.body.appendChild(msg);
+            }
+            msg.textContent = '🔒 Beat "' + prevName + '" to unlock this!';
+            msg.classList.add('visible');
+            clearTimeout(msg._hideTimer);
+            msg._hideTimer = setTimeout(function() { msg.classList.remove('visible'); }, 2500);
         }
 
         function openGame(game) {
             var modal = document.getElementById('gameModal');
-            var title = document.getElementById('modalTitle');
             var iframe = document.getElementById('gameIframe');
             var ph = document.getElementById('gamePlaceholder');
-
             currentGame = game;
-            title.textContent = game.name;
+            document.getElementById('modalTitle').textContent = game.name;
             modal.style.display = 'block';
-
-            if (game.file === 'games/blank.html') {
-                ph.style.display = 'block';
-                ph.innerHTML = '<h3>Your game!</h3><p>All these games were built by first graders. If you\'d like to create your own jungle game to be included on this site and help the Madre de Dios, contact natesjacobs at gmail</p>';
-                iframe.style.display = 'none';
-                return;
-            }
-
             ph.style.display = 'block';
             iframe.style.display = 'block';
             iframe.src = game.file;
             iframe.onload = function() { ph.style.display = 'none'; };
             iframe.onerror = function() {
-                ph.innerHTML = '<h3>Error loading game</h3><p>Sorry, we couldn\'t load "' + game.name + '". Please try again later.</p>';
+                ph.innerHTML = '<h3>Error loading game</h3><p>Sorry, couldn\'t load "' + game.name + '".</p>';
             };
         }
 
@@ -1344,27 +1505,13 @@
                     timeElapsed: event.data.timeElapsed || null,
                     timestamp: new Date().toISOString()
                 };
-                updateGameButtonStatus(currentGame, event.data.completed);
                 if (event.data.completed) {
                     showGameCompletionFeedback(true, event.data.score, event.data.timeElapsed);
+                    localStorage.setItem('gameCompletionStatus', JSON.stringify(gameCompletionStatus));
+                    generateTrail();
                 } else {
                     showGameCompletionFeedback(false, event.data.score, event.data.timeElapsed);
                 }
-                localStorage.setItem('gameCompletionStatus', JSON.stringify(gameCompletionStatus));
-            }
-        }
-
-        function updateGameButtonStatus(game, completed) {
-            var btn = document.querySelector('[data-game-id="' + game.id + '"]');
-            if (!btn) return;
-            if (completed) {
-                btn.classList.add('completed');
-                btn.style.backgroundColor = game.color;
-                btn.innerHTML = game.emoji;
-            } else {
-                btn.classList.remove('completed');
-                btn.style.backgroundColor = '#2e5931';
-                btn.innerHTML = '<img src="images/logo-white.png" alt="Game">';
             }
         }
 
@@ -1373,18 +1520,15 @@
             if (!fb) {
                 fb = document.createElement('div');
                 fb.id = 'gameCompletionFeedback';
-                fb.style.cssText = 'position:fixed;top:20px;right:20px;padding:15px 20px;border-radius:10px;color:white;font-size:16px;font-weight:bold;z-index:2000;opacity:0;transition:opacity 0.3s ease;max-width:300px;';
+                fb.style.cssText = 'position:fixed;top:20px;right:20px;padding:15px 20px;border-radius:10px;color:white;font-size:16px;font-weight:bold;z-index:2000;opacity:0;transition:opacity 0.3s ease;max-width:300px;pointer-events:none;';
                 document.body.appendChild(fb);
             }
             if (completed) {
                 fb.style.backgroundColor = '#4CAF50';
-                var msg = '🎉 Great job! You completed "' + currentGame.name + '"!';
-                if (score !== null) msg += '\nScore: ' + score;
-                if (timeElapsed !== null) msg += '\nTime: ' + timeElapsed + 's';
-                fb.textContent = msg;
+                fb.textContent = '🎉 You completed "' + currentGame.name + '"!';
             } else {
                 fb.style.backgroundColor = '#ff6b6b';
-                fb.textContent = 'Keep trying! You can complete "' + currentGame.name + '"!';
+                fb.textContent = 'Keep trying! You can do it!';
             }
             fb.style.opacity = '1';
             setTimeout(function() { fb.style.opacity = '0'; }, 4000);
@@ -1393,14 +1537,7 @@
         function loadGameCompletionStatus() {
             var saved = localStorage.getItem('gameCompletionStatus');
             if (saved) {
-                try {
-                    gameCompletionStatus = JSON.parse(saved);
-                    games.forEach(function(game) {
-                        if (gameCompletionStatus[game.id] && gameCompletionStatus[game.id].completed) {
-                            setTimeout(function() { updateGameButtonStatus(game, true); }, 100);
-                        }
-                    });
-                } catch (e) {}
+                try { gameCompletionStatus = JSON.parse(saved); } catch (e) {}
             }
         }
 
@@ -1459,6 +1596,7 @@
         // =============================================
         var forestDonors = [];
         var campaignGoals = { donations: 100, amount: 5000 };
+        var treeColors = ['#3a7d44','#6abf6e','#4a9955','#2d8b3a','#8fd48f','#5cb86b','#3fbb89','#7ecf6e'];
 
         function initFundraisingFromFirestore() {
             campaignRef.onSnapshot(function(doc) {
@@ -1481,8 +1619,6 @@
         var forestTreeCount = 0;
         var forestTotalDonated = 0;
         var forestCities = new Set();
-
-        var treeColors = ['#3a7d44','#6abf6e','#4a9955','#2d8b3a','#8fd48f','#5cb86b','#3fbb89','#7ecf6e'];
 
         function fRand(a, b) { return a + Math.random() * (b - a); }
 
@@ -1599,8 +1735,8 @@
         // =============================================
         // Init
         // =============================================
-        generateGames();
         loadGameCompletionStatus();
+        requestAnimationFrame(function() { generateTrail(); });
         initFundraisingFromFirestore();
         window.addEventListener('message', handleGameMessage);
         initStoryOverlay();

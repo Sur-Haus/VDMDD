@@ -1,0 +1,991 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Llama Escape</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+            overflow: hidden;
+            height: 100vh;
+            background: linear-gradient(to bottom, #87CEEB 0%, #98D8E8 100%);
+        }
+        
+        /* Game container */
+        .game-container {
+            position: relative;
+            width: 100%;
+            height: 100vh;
+            overflow: hidden;
+        }
+        
+        /* Game world - scrollable */
+        .game-world {
+            position: absolute;
+            width: 22000px; /* Reduced to ~20,000m */
+            height: 100%;
+            transition: none;
+        }
+        
+        /* Sky gradient that changes from jungle to grassland */
+        .sky {
+            position: absolute;
+            width: 100%;
+            height: 55%; /* Reduced from 60% to move horizon down */
+            background: linear-gradient(to bottom, #87CEEB 0%, #98D8E8 100%);
+            z-index: 1;
+        }
+        
+        /* Forest background layer - NEW */
+        .forest-bg {
+            position: absolute;
+            width: 100%;
+            height: 25%;
+            bottom: 45%;
+            background: linear-gradient(to bottom, 
+                rgba(34, 139, 34, 0) 0%, 
+                rgba(34, 139, 34, 0.3) 30%,
+                rgba(46, 125, 50, 0.5) 60%,
+                rgba(46, 125, 50, 0.7) 100%);
+            z-index: 2;
+        }
+        
+        /* Ground */
+        .ground {
+            position: absolute;
+            bottom: 0;
+            width: 100%;
+            height: 45%; /* Increased from 40% to move horizon down */
+            background: linear-gradient(to bottom, #8B7355 0%, #654321 100%);
+            z-index: 3;
+        }
+        
+        /* Llama character - FLIPPED with wiggle */
+        .llama {
+            position: absolute;
+            font-size: 60px;
+            bottom: 43%; /* Lowered from 40% so llama is more in river */
+            left: 100px;
+            z-index: 100;
+            transition: bottom 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+            user-select: none;
+            transform: scaleX(-1); /* Flip horizontally */
+        }
+        
+        .llama.running {
+            animation: wiggle 0.3s ease-in-out infinite;
+        }
+        
+        @keyframes wiggle {
+            0%, 100% { transform: scaleX(-1) rotate(0deg); }
+            25% { transform: scaleX(-1) rotate(-2deg); }
+            75% { transform: scaleX(-1) rotate(2deg); }
+        }
+        
+        .llama.jumping {
+            animation: jump 0.8s ease-out !important;
+        }
+        
+        @keyframes jump {
+            0% { transform: translateY(0) scaleX(-1); }
+            50% { transform: translateY(-120px) scaleX(-1); }
+            100% { transform: translateY(0) scaleX(-1); }
+        }
+        
+        .llama.hit {
+            animation: flash 0.5s;
+        }
+        
+        @keyframes flash {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.3; filter: hue-rotate(180deg); }
+        }
+        
+        /* Trees - MUCH BIGGER */
+        .tree {
+            position: absolute;
+            font-size: 300px; /* Doubled size */
+            bottom: 40%; /* Moved down from 45% */
+            z-index: 10;
+            user-select: none;
+        }
+        
+        /* Bushes and plants */
+        .plant {
+            position: absolute;
+            font-size: 80px;
+            bottom: 38%;
+            z-index: 9;
+            user-select: none;
+        }
+        
+        /* Leaf decorations */
+        .leaf {
+            position: absolute;
+            font-size: 60px;
+            z-index: 8;
+            user-select: none;
+            opacity: 0.9;
+        }
+        
+        /* Squirrels on trees - RAISED HIGHER */
+        .squirrel {
+            position: absolute;
+            font-size: 40px;
+            z-index: 11;
+            user-select: none;
+        }
+        
+        /* Acorns - NOW IN GAME WORLD */
+        .acorn {
+            position: absolute;
+            font-size: 30px;
+            z-index: 90;
+            user-select: none;
+        }
+        
+        /* Special angled acorn */
+        .acorn.angled {
+            animation: none !important;
+        }
+        
+        /* Rivers - MUCH WIDER */
+        .river {
+            position: absolute;
+            width: 1500px; /* 3x wider */
+            height: 45%; /* Adjusted to match new ground height */
+            bottom: 0;
+            background: linear-gradient(90deg, 
+                rgba(30, 144, 255, 0.8) 0%, 
+                rgba(0, 191, 255, 0.9) 50%, 
+                rgba(30, 144, 255, 0.8) 100%);
+            z-index: 5;
+            animation: riverFlow 3s linear infinite;
+        }
+        
+        @keyframes riverFlow {
+            0% { background-position: 0 0; }
+            100% { background-position: 100px 0; }
+        }
+        
+        /* Crocodiles - INSTANT FLIP */
+        .crocodile {
+            position: absolute;
+            font-size: 50px;
+            z-index: 6;
+            user-select: none;
+            transition: none; /* No transition for instant flip */
+        }
+        
+        .crocodile.left {
+            transform: scaleX(1);
+        }
+        
+        .crocodile.right {
+            transform: scaleX(-1);
+        }
+        
+        /* Goal fruit */
+        .goal-fruit {
+            position: absolute;
+            font-size: 80px;
+            bottom: 48%; /* Adjusted for new horizon */
+            z-index: 50;
+            animation: bounce 2s ease-in-out infinite;
+            user-select: none;
+        }
+        
+        @keyframes bounce {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-20px); }
+        }
+        
+        /* OUCH popup */
+        .ouch-popup {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 72px;
+            font-weight: bold;
+            color: #FF4444;
+            text-shadow: 
+                3px 3px 0 #000,
+                -3px 3px 0 #000,
+                3px -3px 0 #000,
+                -3px -3px 0 #000,
+                0 0 20px rgba(255, 255, 255, 0.8);
+            z-index: 250;
+            opacity: 0;
+            pointer-events: none;
+            transition: none;
+        }
+        
+        .ouch-popup.show {
+            animation: ouchPop 0.8s ease-out;
+        }
+        
+        @keyframes ouchPop {
+            0% {
+                opacity: 0;
+                transform: translate(-50%, -50%) scale(0.5);
+            }
+            50% {
+                opacity: 1;
+                transform: translate(-50%, -50%) scale(1.2);
+            }
+            100% {
+                opacity: 0;
+                transform: translate(-50%, -50%) scale(1);
+            }
+        }
+        
+        /* HUD */
+        .hud {
+            position: fixed;
+            top: 20px;
+            left: 20px;
+            z-index: 200;
+            background: rgba(255, 255, 255, 0.9);
+            padding: 15px 20px;
+            border-radius: 15px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+        }
+        
+        .health {
+            font-size: 30px;
+            display: flex;
+            gap: 5px;
+        }
+        
+        .distance-meter {
+            margin-top: 10px;
+            font-size: 16px;
+            color: #333;
+        }
+        
+        /* Screens */
+        .screen {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(255, 255, 255, 0.95);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 300;
+        }
+        
+        .hidden {
+            display: none !important;
+        }
+        
+        h1 {
+            font-size: 48px;
+            color: #2e5931;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+        
+        p {
+            font-size: 20px;
+            color: #333;
+            margin-bottom: 30px;
+            text-align: center;
+            line-height: 1.5;
+            max-width: 600px;
+        }
+        
+        button {
+            padding: 15px 40px;
+            font-size: 24px;
+            background: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 15px;
+            cursor: pointer;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
+            transition: all 0.3s ease;
+        }
+        
+        button:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 6px 15px rgba(0, 0, 0, 0.3);
+        }
+        
+        /* Game Over specific styling */
+        .game-over-screen h1 {
+            color: #f44336;
+            font-size: 60px;
+            animation: shake 0.5s;
+        }
+        
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            25% { transform: translateX(-10px); }
+            75% { transform: translateX(10px); }
+        }
+        
+        /* Instructions */
+        .instructions {
+            position: fixed;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(255, 255, 255, 0.9);
+            padding: 10px 20px;
+            border-radius: 10px;
+            z-index: 200;
+            font-size: 14px;
+            color: #333;
+        }
+    </style>
+</head>
+<body>
+    <!-- Start Screen -->
+    <div class="screen start-screen" id="startScreen">
+        <h1>🦙 Llama Escape 🌳</h1>
+        <p>
+            Help the llama escape from the jungle to the grasslands!<br>
+            Avoid acorns from squirrels and watch out for crocodiles!<br>
+            <br>
+            <strong>Controls:</strong><br>
+            ⬆️ Jump • ➡️ Run Right • ⬅️ Run Left
+            <br><br>
+            Designed, built, and tested by Ella G.
+        </p>
+        <button onclick="startGame()">Start Adventure!</button>
+    </div>
+    
+    <!-- Game Over Screen -->
+    <div class="screen game-over-screen hidden" id="gameOverScreen">
+        <h1>LOL u lost!</h1>
+        <p>
+            The llama didn't make it!<br>
+            Those squirrels and crocodiles are tough!
+        </p>
+        <button onclick="restartGame()">Try Again</button>
+    </div>
+    
+    <!-- Win Screen -->
+    <div class="screen win-screen hidden" id="winScreen">
+        <h1>🎉 Victory! 🎉</h1>
+        <p>
+            The llama made it to the grasslands!<br>
+            Enjoy that delicious fruit! 🥭
+        </p>
+        <button onclick="restartGame()">Play Again</button>
+    </div>
+    
+    <!-- Game Container -->
+    <div class="game-container hidden" id="gameContainer">
+        <!-- Game World (scrollable) -->
+        <div class="game-world" id="gameWorld">
+            <div class="sky" id="sky"></div>
+            <div class="forest-bg" id="forestBg"></div>
+            <div class="ground" id="ground"></div>
+        </div>
+        
+        <!-- Llama (stays in viewport) -->
+        <div class="llama" id="llama">🦙</div>
+        
+        <!-- OUCH popup -->
+        <div class="ouch-popup" id="ouchPopup">OUCH!</div>
+        
+        <!-- HUD -->
+        <div class="hud">
+            <div class="health" id="health">
+                <span>❤️</span>
+                <span>❤️</span>
+                <span>❤️</span>
+            </div>
+            <div class="distance-meter">
+                Distance: <span id="distance">0</span>m / 20000m
+            </div>
+        </div>
+        
+        <!-- Instructions -->
+        <div class="instructions">
+            Use Arrow Keys: ⬆️ Jump • ⬅️➡️ Move
+        </div>
+    </div>
+    
+    <script>
+        // Game variables
+        let gameRunning = false;
+        let worldX = 0;
+        let llamaY = 43; // Track llama's actual Y position (starts at 43%)
+        let isJumping = false;
+        let jumpStartTime = 0; // Track when jump started
+        let health = 3;
+        let distance = 0;
+        let invulnerable = false;
+        let acorns = [];
+        let crocodiles = [];
+        let acornCounter = 0; // Track acorns for special angle
+        
+        // Game elements
+        const gameWorld = document.getElementById('gameWorld');
+        const llama = document.getElementById('llama');
+        const healthDisplay = document.getElementById('health');
+        const distanceDisplay = document.getElementById('distance');
+        const ouchPopup = document.getElementById('ouchPopup');
+        
+        // Keyboard input
+        const keys = {};
+        
+        document.addEventListener('keydown', (e) => {
+            keys[e.key] = true;
+            
+            // Jump on up arrow or spacebar
+            if ((e.key === 'ArrowUp' || e.key === ' ') && !isJumping && gameRunning) {
+                jump();
+            }
+        });
+        
+        document.addEventListener('keyup', (e) => {
+            keys[e.key] = false;
+        });
+        
+        // Jump function
+        function jump() {
+            if (isJumping) return;
+            
+            isJumping = true;
+            jumpStartTime = Date.now();
+            llama.classList.add('jumping');
+            llama.classList.remove('running');
+            
+            // Update llama Y position during jump
+            const jumpInterval = setInterval(() => {
+                const elapsed = Date.now() - jumpStartTime;
+                const progress = elapsed / 800; // Jump animation is 800ms
+                
+                if (progress >= 1) {
+                    // Jump complete
+                    llamaY = 43; // Back to ground
+                    isJumping = false;
+                    clearInterval(jumpInterval);
+                    llama.classList.remove('jumping');
+                    // Add running animation back if still moving
+                    if (keys['ArrowRight'] || keys['ArrowLeft']) {
+                        llama.classList.add('running');
+                    }
+                } else {
+                    // Calculate parabolic jump height
+                    // At peak (progress = 0.5), llama should be ~15% higher
+                    const jumpHeight = Math.sin(progress * Math.PI) * 15;
+                    llamaY = 43 + jumpHeight; // Ground level + jump height
+                }
+            }, 16); // Update roughly 60fps
+        }
+        
+        // Generate world
+        function generateWorld() {
+            // Clear existing world elements
+            const existingElements = gameWorld.querySelectorAll('.tree, .plant, .leaf, .squirrel, .river, .crocodile, .goal-fruit');
+            existingElements.forEach(el => el.remove());
+            crocodiles = [];
+            
+            // River positions - adjusted for shorter world
+            const riverPositions = [];
+            for (let i = 3000; i < 19000; i += 4000 + Math.random() * 2000) {
+                riverPositions.push(i);
+            }
+            
+            // Tree and plant emojis for variety (removed bamboo)
+            const treeTypes = ['🌳', '🌲', '🌴'];
+            const plantTypes = ['🌿', '🌱', '🍃', '🌾'];
+            const leafTypes = ['🍃', '🍂', '🌿', '🍀'];
+            
+            // Generate LOTS of trees and plants for dense forest
+            for (let x = 200; x < 19500; x += 100 + Math.random() * 100) {
+                // Check if we're in a river zone (wider now)
+                let inRiverZone = false;
+                for (let riverX of riverPositions) {
+                    if (x >= riverX - 50 && x <= riverX + 1550) {
+                        inRiverZone = true;
+                        break;
+                    }
+                }
+                
+                if (!inRiverZone) {
+                    // Tree density decreases as we go further
+                    const treeDensity = Math.max(0.3, 1 - (x / 20000) * 0.8);
+                    
+                    if (Math.random() < treeDensity) {
+                        // Create tree
+                        const tree = document.createElement('div');
+                        tree.className = 'tree';
+                        tree.textContent = treeTypes[Math.floor(Math.random() * treeTypes.length)];
+                        tree.style.left = x + 'px';
+                        gameWorld.appendChild(tree);
+                        
+                        // Add leaves around trees
+                        for (let i = 0; i < 2 + Math.floor(Math.random() * 3); i++) {
+                            const leaf = document.createElement('div');
+                            leaf.className = 'leaf';
+                            leaf.textContent = leafTypes[Math.floor(Math.random() * leafTypes.length)];
+                            leaf.style.left = (x - 50 + Math.random() * 200) + 'px';
+                            leaf.style.bottom = (35 + Math.random() * 25) + '%';
+                            gameWorld.appendChild(leaf);
+                        }
+                        
+                        // Add MANY MORE squirrels (3-4x more)
+                        if (Math.random() < 0.4) { // Reduced from 0.8 to 0.4
+                            const squirrel = document.createElement('div');
+                            squirrel.className = 'squirrel';
+                            squirrel.textContent = '🐿️';
+                            squirrel.style.left = (x + 60) + 'px';
+                            squirrel.style.bottom = '65%'; // Adjusted for lower trees
+                            squirrel.dataset.x = x;
+                            // Squirrel behavior types - reduced rates and speeds
+                            squirrel.dataset.attackRate = Math.random() < 0.5 ? '0.005' : '0.008'; // Reduced from 0.01/0.02
+                            squirrel.dataset.acornSpeed = Math.random() < 0.5 ? '1.0' : '1.5'; // Slower speeds
+                            gameWorld.appendChild(squirrel);
+                        }
+                    }
+                    
+                    // Add plants for more density
+                    if (Math.random() < treeDensity * 0.6) {
+                        const plant = document.createElement('div');
+                        plant.className = 'plant';
+                        plant.textContent = plantTypes[Math.floor(Math.random() * plantTypes.length)];
+                        plant.style.left = (x + 50 + Math.random() * 100) + 'px';
+                        gameWorld.appendChild(plant);
+                    }
+                }
+            }
+            
+            // Generate rivers with crocodiles
+            riverPositions.forEach(pos => {
+                // River
+                const river = document.createElement('div');
+                river.className = 'river';
+                river.style.left = pos + 'px';
+                gameWorld.appendChild(river);
+                
+                // Multiple crocodiles for wider river
+                for (let i = 0; i < 3; i++) {
+                    const croc = document.createElement('div');
+                    croc.className = 'crocodile left';
+                    croc.textContent = '🐊';
+                    croc.style.left = (pos + 200 + i * 400) + 'px';
+                    croc.style.bottom = '43%'; // Same as llama height
+                    croc.dataset.riverX = pos;
+                    croc.dataset.startX = pos + 200 + i * 400;
+                    croc.dataset.direction = i % 2 === 0 ? 'right' : 'left';
+                    gameWorld.appendChild(croc);
+                    
+                    crocodiles.push({
+                        element: croc,
+                        startX: pos + 200 + i * 400,
+                        currentX: pos + 200 + i * 400,
+                        direction: i % 2 === 0 ? 'right' : 'left',
+                        speed: (2 + Math.random() * 1.5) * 0.8, // 20% slower
+                        isPaused: false
+                    });
+                }
+            });
+            
+            // Add goal fruit at the end (ensure it's not on water)
+            const goalFruit = document.createElement('div');
+            goalFruit.className = 'goal-fruit';
+            goalFruit.textContent = '🥭';
+            // Check if goal position would be in a river
+            let goalPosition = 20000;
+            let inRiver = false;
+            for (let riverX of riverPositions) {
+                if (goalPosition >= riverX && goalPosition <= riverX + 1500) {
+                    inRiver = true;
+                    break;
+                }
+            }
+            // If in river, place it just before the last river
+            if (inRiver && riverPositions.length > 0) {
+                goalPosition = riverPositions[riverPositions.length - 1] - 200;
+            }
+            goalFruit.style.left = goalPosition + 'px';
+            gameWorld.appendChild(goalFruit);
+        }
+        
+        // Start game
+        function startGame() {
+            // Reset game state
+            gameRunning = true;
+            worldX = 0;
+            llamaY = 43; // Reset llama Y position
+            health = 3;
+            distance = 0;
+            invulnerable = false;
+            acorns = [];
+            crocodiles = [];
+            acornCounter = 0;
+            
+            // Reset UI
+            document.getElementById('startScreen').classList.add('hidden');
+            document.getElementById('gameOverScreen').classList.add('hidden');
+            document.getElementById('winScreen').classList.add('hidden');
+            document.getElementById('gameContainer').classList.remove('hidden');
+            
+            // Reset health display
+            updateHealthDisplay();
+            
+            // Generate world
+            generateWorld();
+            
+            // Start game loop
+            gameLoop();
+            
+            // Start squirrel attacks
+            squirrelAttackLoop();
+            
+            // Start crocodile movement
+            crocodileLoop();
+        }
+        
+        // Restart game
+        function restartGame() {
+            startGame();
+        }
+        
+        // Update health display
+        function updateHealthDisplay() {
+            healthDisplay.innerHTML = '';
+            for (let i = 0; i < health; i++) {
+                healthDisplay.innerHTML += '<span>❤️</span>';
+            }
+            for (let i = health; i < 3; i++) {
+                healthDisplay.innerHTML += '<span style="opacity: 0.3">💔</span>';
+            }
+        }
+        
+        // Show OUCH popup
+        function showOuch() {
+            ouchPopup.classList.remove('show');
+            void ouchPopup.offsetWidth; // Force reflow
+            ouchPopup.classList.add('show');
+            
+            setTimeout(() => {
+                ouchPopup.classList.remove('show');
+            }, 800);
+        }
+        
+        // Take damage
+        function takeDamage() {
+            if (invulnerable) return;
+            
+            health--;
+            updateHealthDisplay();
+            
+            // Show OUCH popup
+            showOuch();
+            
+            // Make llama flash
+            llama.classList.add('hit');
+            setTimeout(() => llama.classList.remove('hit'), 500);
+            
+            // Brief invulnerability
+            invulnerable = true;
+            setTimeout(() => invulnerable = false, 1500);
+            
+            // Check game over
+            if (health <= 0) {
+                gameOver();
+            }
+        }
+        
+        // Game over
+        function gameOver() {
+            gameRunning = false;
+            document.getElementById('gameContainer').classList.add('hidden');
+            document.getElementById('gameOverScreen').classList.remove('hidden');
+            
+            // Clean up acorns
+            acorns.forEach(acorn => {
+                if (acorn.element && acorn.element.parentNode) {
+                    acorn.element.remove();
+                }
+            });
+            acorns = [];
+            
+            // Notify parent window
+            if (window.parent !== window) {
+                window.parent.postMessage({
+                    type: 'gameCompletion',
+                    completed: false
+                }, '*');
+            }
+        }
+        
+        // Win game
+        function winGame() {
+            gameRunning = false;
+            document.getElementById('gameContainer').classList.add('hidden');
+            document.getElementById('winScreen').classList.remove('hidden');
+            
+            // Clean up acorns
+            acorns.forEach(acorn => {
+                if (acorn.element && acorn.element.parentNode) {
+                    acorn.element.remove();
+                }
+            });
+            acorns = [];
+            
+            // Notify parent window
+            if (window.parent !== window) {
+                window.parent.postMessage({
+                    type: 'gameCompletion',
+                    completed: true
+                }, '*');
+            }
+        }
+        
+        // Squirrel attack loop
+        function squirrelAttackLoop() {
+            if (!gameRunning) return;
+            
+            // Find squirrels in view
+            const squirrels = document.querySelectorAll('.squirrel');
+            squirrels.forEach(squirrel => {
+                const squirrelX = parseInt(squirrel.dataset.x);
+                const attackRate = parseFloat(squirrel.dataset.attackRate);
+                const acornSpeed = parseFloat(squirrel.dataset.acornSpeed);
+                
+                // If squirrel is in range, throw acorn based on its attack rate
+                if (Math.abs(squirrelX + worldX) < 600 && Math.random() < attackRate) {
+                    acornCounter++;
+                    const isAngledShot = acornCounter % 10 === 0; // Every 10th acorn
+                    throwAcorn(squirrelX, acornSpeed, isAngledShot);
+                }
+            });
+            
+            // Update existing acorns
+            updateAcorns();
+            
+            requestAnimationFrame(squirrelAttackLoop);
+        }
+        
+        // Throw acorn from squirrel - with path variation and special angled shots
+        function throwAcorn(fromX, speed, isAngled = false) {
+            const acorn = document.createElement('div');
+            acorn.className = isAngled ? 'acorn angled' : 'acorn';
+            acorn.textContent = '🌰';
+            acorn.style.left = (fromX + 60) + 'px';
+            acorn.style.bottom = '65%'; // Adjusted for lower squirrel position
+            gameWorld.appendChild(acorn);
+            
+            const acornObj = {
+                element: acorn,
+                x: fromX + 60,
+                y: 65, // Adjusted starting height
+                speed: speed || 1.2, // Slower default speed
+                drift: isAngled ? 2.5 : (Math.random() - 0.5) * 0.3, // 45-degree angle = more drift
+                rotation: 0,
+                active: true,
+                isAngled: isAngled
+            };
+            
+            acorns.push(acornObj);
+        }
+        
+        // Update acorns with variation
+        function updateAcorns() {
+            acorns = acorns.filter(acornObj => {
+                if (!acornObj.active || !gameRunning) {
+                    if (acornObj.element && acornObj.element.parentNode) {
+                        acornObj.element.remove();
+                    }
+                    return false;
+                }
+                
+                // Move acorn down with drift
+                acornObj.y -= acornObj.speed * 0.5;
+                acornObj.x += acornObj.drift; // Add horizontal drift (more for angled)
+                acornObj.rotation += acornObj.isAngled ? 15 : 5; // Rotate faster if angled
+                
+                acornObj.element.style.bottom = acornObj.y + '%';
+                acornObj.element.style.left = acornObj.x + 'px';
+                acornObj.element.style.transform = `rotate(${acornObj.rotation}deg)`;
+                
+                // Check if acorn hit ground
+                if (acornObj.y <= 38) {
+                    acornObj.element.remove();
+                    return false;
+                }
+                
+                // Check collision with llama based on Y coordinates
+                const acornScreenX = acornObj.x + worldX;
+                const llamaX = 100;
+                
+                // Check X collision first
+                if (Math.abs(acornScreenX - llamaX) < 40) {
+                    // Now check Y collision - acorn must overlap with llama's current height
+                    // Allow a 5% tolerance zone for collision
+                    if (Math.abs(acornObj.y - llamaY) < 5) {
+                        takeDamage();
+                        acornObj.element.remove();
+                        return false;
+                    }
+                }
+                
+                return true;
+            });
+        }
+        
+        // Crocodile movement loop
+        function crocodileLoop() {
+            if (!gameRunning) return;
+            
+            crocodiles.forEach(croc => {
+                // Skip movement if paused
+                if (croc.isPaused) return;
+                
+                // Move crocodile back and forth WITHIN RIVER BOUNDS
+                if (croc.direction === 'right') {
+                    croc.currentX += croc.speed;
+                    // Keep within river boundaries
+                    const riverEnd = croc.startX + 800; // Stay well within river
+                    if (croc.currentX >= riverEnd) {
+                        croc.currentX = riverEnd;
+                        croc.direction = 'left';
+                        croc.element.className = 'crocodile right'; // Instant flip
+                        
+                        // Pause for 0.1 seconds when changing direction
+                        croc.isPaused = true;
+                        setTimeout(() => {
+                            croc.isPaused = false;
+                        }, 100);
+                    }
+                } else {
+                    croc.currentX -= croc.speed;
+                    // Keep within river boundaries
+                    const riverStart = croc.startX - 150;
+                    if (croc.currentX <= riverStart) {
+                        croc.currentX = riverStart;
+                        croc.direction = 'right';
+                        croc.element.className = 'crocodile left'; // Instant flip
+                        
+                        // Pause for 0.1 seconds when changing direction
+                        croc.isPaused = true;
+                        setTimeout(() => {
+                            croc.isPaused = false;
+                        }, 100);
+                    }
+                }
+                
+                croc.element.style.left = croc.currentX + 'px';
+                
+                // Check collision with llama - only when llama is at ground level
+                const crocScreenX = croc.currentX + worldX;
+                if (Math.abs(crocScreenX - 100) < 50) {
+                    // Crocodiles are at ground level (43%), only hit if llama is near ground
+                    // Llama is safe if jumped high enough (more than 5% above ground)
+                    if (llamaY < 48) { // Within 5% of ground level
+                        health = 0;
+                        showOuch(); // Show OUCH even for crocodile instant death
+                        setTimeout(() => gameOver(), 500);
+                    }
+                }
+            });
+            
+            requestAnimationFrame(crocodileLoop);
+        }
+        
+        // Check goal collision
+        function checkGoalCollision() {
+            const goalFruit = document.querySelector('.goal-fruit');
+            if (goalFruit) {
+                const goalX = parseInt(goalFruit.style.left) + worldX;
+                
+                // Check if llama reached the fruit
+                if (Math.abs(goalX - 100) < 60) {
+                    winGame();
+                }
+            }
+        }
+        
+        // Main game loop
+        function gameLoop() {
+            if (!gameRunning) return;
+            
+            // Handle movement and wiggle animation
+            if (keys['ArrowRight']) {
+                if (worldX > -19900) {
+                    worldX -= 5;
+                    distance = Math.abs(worldX);
+                    distanceDisplay.textContent = distance;
+                    
+                    // Add wiggle when running
+                    if (!isJumping) {
+                        llama.classList.add('running');
+                    }
+                    
+                    // Update background based on distance
+                    updateBackground();
+                }
+            } else if (keys['ArrowLeft']) {
+                if (worldX < 0) {
+                    worldX += 5;
+                    distance = Math.abs(worldX);
+                    distanceDisplay.textContent = distance;
+                    
+                    // Add wiggle when running
+                    if (!isJumping) {
+                        llama.classList.add('running');
+                    }
+                }
+            } else {
+                // Remove wiggle when not moving
+                if (!isJumping) {
+                    llama.classList.remove('running');
+                }
+            }
+            
+            // Update world position
+            gameWorld.style.transform = `translateX(${worldX}px)`;
+            
+            // Check goal collision
+            checkGoalCollision();
+            
+            requestAnimationFrame(gameLoop);
+        }
+        
+        // Update background based on distance
+        function updateBackground() {
+            const progress = distance / 20000;
+            const sky = document.getElementById('sky');
+            const ground = document.getElementById('ground');
+            const forestBg = document.getElementById('forestBg');
+            
+            // Transition sky from jungle blue to grassland light blue
+            const r = Math.floor(135 + (200 - 135) * progress);
+            const g = Math.floor(206 + (230 - 206) * progress);
+            const b = Math.floor(235 + (250 - 235) * progress);
+            sky.style.background = `linear-gradient(to bottom, rgb(${r}, ${g}, ${b}) 0%, rgb(${r+10}, ${g+10}, ${b+5}) 100%)`;
+            
+            // Fade out forest background layer
+            forestBg.style.opacity = Math.max(0, 1 - progress * 1.5);
+            
+            // Transition ground from brown to green grass
+            if (progress > 0.5) {
+                const grassProgress = (progress - 0.5) * 2;
+                const gr = Math.floor(139 - (139 - 144) * grassProgress);
+                const gg = Math.floor(115 - (115 - 238) * grassProgress);
+                const gb = Math.floor(85 - (85 - 144) * grassProgress);
+                ground.style.background = `linear-gradient(to bottom, rgb(${gr}, ${gg}, ${gb}) 0%, rgb(${gr-30}, ${gg-30}, ${gb-30}) 100%)`;
+            }
+        }
+    </script>
+</body>
+</html>

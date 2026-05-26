@@ -1,0 +1,514 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Snake vs Frog Tic-Tac-Toe</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            background: linear-gradient(to bottom, #2e5c2e 0%, #1f3f1f 100%);
+            overflow-x: hidden;
+        }
+        
+        .game-scene {
+            width: 100%;
+            max-width: 500px;
+            margin-top: 20px;
+            padding: 20px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 20px;
+            backdrop-filter: blur(10px);
+        }
+        
+        .game-board {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 10px;
+            margin: 20px 0;
+            background: rgba(255, 255, 255, 0.2);
+            padding: 20px;
+            border-radius: 15px;
+        }
+        
+        .cell {
+            width: 100px;
+            height: 100px;
+            background: rgba(255, 255, 255, 0.9);
+            border: none;
+            border-radius: 15px;
+            font-size: 60px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 3px 10px rgba(0,0,0,0.2);
+        }
+        
+        .cell:hover {
+            background: rgba(255, 255, 255, 1);
+            transform: translateY(-3px);
+            box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+        }
+        
+        .cell:active {
+            transform: translateY(-1px);
+        }
+        
+        .cell.disabled {
+            cursor: not-allowed;
+            opacity: 0.7;
+        }
+        
+        .cell.winning {
+            background: #FFD700;
+            animation: pulse 0.5s ease-in-out infinite alternate;
+        }
+        
+        @keyframes pulse {
+            from {
+                transform: scale(1);
+            }
+            to {
+                transform: scale(1.1);
+            }
+        }
+        
+        .game-info {
+            text-align: center;
+            color: white;
+            margin-bottom: 20px;
+        }
+        
+        .current-player {
+            font-size: 24px;
+            margin-bottom: 10px;
+        }
+        
+        .player-info {
+            display: flex;
+            justify-content: space-around;
+            margin-bottom: 20px;
+        }
+        
+        .player {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 20px;
+            color: white;
+        }
+        
+        .player-emoji {
+            font-size: 40px;
+        }
+        
+        .player.active {
+            background: rgba(255, 255, 255, 0.2);
+            padding: 10px 15px;
+            border-radius: 10px;
+        }
+        
+        /* Screens */
+        .start-screen, .win-screen, .draw-screen {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(255, 255, 255, 0.95);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 300;
+        }
+        
+        .title {
+            font-size: 36px;
+            color: #2e5931;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+        
+        .subtitle {
+            font-size: 20px;
+            color: #3b7a57;
+            margin-bottom: 30px;
+            text-align: center;
+            line-height: 1.4;
+        }
+        
+        .start-btn, .play-again-btn {
+            padding: 20px 40px;
+            font-size: 24px;
+            background: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 20px;
+            cursor: pointer;
+            box-shadow: 0 5px 10px rgba(0,0,0,0.2);
+            transition: all 0.3s ease;
+        }
+        
+        .start-btn:hover, .play-again-btn:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 7px 15px rgba(0,0,0,0.3);
+        }
+        
+        .hidden {
+            display: none;
+        }
+        
+        .game-status {
+            text-align: center;
+            font-size: 18px;
+            color: white;
+            margin-top: 10px;
+            min-height: 25px;
+        }
+        
+        /* Responsive design */
+        @media (max-width: 600px) {
+            .cell {
+                width: 80px;
+                height: 80px;
+                font-size: 50px;
+            }
+            
+            .title {
+                font-size: 28px;
+            }
+            
+            .subtitle {
+                font-size: 18px;
+            }
+            
+            .current-player {
+                font-size: 20px;
+            }
+            
+            .player {
+                font-size: 16px;
+            }
+            
+            .player-emoji {
+                font-size: 30px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Start Screen -->
+    <div class="start-screen" id="startScreen">
+        <h1 class="title">🐍 Snake vs Frog 🐸</h1>
+        <p class="subtitle">
+            Play tic-tac-toe in the rainforest!<br>
+            You are the frog 🐸 - get three in a row to win!<br>
+            Watch out for the sneaky snake 🐍!
+            <br><br>
+            Designed, built, and tested by Mrs Welden's class.
+        </p>
+        <button class="start-btn" onclick="startGame()">Start Game!</button>
+    </div>
+    
+    <!-- Win Screen -->
+    <div class="win-screen hidden" id="winScreen">
+        <h1 class="title">🎉 Frog Wins! 🎉</h1>
+        <p class="subtitle">
+            Great job! You beat the snake!<br>
+            The frog is safe in the rainforest! 🐸
+        </p>
+        <button class="play-again-btn" onclick="resetGame()">Play Again!</button>
+    </div>
+    
+    <!-- Lose Screen -->
+    <div class="win-screen hidden" id="loseScreen">
+        <h1 class="title">🐍 Snake Wins! 🐍</h1>
+        <p class="subtitle">
+            The snake got three in a row!<br>
+            Try again to help the frog! 🐸
+        </p>
+        <button class="play-again-btn" onclick="resetGame()">Try Again!</button>
+    </div>
+    
+    <!-- Draw Screen -->
+    <div class="draw-screen hidden" id="drawScreen">
+        <h1 class="title">🤝 It's a Draw! 🤝</h1>
+        <p class="subtitle">
+            Both snake and frog played well!<br>
+            Nobody wins this time! 🐍🐸
+        </p>
+        <button class="play-again-btn" onclick="resetGame()">Play Again!</button>
+    </div>
+    
+    <!-- Game Scene -->
+    <div class="game-scene">
+        <div class="game-info">
+            <div class="player-info">
+                <div class="player" id="playerFrog">
+                    <span class="player-emoji">🐸</span>
+                    <span>You (Frog)</span>
+                </div>
+                <div class="player" id="playerSnake">
+                    <span class="player-emoji">🐍</span>
+                    <span>Computer (Snake)</span>
+                </div>
+            </div>
+            <div class="current-player" id="currentPlayer">Your turn! Click a square 🐸</div>
+        </div>
+        
+        <div class="game-board" id="gameBoard">
+            <button class="cell" id="cell-0" onclick="makeMove(0)"></button>
+            <button class="cell" id="cell-1" onclick="makeMove(1)"></button>
+            <button class="cell" id="cell-2" onclick="makeMove(2)"></button>
+            <button class="cell" id="cell-3" onclick="makeMove(3)"></button>
+            <button class="cell" id="cell-4" onclick="makeMove(4)"></button>
+            <button class="cell" id="cell-5" onclick="makeMove(5)"></button>
+            <button class="cell" id="cell-6" onclick="makeMove(6)"></button>
+            <button class="cell" id="cell-7" onclick="makeMove(7)"></button>
+            <button class="cell" id="cell-8" onclick="makeMove(8)"></button>
+        </div>
+        
+        <div class="game-status" id="gameStatus"></div>
+    </div>
+    
+    <script>
+        // Game variables
+        let board = ['', '', '', '', '', '', '', '', ''];
+        let currentPlayer = 'frog'; // Player is always frog
+        let gameActive = false;
+        let playerWon = false;
+        
+        const FROG = '🐸';
+        const SNAKE = '🐍';
+        
+        // Winning combinations
+        const winningCombinations = [
+            [0, 1, 2], [3, 4, 5], [6, 7, 8], // Rows
+            [0, 3, 6], [1, 4, 7], [2, 5, 8], // Columns
+            [0, 4, 8], [2, 4, 6] // Diagonals
+        ];
+        
+        // Start game
+        function startGame() {
+            document.getElementById('startScreen').classList.add('hidden');
+            gameActive = true;
+            playerWon = false;
+            updateDisplay();
+        }
+        
+        // Make a move
+        function makeMove(cellIndex) {
+            if (!gameActive || board[cellIndex] !== '' || currentPlayer !== 'frog') {
+                return;
+            }
+            
+            // Player move
+            board[cellIndex] = FROG;
+            document.getElementById(`cell-${cellIndex}`).textContent = FROG;
+            document.getElementById(`cell-${cellIndex}`).classList.add('disabled');
+            
+            if (checkWin(FROG)) {
+                endGame('win');
+                return;
+            }
+            
+            if (checkDraw()) {
+                endGame('draw');
+                return;
+            }
+            
+            // Switch to computer turn
+            currentPlayer = 'snake';
+            updateDisplay();
+            
+            // Computer move after short delay
+            setTimeout(() => {
+                if (gameActive) {
+                    makeComputerMove();
+                }
+            }, 800);
+        }
+        
+        // Computer AI - Easy level for kids
+        function makeComputerMove() {
+            if (!gameActive) return;
+            
+            let moveIndex = -1;
+            
+            // Strategy 1: Try to win if possible
+            moveIndex = findWinningMove(SNAKE);
+            
+            // Strategy 2: Block player from winning (only 50% of the time to keep it easy)
+            if (moveIndex === -1 && Math.random() < 0.5) {
+                moveIndex = findWinningMove(FROG);
+            }
+            
+            // Strategy 3: Take center if available
+            if (moveIndex === -1 && board[4] === '') {
+                moveIndex = 4;
+            }
+            
+            // Strategy 4: Take a corner (only 30% chance to keep it easy)
+            if (moveIndex === -1 && Math.random() < 0.3) {
+                const corners = [0, 2, 6, 8];
+                const availableCorners = corners.filter(i => board[i] === '');
+                if (availableCorners.length > 0) {
+                    moveIndex = availableCorners[Math.floor(Math.random() * availableCorners.length)];
+                }
+            }
+            
+            // Strategy 5: Random move
+            if (moveIndex === -1) {
+                const availableCells = board.map((cell, index) => cell === '' ? index : null).filter(val => val !== null);
+                if (availableCells.length > 0) {
+                    moveIndex = availableCells[Math.floor(Math.random() * availableCells.length)];
+                }
+            }
+            
+            // Make the move
+            if (moveIndex !== -1) {
+                board[moveIndex] = SNAKE;
+                document.getElementById(`cell-${moveIndex}`).textContent = SNAKE;
+                document.getElementById(`cell-${moveIndex}`).classList.add('disabled');
+                
+                if (checkWin(SNAKE)) {
+                    endGame('lose');
+                    return;
+                }
+                
+                if (checkDraw()) {
+                    endGame('draw');
+                    return;
+                }
+                
+                // Switch back to player
+                currentPlayer = 'frog';
+                updateDisplay();
+            }
+        }
+        
+        // Find winning move for a player
+        function findWinningMove(player) {
+            for (let combination of winningCombinations) {
+                const [a, b, c] = combination;
+                const cells = [board[a], board[b], board[c]];
+                
+                // Check if two cells have the player's symbol and one is empty
+                if (cells.filter(cell => cell === player).length === 2 && cells.includes('')) {
+                    if (board[a] === '') return a;
+                    if (board[b] === '') return b;
+                    if (board[c] === '') return c;
+                }
+            }
+            return -1;
+        }
+        
+        // Check for win
+        function checkWin(player) {
+            return winningCombinations.some(combination => {
+                const [a, b, c] = combination;
+                if (board[a] === player && board[b] === player && board[c] === player) {
+                    // Highlight winning cells
+                    document.getElementById(`cell-${a}`).classList.add('winning');
+                    document.getElementById(`cell-${b}`).classList.add('winning');
+                    document.getElementById(`cell-${c}`).classList.add('winning');
+                    return true;
+                }
+                return false;
+            });
+        }
+        
+        // Check for draw
+        function checkDraw() {
+            return board.every(cell => cell !== '');
+        }
+        
+        // Update display
+        function updateDisplay() {
+            const currentPlayerElement = document.getElementById('currentPlayer');
+            const playerFrog = document.getElementById('playerFrog');
+            const playerSnake = document.getElementById('playerSnake');
+            const gameStatus = document.getElementById('gameStatus');
+            
+            // Remove active class from both players
+            playerFrog.classList.remove('active');
+            playerSnake.classList.remove('active');
+            
+            if (currentPlayer === 'frog') {
+                currentPlayerElement.textContent = 'Your turn! Click a square 🐸';
+                playerFrog.classList.add('active');
+                gameStatus.textContent = '';
+            } else {
+                currentPlayerElement.textContent = 'Snake is thinking... 🐍';
+                playerSnake.classList.add('active');
+                gameStatus.textContent = 'Computer is making its move...';
+            }
+        }
+        
+        // End game
+        function endGame(result) {
+            gameActive = false;
+            
+            // Disable all cells
+            for (let i = 0; i < 9; i++) {
+                document.getElementById(`cell-${i}`).classList.add('disabled');
+            }
+            
+            setTimeout(() => {
+                if (result === 'win') {
+                    playerWon = true;
+                    document.getElementById('winScreen').classList.remove('hidden');
+                    
+                    // Notify parent if embedded
+                    if (window.parent !== window) {
+                        window.parent.postMessage({
+                            type: 'gameCompletion',
+                            completed: true
+                        }, '*');
+                    }
+                } else if (result === 'lose') {
+                    document.getElementById('loseScreen').classList.remove('hidden');
+                } else {
+                    document.getElementById('drawScreen').classList.remove('hidden');
+                }
+            }, 1000);
+        }
+        
+        // Reset game
+        function resetGame() {
+            // Hide all screens
+            document.getElementById('winScreen').classList.add('hidden');
+            document.getElementById('loseScreen').classList.add('hidden');
+            document.getElementById('drawScreen').classList.add('hidden');
+            
+            // Reset board
+            board = ['', '', '', '', '', '', '', '', ''];
+            currentPlayer = 'frog';
+            gameActive = true;
+            playerWon = false;
+            
+            // Clear all cells
+            for (let i = 0; i < 9; i++) {
+                const cell = document.getElementById(`cell-${i}`);
+                cell.textContent = '';
+                cell.classList.remove('disabled', 'winning');
+            }
+            
+            updateDisplay();
+        }
+    </script>
+</body>
+</html>

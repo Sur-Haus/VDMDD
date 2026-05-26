@@ -1,0 +1,946 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Jungle Feast</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        /* Danger warning circle around poison frogs */
+        .poison-frog::before {
+            content: '';
+            position: absolute;
+            width: 100px;
+            height: 100px;
+            border: 3px dashed #FF00FF;
+            border-radius: 50%;
+            left: 50%;
+            top: 50%;
+            transform: translate(-50%, -50%);
+            animation: warningPulse 1s ease-in-out infinite;
+        }
+        
+        @keyframes warningPulse {
+            0%, 100% { 
+                width: 80px;
+                height: 80px;
+                opacity: 0.8;
+            }
+            50% { 
+                width: 100px;
+                height: 100px;
+                opacity: 0.3;
+            }
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+            overflow: hidden;
+            background: linear-gradient(to bottom, #228B22 0%, #006400 100%);
+            min-height: 100vh;
+        }
+        
+        /* Game container */
+        .game-container {
+            width: 100%;
+            max-width: 1200px;
+            height: 100vh;
+            margin: 0 auto;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        /* Game area */
+        .game-area {
+            position: absolute;
+            top: 80px;
+            left: 20px;
+            right: 20px;
+            bottom: 20px;
+            background: linear-gradient(to bottom, #90EE90 0%, #3CB371 100%);
+            border-radius: 20px;
+            overflow: hidden;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+        }
+        
+        /* Score display */
+        .score-board {
+            position: absolute;
+            top: 10px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            gap: 50px;
+            background: rgba(255, 255, 255, 0.9);
+            padding: 15px 30px;
+            border-radius: 20px;
+            box-shadow: 0 3px 10px rgba(0,0,0,0.2);
+            z-index: 100;
+        }
+        
+        .score-item {
+            text-align: center;
+        }
+        
+        .score-label {
+            font-size: 14px;
+            color: #666;
+            margin-bottom: 5px;
+        }
+        
+        .score-value {
+            font-size: 32px;
+            font-weight: bold;
+            color: #2e5931;
+        }
+        
+        .score-emoji {
+            font-size: 24px;
+            margin-left: 5px;
+        }
+        
+        /* Game entities */
+        .entity {
+            position: absolute;
+            font-size: 50px;
+            transition: none;
+            user-select: none;
+        }
+        
+        .tiger {
+            z-index: 20;
+            filter: drop-shadow(2px 2px 4px rgba(0,0,0,0.3));
+        }
+        
+        .jaguar {
+            z-index: 20;
+            filter: drop-shadow(2px 2px 4px rgba(0,0,0,0.3));
+        }
+        
+        .boar {
+            z-index: 10;
+            animation: wiggle 2s ease-in-out infinite;
+        }
+        
+        @keyframes wiggle {
+            0%, 100% { transform: rotate(-5deg); }
+            50% { transform: rotate(5deg); }
+        }
+        
+        .poison-frog {
+            z-index: 15;
+            animation: hop 1.5s ease-in-out infinite;
+            filter: hue-rotate(290deg) brightness(1.5) drop-shadow(0 0 15px rgba(255, 0, 255, 1));
+            transform-origin: center;
+        }
+        
+        @keyframes hop {
+            0%, 100% { transform: translateY(0) scale(1.1); }
+            50% { transform: translateY(-10px) scale(1.1); }
+        }
+        
+        /* Eating animation */
+        .eating {
+            animation: eat 0.3s ease-out;
+        }
+        
+        @keyframes eat {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.3); }
+            100% { transform: scale(1); }
+        }
+        
+        /* Screens */
+        .screen {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(255, 255, 255, 0.95);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 300;
+            padding: 20px;
+        }
+        
+        .hidden {
+            display: none !important;
+        }
+        
+        h1 {
+            font-size: 48px;
+            color: #2e5931;
+            margin-bottom: 20px;
+            text-align: center;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.1);
+        }
+        
+        p {
+            font-size: 20px;
+            color: #333;
+            text-align: center;
+            line-height: 1.5;
+            margin-bottom: 30px;
+            max-width: 600px;
+        }
+        
+        button {
+            font-size: 24px;
+            padding: 15px 40px;
+            background: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 20px;
+            cursor: pointer;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+            transition: all 0.2s ease;
+        }
+        
+        button:hover {
+            background: #45a049;
+            transform: translateY(-2px);
+            box-shadow: 0 6px 12px rgba(0,0,0,0.3);
+        }
+        
+        button:active {
+            transform: translateY(0);
+        }
+        
+        /* Danger flash for poison frog warning */
+        .danger-flash {
+            animation: dangerFlash 0.5s ease;
+        }
+        
+        @keyframes dangerFlash {
+            0%, 100% { background: linear-gradient(to bottom, #90EE90 0%, #3CB371 100%); }
+            50% { background: linear-gradient(to bottom, #FF6B6B 0%, #FF4444 100%); }
+        }
+        
+        /* Power-up or bonus effect */
+        .bonus-text {
+            position: absolute;
+            font-size: 24px;
+            font-weight: bold;
+            color: #FFD700;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.5);
+            z-index: 200;
+            pointer-events: none;
+            animation: floatUp 1s ease-out forwards;
+        }
+        
+        @keyframes floatUp {
+            0% {
+                opacity: 1;
+                transform: translateY(0);
+            }
+            100% {
+                opacity: 0;
+                transform: translateY(-50px);
+            }
+        }
+        
+        /* Instructions */
+        .instructions {
+            font-size: 14px;
+            color: #666;
+            font-style: italic;
+        }
+        
+        /* Timer display */
+        .timer {
+            position: absolute;
+            top: 10px;
+            right: 20px;
+            font-size: 24px;
+            color: white;
+            background: rgba(0, 0, 0, 0.5);
+            padding: 10px 20px;
+            border-radius: 15px;
+            z-index: 100;
+        }
+        
+        /* Phase indicator */
+        .phase-indicator {
+            position: absolute;
+            top: 10px;
+            left: 20px;
+            font-size: 16px;
+            color: white;
+            background: rgba(0, 0, 0, 0.5);
+            padding: 8px 15px;
+            border-radius: 10px;
+            z-index: 100;
+        }
+        .result-display {
+            display: flex;
+            gap: 40px;
+            margin: 20px 0;
+            justify-content: center;
+            align-items: center;
+        }
+        
+        .result-item {
+            text-align: center;
+            padding: 20px;
+            background: rgba(255, 255, 255, 0.8);
+            border-radius: 15px;
+            box-shadow: 0 3px 10px rgba(0,0,0,0.1);
+        }
+        
+        .result-emoji {
+            font-size: 60px;
+            margin-bottom: 10px;
+        }
+        
+        .result-score {
+            font-size: 36px;
+            font-weight: bold;
+            color: #2e5931;
+        }
+        
+        .winner-indicator {
+            background: #FFD700;
+            transform: scale(1.1);
+        }
+    </style>
+</head>
+<body>
+    <div class="game-container">
+        <!-- Start Screen -->
+        <div class="screen" id="startScreen">
+            <h1>🐅 Jungle Feast 🐗</h1>
+            <p>
+                Help the tiger eat more wild boars than the jaguar!<br>
+                Use arrow keys or WASD to move your tiger.<br>
+                <strong>Watch out for poison dart frogs! 🐸</strong><br>
+                They're purple and glowing - stay away from them!
+            </p>
+            <p class="instructions">First to eat 10 boars wins!</p>
+            <button onclick="startGame()">Start Game!</button>
+            <p style="margin-top: 30px; font-size: 16px; color: #666;">
+                Designed, built, and tested by [Student Name]
+            </p>
+        </div>
+        
+        <!-- Game Over Screen (Poison Frog) -->
+        <div class="screen hidden" id="gameOverScreen">
+            <h1>😵 Oops! 😵</h1>
+            <p>
+                You touched a poison dart frog!<br>
+                Those purple frogs are tricky - try to stay away from them!
+            </p>
+            <div class="result-display" id="poisonResult"></div>
+            <button onclick="resetGame()">Try Again</button>
+        </div>
+        
+        <!-- Win Screen -->
+        <div class="screen hidden" id="winScreen">
+            <h1 id="winTitle">🎉 Game Over! 🎉</h1>
+            <p id="winMessage"></p>
+            <div class="result-display" id="finalResult"></div>
+            <button onclick="resetGame()">Play Again!</button>
+        </div>
+        
+        <!-- Game Area -->
+        <div class="game-area" id="gameArea">
+            <!-- Score Board -->
+            <div class="score-board">
+                <div class="score-item">
+                    <div class="score-label">Tiger (You)</div>
+                    <div class="score-value">
+                        <span id="tigerScore">0</span>
+                        <span class="score-emoji">🐅</span>
+                    </div>
+                </div>
+                <div class="score-item">
+                    <div class="score-label">Jaguar (CPU)</div>
+                    <div class="score-value">
+                        <span id="jaguarScore">0</span>
+                        <span class="score-emoji">🐆</span>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Timer -->
+            <div class="timer" id="timer">2:00</div>
+            
+            <!-- Phase Indicator -->
+            <div class="phase-indicator" id="phaseIndicator">Level 1: Starting...</div>
+        </div>
+    </div>
+    
+    <script>
+        // Game variables
+        let gameRunning = false;
+        let tiger = null;
+        let jaguar = null;
+        let boars = [];
+        let poisonFrogs = [];
+        let tigerScore = 0;
+        let jaguarScore = 0;
+        let gameTime = 120; // 2 minutes for longer gameplay
+        let gameTimer = null;
+        let lastBoarSpawn = 0;
+        let lastFrogSpawn = 0;
+        let gameTicks = 0; // Track game progression
+        
+        // Game settings - Progressive difficulty
+        const ENTITY_SIZE = 50;
+        const TIGER_SPEED = 3; // Slower movement
+        const JAGUAR_SPEED = 1.5; // Slightly faster AI
+        const WIN_SCORE = 10; // Goal is 10 boars
+        const COLLISION_DISTANCE = 50; // Easier to catch boars
+        const GAME_DURATION = 120; // 2 minutes
+        
+        // Keyboard state
+        const keys = {};
+        
+        // DOM elements
+        const gameArea = document.getElementById('gameArea');
+        const startScreen = document.getElementById('startScreen');
+        const gameOverScreen = document.getElementById('gameOverScreen');
+        const winScreen = document.getElementById('winScreen');
+        const timerDisplay = document.getElementById('timer');
+        
+        // Keyboard event listeners
+        document.addEventListener('keydown', (e) => {
+            keys[e.key] = true;
+        });
+        
+        document.addEventListener('keyup', (e) => {
+            keys[e.key] = false;
+        });
+        
+        // Create entity
+        function createEntity(emoji, className, x, y) {
+            const entity = document.createElement('div');
+            entity.className = `entity ${className}`;
+            entity.textContent = emoji;
+            entity.style.left = x + 'px';
+            entity.style.top = y + 'px';
+            gameArea.appendChild(entity);
+            return {
+                element: entity,
+                x: x,
+                y: y,
+                emoji: emoji
+            };
+        }
+        
+        // Initialize game
+        function initGame() {
+            // Clear game area
+            const entities = gameArea.querySelectorAll('.entity');
+            entities.forEach(e => e.remove());
+            
+            // Get game area bounds
+            const bounds = gameArea.getBoundingClientRect();
+            
+            // Create tiger (player)
+            tiger = createEntity('🐅', 'tiger', 100, bounds.height / 2);
+            
+            // Create jaguar (CPU)
+            jaguar = createEntity('🐆', 'jaguar', bounds.width - 150, bounds.height / 2);
+            jaguar.target = null;
+            
+            // Reset arrays
+            boars = [];
+            poisonFrogs = [];
+        }
+        
+        // Start game
+        function startGame() {
+            gameRunning = true;
+            tigerScore = 0;
+            jaguarScore = 0;
+            gameTime = 120;
+            gameTicks = 0;
+            
+            // Update score display
+            document.getElementById('tigerScore').textContent = '0';
+            document.getElementById('jaguarScore').textContent = '0';
+            
+            // Hide screens
+            startScreen.classList.add('hidden');
+            gameOverScreen.classList.add('hidden');
+            winScreen.classList.add('hidden');
+            
+            // Initialize game
+            initGame();
+            
+            // Start timers
+            gameTimer = setInterval(updateTimer, 1000);
+            
+            // Start game loop
+            gameLoop();
+        }
+        
+        // Update timer and phase indicator
+        function updateTimer() {
+            gameTime--;
+            const minutes = Math.floor(gameTime / 60);
+            const seconds = gameTime % 60;
+            timerDisplay.textContent = `${minutes}:${seconds.toString().padStart(2, '0')}`;
+            
+            // Update phase indicator
+            const phaseIndicator = document.getElementById('phaseIndicator');
+            const secondsElapsed = 120 - gameTime;
+            const level = Math.floor(secondsElapsed / 5) + 1;
+            
+            if (secondsElapsed < 5) {
+                phaseIndicator.textContent = "Level 1: Starting...";
+                phaseIndicator.style.background = 'rgba(0, 150, 0, 0.7)';
+            } else if (secondsElapsed < 10) {
+                phaseIndicator.textContent = "Level 2: Frogs!";
+                phaseIndicator.style.background = 'rgba(50, 130, 0, 0.7)';
+            } else if (secondsElapsed < 15) {
+                phaseIndicator.textContent = "Level 3: Careful!";
+                phaseIndicator.style.background = 'rgba(100, 110, 0, 0.7)';
+            } else if (secondsElapsed < 20) {
+                phaseIndicator.textContent = "Level 4: Tricky!";
+                phaseIndicator.style.background = 'rgba(150, 90, 0, 0.7)';
+            } else if (secondsElapsed < 25) {
+                phaseIndicator.textContent = "Level 5: Danger!";
+                phaseIndicator.style.background = 'rgba(180, 60, 0, 0.7)';
+            } else if (secondsElapsed < 30) {
+                phaseIndicator.textContent = "Level 6: Chaos!";
+                phaseIndicator.style.background = 'rgba(200, 30, 0, 0.7)';
+            } else if (secondsElapsed < 35) {
+                phaseIndicator.textContent = "Level 7: Expert!";
+                phaseIndicator.style.background = 'rgba(150, 0, 50, 0.7)';
+            } else if (secondsElapsed < 40) {
+                phaseIndicator.textContent = "Level 8: Master!";
+                phaseIndicator.style.background = 'rgba(100, 0, 100, 0.7)';
+            } else if (secondsElapsed < 45) {
+                phaseIndicator.textContent = "Level 9: Insane!";
+                phaseIndicator.style.background = 'rgba(50, 0, 150, 0.7)';
+            } else {
+                phaseIndicator.textContent = `Level ${Math.min(level, 10)}: MAX!!!`;
+                phaseIndicator.style.background = 'rgba(150, 0, 150, 0.7)';
+            }
+            
+            if (gameTime <= 0) {
+                endGame('time');
+            }
+        }
+        
+        // Game loop
+        function gameLoop() {
+            if (!gameRunning) return;
+            
+            gameTicks++; // Increment game progression
+            updateTiger();
+            updateJaguar();
+            spawnBoars();
+            spawnPoisonFrogs();
+            checkCollisions();
+            
+            requestAnimationFrame(gameLoop);
+        }
+        
+        // Get current difficulty settings based on game progression
+        function getDifficultySettings() {
+            const secondsElapsed = Math.floor(gameTicks / 60); // Assuming 60fps
+            
+            // Progressive difficulty with 5-second epochs
+            if (secondsElapsed < 5) {
+                // First 5 seconds - Level 1
+                return {
+                    boarSpawnRate: 0.004, // Very slow spawn
+                    frogSpawnRate: 0, // No frogs yet
+                    maxBoars: 2,
+                    maxFrogs: 0
+                };
+            } else if (secondsElapsed < 10) {
+                // 5-10 seconds - Level 2
+                return {
+                    boarSpawnRate: 0.005,
+                    frogSpawnRate: 0.006,
+                    maxBoars: 3,
+                    maxFrogs: 4
+                };
+            } else if (secondsElapsed < 15) {
+                // 10-15 seconds - Level 3
+                return {
+                    boarSpawnRate: 0.006,
+                    frogSpawnRate: 0.008,
+                    maxBoars: 3,
+                    maxFrogs: 4
+                };
+            } else if (secondsElapsed < 20) {
+                // 15-20 seconds - Level 4
+                return {
+                    boarSpawnRate: 0.007,
+                    frogSpawnRate: 0.01,
+                    maxBoars: 4,
+                    maxFrogs: 8
+                };
+            } else if (secondsElapsed < 25) {
+                // 20-25 seconds - Level 5
+                return {
+                    boarSpawnRate: 0.008,
+                    frogSpawnRate: 0.012,
+                    maxBoars: 4,
+                    maxFrogs: 8
+                };
+            } else if (secondsElapsed < 30) {
+                // 25-30 seconds - Level 6
+                return {
+                    boarSpawnRate: 0.009,
+                    frogSpawnRate: 0.014,
+                    maxBoars: 5,
+                    maxFrogs: 10
+                };
+            } else if (secondsElapsed < 35) {
+                // 30-35 seconds - Level 7
+                return {
+                    boarSpawnRate: 0.01,
+                    frogSpawnRate: 0.016,
+                    maxBoars: 5,
+                    maxFrogs: 10
+                };
+            } else if (secondsElapsed < 40) {
+                // 35-40 seconds - Level 8
+                return {
+                    boarSpawnRate: 0.011,
+                    frogSpawnRate: 0.018,
+                    maxBoars: 6,
+                    maxFrogs: 12
+                };
+            } else if (secondsElapsed < 45) {
+                // 40-45 seconds - Level 9
+                return {
+                    boarSpawnRate: 0.012,
+                    frogSpawnRate: 0.02,
+                    maxBoars: 6,
+                    maxFrogs: 12
+                };
+            } else {
+                // 45+ seconds - Level 10 (MAX)
+                return {
+                    boarSpawnRate: 0.013,
+                    frogSpawnRate: 0.022,
+                    maxBoars: 7,
+                    maxFrogs: 14
+                };
+            }
+        }
+        
+        // Update tiger position
+        function updateTiger() {
+            const bounds = gameArea.getBoundingClientRect();
+            let moved = false;
+            
+            if ((keys['ArrowLeft'] || keys['a'] || keys['A']) && tiger.x > 0) {
+                tiger.x -= TIGER_SPEED;
+                moved = true;
+            }
+            if ((keys['ArrowRight'] || keys['d'] || keys['D']) && tiger.x < bounds.width - ENTITY_SIZE) {
+                tiger.x += TIGER_SPEED;
+                moved = true;
+            }
+            if ((keys['ArrowUp'] || keys['w'] || keys['W']) && tiger.y > 60) {
+                tiger.y -= TIGER_SPEED;
+                moved = true;
+            }
+            if ((keys['ArrowDown'] || keys['s'] || keys['S']) && tiger.y < bounds.height - ENTITY_SIZE - 20) {
+                tiger.y += TIGER_SPEED;
+                moved = true;
+            }
+            
+            if (moved) {
+                tiger.element.style.left = tiger.x + 'px';
+                tiger.element.style.top = tiger.y + 'px';
+            }
+        }
+        
+        // Update jaguar AI - Progressive difficulty
+        function updateJaguar() {
+            // Get smarter as the game progresses
+            const secondsElapsed = Math.floor(gameTicks / 60);
+            const randomChance = Math.max(0.05, 0.35 - (secondsElapsed / 120)); // Gets much smarter over time
+            
+            // Sometimes just stop moving (decreasing chance over time)
+            if (Math.random() < randomChance) {
+                return; // Don't move at all this frame
+            }
+            
+            // Sometimes move randomly (decreasing chance over time)
+            if (Math.random() < randomChance) {
+                // Random movement
+                jaguar.x += (Math.random() - 0.5) * JAGUAR_SPEED * 2;
+                jaguar.y += (Math.random() - 0.5) * JAGUAR_SPEED * 2;
+                
+                // Keep within bounds
+                const bounds = gameArea.getBoundingClientRect();
+                jaguar.x = Math.max(0, Math.min(bounds.width - ENTITY_SIZE, jaguar.x));
+                jaguar.y = Math.max(60, Math.min(bounds.height - ENTITY_SIZE - 20, jaguar.y));
+                
+                jaguar.element.style.left = jaguar.x + 'px';
+                jaguar.element.style.top = jaguar.y + 'px';
+                return;
+            }
+            
+            // Find nearest boar if no target or target was eaten
+            if (!jaguar.target || !boars.includes(jaguar.target)) {
+                let nearestBoar = null;
+                let nearestDistance = Infinity;
+                
+                boars.forEach(boar => {
+                    const distance = getDistance(jaguar, boar);
+                    if (distance < nearestDistance) {
+                        nearestDistance = distance;
+                        nearestBoar = boar;
+                    }
+                });
+                
+                jaguar.target = nearestBoar;
+            }
+            
+            // Move towards target
+            if (jaguar.target) {
+                const dx = jaguar.target.x - jaguar.x;
+                const dy = jaguar.target.y - jaguar.y;
+                const distance = Math.sqrt(dx * dx + dy * dy);
+                
+                if (distance > 0) {
+                    // Normalize and apply speed
+                    const moveX = (dx / distance) * JAGUAR_SPEED;
+                    const moveY = (dy / distance) * JAGUAR_SPEED;
+                    
+                    jaguar.x += moveX;
+                    jaguar.y += moveY;
+                    
+                    // Keep within bounds
+                    const bounds = gameArea.getBoundingClientRect();
+                    jaguar.x = Math.max(0, Math.min(bounds.width - ENTITY_SIZE, jaguar.x));
+                    jaguar.y = Math.max(60, Math.min(bounds.height - ENTITY_SIZE - 20, jaguar.y));
+                    
+                    jaguar.element.style.left = jaguar.x + 'px';
+                    jaguar.element.style.top = jaguar.y + 'px';
+                }
+            }
+        }
+        
+        // Spawn boars with progressive difficulty
+        function spawnBoars() {
+            const difficulty = getDifficultySettings();
+            
+            if (Math.random() < difficulty.boarSpawnRate && boars.length < difficulty.maxBoars) {
+                const bounds = gameArea.getBoundingClientRect();
+                
+                const x = Math.random() * (bounds.width - ENTITY_SIZE - 100) + 50;
+                const y = Math.random() * (bounds.height - ENTITY_SIZE - 140) + 80;
+                
+                const boar = createEntity('🐗', 'boar', x, y);
+                boars.push(boar);
+            }
+        }
+        
+        // Spawn poison frogs with progressive difficulty
+        function spawnPoisonFrogs() {
+            const difficulty = getDifficultySettings();
+            
+            if (difficulty.frogSpawnRate > 0 && 
+                Math.random() < difficulty.frogSpawnRate && 
+                poisonFrogs.length < difficulty.maxFrogs) {
+                const bounds = gameArea.getBoundingClientRect();
+                
+                const x = Math.random() * (bounds.width - ENTITY_SIZE - 100) + 50;
+                const y = Math.random() * (bounds.height - ENTITY_SIZE - 140) + 80;
+                
+                const frog = createEntity('🐸', 'poison-frog', x, y);
+                poisonFrogs.push(frog);
+                
+                // Remove old frogs if there are too many
+                if (poisonFrogs.length > difficulty.maxFrogs) {
+                    const oldFrog = poisonFrogs.shift();
+                    oldFrog.element.remove();
+                }
+            }
+        }
+        
+        // Get distance between two entities
+        function getDistance(entity1, entity2) {
+            const dx = entity1.x - entity2.x;
+            const dy = entity1.y - entity2.y;
+            return Math.sqrt(dx * dx + dy * dy);
+        }
+        
+        // Check collisions
+        function checkCollisions() {
+            // Check tiger collisions with boars
+            boars.forEach((boar, index) => {
+                if (getDistance(tiger, boar) < COLLISION_DISTANCE) {
+                    eatBoar(tiger, boar, index, 'tiger');
+                } else if (getDistance(jaguar, boar) < COLLISION_DISTANCE) {
+                    eatBoar(jaguar, boar, index, 'jaguar');
+                }
+            });
+            
+            // Check collisions with poison frogs - More forgiving for kids
+            poisonFrogs.forEach(frog => {
+                if (getDistance(tiger, frog) < 35) { // Smaller collision box for frogs
+                    gameArea.classList.add('danger-flash');
+                    setTimeout(() => gameArea.classList.remove('danger-flash'), 500);
+                    endGame('poison');
+                } else if (getDistance(jaguar, frog) < 35) { // Smaller collision box
+                    // Jaguar touched poison frog - just slow it down briefly
+                    jaguar.element.style.opacity = '0.5';
+                    setTimeout(() => {
+                        jaguar.element.style.opacity = '1';
+                    }, 1000); // Only 1 second penalty
+                }
+            });
+        }
+        
+        // Eat boar
+        function eatBoar(predator, boar, boarIndex, predatorType) {
+            // Add eating animation
+            predator.element.classList.add('eating');
+            setTimeout(() => predator.element.classList.remove('eating'), 300);
+            
+            // Show bonus text
+            const bonus = document.createElement('div');
+            bonus.className = 'bonus-text';
+            bonus.textContent = '+1';
+            bonus.style.left = boar.x + 'px';
+            bonus.style.top = boar.y + 'px';
+            gameArea.appendChild(bonus);
+            setTimeout(() => bonus.remove(), 1000);
+            
+            // Remove boar
+            boar.element.remove();
+            boars.splice(boarIndex, 1);
+            
+            // Update score
+            if (predatorType === 'tiger') {
+                tigerScore++;
+                document.getElementById('tigerScore').textContent = tigerScore;
+            } else {
+                jaguarScore++;
+                document.getElementById('jaguarScore').textContent = jaguarScore;
+            }
+            
+            // Check win condition
+            if (tigerScore >= WIN_SCORE || jaguarScore >= WIN_SCORE) {
+                endGame('score');
+            }
+        }
+        
+        // End game
+        function endGame(reason) {
+            gameRunning = false;
+            clearInterval(gameTimer);
+            
+            if (reason === 'poison') {
+                // Show poison game over
+                const poisonResult = document.getElementById('poisonResult');
+                poisonResult.innerHTML = `
+                    <div class="result-item">
+                        <div class="result-emoji">🐅</div>
+                        <div class="result-score">${tigerScore}</div>
+                    </div>
+                    <div class="result-item">
+                        <div class="result-emoji">🐆</div>
+                        <div class="result-score">${jaguarScore}</div>
+                    </div>
+                `;
+                gameOverScreen.classList.remove('hidden');
+            } else {
+                // Show win screen
+                const finalResult = document.getElementById('finalResult');
+                const winTitle = document.getElementById('winTitle');
+                const winMessage = document.getElementById('winMessage');
+                
+                if (tigerScore > jaguarScore) {
+                    winTitle.textContent = '🎉 You Win! 🎉';
+                    winMessage.textContent = 'Great job! The tiger ate more boars than the jaguar!';
+                    finalResult.innerHTML = `
+                        <div class="result-item winner-indicator">
+                            <div class="result-emoji">🐅</div>
+                            <div class="result-score">${tigerScore}</div>
+                        </div>
+                        <div class="result-item">
+                            <div class="result-emoji">🐆</div>
+                            <div class="result-score">${jaguarScore}</div>
+                        </div>
+                    `;
+                    
+                    // Send completion message
+                    if (window.parent !== window) {
+                        window.parent.postMessage({
+                            type: 'gameCompletion',
+                            completed: true,
+                            score: tigerScore
+                        }, '*');
+                    }
+                } else if (jaguarScore > tigerScore) {
+                    winTitle.textContent = '🌟 Nice Try! 🌟';
+                    winMessage.textContent = 'The jaguar won this time, but you did great! Try again!';
+                    finalResult.innerHTML = `
+                        <div class="result-item">
+                            <div class="result-emoji">🐅</div>
+                            <div class="result-score">${tigerScore}</div>
+                        </div>
+                        <div class="result-item winner-indicator">
+                            <div class="result-emoji">🐆</div>
+                            <div class="result-score">${jaguarScore}</div>
+                        </div>
+                    `;
+                } else {
+                    winTitle.textContent = '🤝 It\'s a Tie! 🤝';
+                    winMessage.textContent = 'Wow! Both predators ate the same number of boars!';
+                    finalResult.innerHTML = `
+                        <div class="result-item">
+                            <div class="result-emoji">🐅</div>
+                            <div class="result-score">${tigerScore}</div>
+                        </div>
+                        <div class="result-item">
+                            <div class="result-emoji">🐆</div>
+                            <div class="result-score">${jaguarScore}</div>
+                        </div>
+                    `;
+                }
+                
+                winScreen.classList.remove('hidden');
+            }
+        }
+        
+        // Reset game
+        function resetGame() {
+            // Clear all entities
+            const entities = gameArea.querySelectorAll('.entity, .bonus-text');
+            entities.forEach(e => e.remove());
+            
+            // Reset variables
+            tiger = null;
+            jaguar = null;
+            boars = [];
+            poisonFrogs = [];
+            tigerScore = 0;
+            jaguarScore = 0;
+            gameTime = 120;
+            gameTicks = 0;
+            lastBoarSpawn = 0;
+            lastFrogSpawn = 0;
+            
+            // Hide all screens and show start
+            gameOverScreen.classList.add('hidden');
+            winScreen.classList.add('hidden');
+            startScreen.classList.remove('hidden');
+            
+            // Update displays
+            document.getElementById('tigerScore').textContent = '0';
+            document.getElementById('jaguarScore').textContent = '0';
+            timerDisplay.textContent = '2:00';
+        }
+    </script>
+</body>
+</html>

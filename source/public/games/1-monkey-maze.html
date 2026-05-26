@@ -1,0 +1,341 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Jungle Maze Adventure</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 20px;
+            background: linear-gradient(135deg, #2d5016, #4a7c59);
+            font-family: 'Arial', sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            color: #fff;
+        }
+
+        .game-container {
+            text-align: center;
+            background: rgba(0, 0, 0, 0.3);
+            padding: 20px;
+            border-radius: 15px;
+            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.3);
+        }
+
+        h1 {
+            margin: 0 0 20px 0;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
+            color: #90ee90;
+        }
+
+        #gameCanvas {
+            border: 3px solid #228b22;
+            border-radius: 10px;
+            background: #1a4d1a;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.4);
+        }
+
+        .instructions {
+            margin-top: 15px;
+            font-size: 14px;
+            color: #b8e6b8;
+        }
+
+        .win-message {
+            margin-top: 15px;
+            font-size: 18px;
+            font-weight: bold;
+            color: #90ee90;
+            text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.5);
+        }
+
+        .credits {
+            margin-top: 10px;
+            font-size: 12px;
+            color: #a0d0a0;
+            font-style: italic;
+        }
+    </style>
+</head>
+<body>
+    <div class="game-container">
+        <h1>🌿 Jungle Maze Adventure 🌿</h1>
+        <canvas id="gameCanvas" width="600" height="600"></canvas>
+        <div class="instructions">
+            Use arrow keys to navigate the jungle maze!<br>
+            🐒 Help the monkey find the banana! 🍌<br>
+            Press 'R' to reset the maze
+        </div>
+        <div class="credits">
+            Designed, built, and tested by <b>Leo Perez</b>
+        </div>
+        <div id="winMessage" class="win-message" style="display: none;">
+            🎉 The monkey got the banana! Delicious! 🍌🐒
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+
+        // Game state variables
+        let gameStartTime = null;
+        let gameWon = false;
+        let gameCompleted = false; // Track if we've already sent completion message
+
+        // Maze configuration
+        const CELL_SIZE = 20;
+        const MAZE_WIDTH = 30;
+        const MAZE_HEIGHT = 30;
+
+        // Colors
+        const COLORS = {
+            wall: '#0d2818',
+            path: '#2d5016',
+            player: '#ff4444',
+            exit: '#ffd700',
+            pathHighlight: '#4a7c59'
+        };
+
+        // Create maze array (1 = wall, 0 = path)
+        let maze = [];
+        let player = { x: 1, y: 1 };
+        let exit = { x: MAZE_WIDTH - 2, y: MAZE_HEIGHT - 3 };
+
+        // Initialize maze with walls
+        function initMaze() {
+            maze = [];
+            for (let y = 0; y < MAZE_HEIGHT; y++) {
+                maze[y] = [];
+                for (let x = 0; x < MAZE_WIDTH; x++) {
+                    maze[y][x] = 1; // Start with all walls
+                }
+            }
+        }
+
+        // Generate maze using recursive backtracking
+        function generateMaze() {
+            const stack = [];
+            const startX = 1;
+            const startY = 1;
+            
+            maze[startY][startX] = 0;
+            stack.push({ x: startX, y: startY });
+
+            while (stack.length > 0) {
+                const current = stack[stack.length - 1];
+                const neighbors = getUnvisitedNeighbors(current.x, current.y);
+
+                if (neighbors.length > 0) {
+                    const next = neighbors[Math.floor(Math.random() * neighbors.length)];
+                    
+                    // Remove wall between current and next
+                    const wallX = current.x + (next.x - current.x) / 2;
+                    const wallY = current.y + (next.y - current.y) / 2;
+                    maze[wallY][wallX] = 0;
+                    maze[next.y][next.x] = 0;
+                    
+                    stack.push(next);
+                } else {
+                    stack.pop();
+                }
+            }
+
+            // Ensure exit is accessible
+            maze[exit.y][exit.x] = 0;
+        }
+
+        function getUnvisitedNeighbors(x, y) {
+            const neighbors = [];
+            const directions = [
+                { x: 0, y: -2 }, // Up
+                { x: 2, y: 0 },  // Right
+                { x: 0, y: 2 },  // Down
+                { x: -2, y: 0 }  // Left
+            ];
+
+            for (const dir of directions) {
+                const newX = x + dir.x;
+                const newY = y + dir.y;
+
+                if (newX > 0 && newX < MAZE_WIDTH - 1 && 
+                    newY > 0 && newY < MAZE_HEIGHT - 1 && 
+                    maze[newY][newX] === 1) {
+                    neighbors.push({ x: newX, y: newY });
+                }
+            }
+
+            return neighbors;
+        }
+
+        // Draw the maze
+        function drawMaze() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            for (let y = 0; y < MAZE_HEIGHT; y++) {
+                for (let x = 0; x < MAZE_WIDTH; x++) {
+                    const pixelX = x * CELL_SIZE;
+                    const pixelY = y * CELL_SIZE;
+
+                    if (maze[y][x] === 1) {
+                        // Draw wall with jungle texture effect
+                        ctx.fillStyle = COLORS.wall;
+                        ctx.fillRect(pixelX, pixelY, CELL_SIZE, CELL_SIZE);
+                        
+                        // Add subtle texture
+                        ctx.fillStyle = 'rgba(45, 80, 22, 0.3)';
+                        ctx.fillRect(pixelX + 2, pixelY + 2, CELL_SIZE - 4, CELL_SIZE - 4);
+                    } else {
+                        // Draw path
+                        ctx.fillStyle = COLORS.path;
+                        ctx.fillRect(pixelX, pixelY, CELL_SIZE, CELL_SIZE);
+                    }
+                }
+            }
+
+            // Draw banana at exit
+            const exitPixelX = exit.x * CELL_SIZE;
+            const exitPixelY = exit.y * CELL_SIZE;
+            
+            // Add bright glow background for banana
+            ctx.fillStyle = '#DFE384';
+            ctx.beginPath();
+            ctx.arc(exitPixelX + CELL_SIZE / 2, exitPixelY + CELL_SIZE / 2, CELL_SIZE / 2, 0, Math.PI * 2);
+            ctx.fill();
+            
+            ctx.font = `${CELL_SIZE - 2}px Arial`;
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.shadowColor = 'yellow';
+            ctx.shadowBlur = 8;
+            ctx.fillText('🍌', exitPixelX + CELL_SIZE / 2, exitPixelY + CELL_SIZE / 2);
+            ctx.shadowBlur = 0;
+
+            // Draw monkey player
+            const playerPixelX = player.x * CELL_SIZE;
+            const playerPixelY = player.y * CELL_SIZE;
+            
+            // Add bright glow background for monkey
+            ctx.fillStyle = '#002B12';
+            ctx.beginPath();
+            ctx.arc(playerPixelX + CELL_SIZE / 2, playerPixelY + CELL_SIZE / 2, CELL_SIZE / 2, 0, Math.PI * 2);
+            ctx.fill();
+            
+            ctx.font = `${CELL_SIZE - 2}px Arial`;
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.shadowColor = 'orange';
+            ctx.shadowBlur = 8;
+            ctx.fillText('🐒', playerPixelX + CELL_SIZE / 2, playerPixelY + CELL_SIZE / 2);
+            ctx.shadowBlur = 0;
+        }
+
+        // Move player
+        function movePlayer(dx, dy) {
+            if (gameWon) return;
+
+            const newX = player.x + dx;
+            const newY = player.y + dy;
+
+            // Check bounds and walls
+            if (newX >= 0 && newX < MAZE_WIDTH && 
+                newY >= 0 && newY < MAZE_HEIGHT && 
+                maze[newY][newX] === 0) {
+                
+                player.x = newX;
+                player.y = newY;
+
+                // Check if monkey reached the banana
+                if (player.x === exit.x && player.y === exit.y) {
+                    winGame();
+                }
+
+                drawMaze();
+            }
+        }
+
+        // Handle game completion
+        function winGame() {
+            if (gameCompleted) return; // Prevent multiple completion messages
+            
+            gameWon = true;
+            gameCompleted = true;
+            
+            // Calculate completion time
+            const gameEndTime = Date.now();
+            const timeElapsed = gameStartTime ? Math.round((gameEndTime - gameStartTime) / 1000) : null;
+            
+            // Show win message
+            document.getElementById('winMessage').style.display = 'block';
+            
+            // Notify parent window of game completion (for level1.html)
+            if (window.parent !== window) {
+                window.parent.postMessage({
+                    type: 'gameCompletion',
+                    completed: true,
+                    score: null, // Maze doesn't have a score system
+                    timeElapsed: timeElapsed
+                }, '*');
+            }
+            
+            console.log('🎉 Jungle Maze completed!', { timeElapsed });
+        }
+
+        // Handle keyboard input
+        document.addEventListener('keydown', (event) => {
+            // Start timing on first move
+            if (!gameStartTime && !gameWon) {
+                gameStartTime = Date.now();
+            }
+
+            switch (event.key) {
+                case 'ArrowUp':
+                    event.preventDefault();
+                    movePlayer(0, -1);
+                    break;
+                case 'ArrowDown':
+                    event.preventDefault();
+                    movePlayer(0, 1);
+                    break;
+                case 'ArrowLeft':
+                    event.preventDefault();
+                    movePlayer(-1, 0);
+                    break;
+                case 'ArrowRight':
+                    event.preventDefault();
+                    movePlayer(1, 0);
+                    break;
+                case 'r':
+                case 'R':
+                    // Reset game
+                    resetGame();
+                    break;
+            }
+        });
+
+        function resetGame() {
+            player = { x: 1, y: 1 };
+            gameWon = false;
+            gameCompleted = false;
+            gameStartTime = null;
+            document.getElementById('winMessage').style.display = 'none';
+            initMaze();
+            generateMaze();
+            drawMaze();
+        }
+
+        // Initialize and start the game
+        function startGame() {
+            initMaze();
+            generateMaze();
+            drawMaze();
+        }
+
+        // Start the game when page loads
+        startGame();
+    </script>
+</body>
+</html>

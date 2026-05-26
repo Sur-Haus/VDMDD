@@ -1,0 +1,815 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Snake Adventure</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+            overflow: hidden;
+            height: 100vh;
+            background: linear-gradient(135deg, #87CEEB 0%, #98D8E8 50%, #87CEEB 100%);
+        }
+        
+        .game-container {
+            position: relative;
+            width: 100%;
+            height: 100vh;
+            overflow: hidden;
+        }
+        
+        .game-board {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(45deg, #90EE90 0%, #32CD32 50%, #228B22 100%);
+        }
+        
+        .snake {
+            position: absolute;
+            width: 60px;
+            height: 60px;
+            font-size: 50px;
+            z-index: 100;
+            transition: all 0.2s ease;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+            filter: drop-shadow(0 0 10px rgba(255, 255, 255, 0.8));
+        }
+        
+        .rock {
+            position: absolute;
+            font-size: 40px;
+            z-index: 50;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.5);
+        }
+        
+        .mouse {
+            position: absolute;
+            font-size: 35px;
+            z-index: 60;
+            animation: wiggle 2s ease-in-out infinite;
+            text-shadow: 1px 1px 2px rgba(0,0,0,0.3);
+        }
+        
+        .eagle {
+            position: absolute;
+            font-size: 45px;
+            z-index: 80;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.5);
+            transition: all 0.3s ease;
+            filter: drop-shadow(0 0 15px rgba(255, 0, 0, 0.8));
+        }
+        
+        @keyframes wiggle {
+            0%, 100% { transform: rotate(0deg); }
+            25% { transform: rotate(-5deg); }
+            75% { transform: rotate(5deg); }
+        }
+        
+        .start-screen, .game-over-screen, .win-screen {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(255, 255, 255, 0.95);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 200;
+        }
+        
+        .hidden {
+            display: none !important;
+        }
+        
+        h1 {
+            font-size: 48px;
+            margin-bottom: 20px;
+            text-align: center;
+            color: #2e5c2e;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.2);
+        }
+
+        p {
+            font-size: 24px;
+            margin-bottom: 30px;
+            text-align: center;
+            line-height: 1.4;
+            color: #333;
+            max-width: 600px;
+        }
+        
+        button {
+            font-size: 24px;
+            padding: 15px 30px;
+            background: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 15px;
+            cursor: pointer;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.3);
+            transition: all 0.2s ease;
+            font-weight: bold;
+        }
+        
+        button:hover {
+            background: #45a049;
+            transform: translateY(-2px);
+            box-shadow: 0 6px 12px rgba(0,0,0,0.4);
+        }
+        
+        button:active {
+            transform: translateY(0);
+        }
+        
+        .controls {
+            position: absolute;
+            bottom: 20px;
+            right: 20px;
+            color: white;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.7);
+            text-align: right;
+            z-index: 150;
+            background: rgba(0,0,0,0.3);
+            padding: 10px 15px;
+            border-radius: 10px;
+        }
+        
+        .score {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            color: white;
+            font-size: 24px;
+            font-weight: bold;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.7);
+            background: rgba(0,0,0,0.3);
+            padding: 10px 20px;
+            border-radius: 10px;
+            z-index: 150;
+        }
+        
+        .ouch-popup {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 72px;
+            font-weight: bold;
+            color: #FF4444;
+            text-shadow: 3px 3px 6px rgba(0,0,0,0.7);
+            z-index: 300;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+            background: rgba(255, 255, 255, 0.9);
+            padding: 20px 40px;
+            border-radius: 20px;
+            border: 5px solid #FF4444;
+        }
+        
+        .ouch-popup.show {
+            opacity: 1;
+        }
+        
+        .level-indicator {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            color: white;
+            font-size: 20px;
+            font-weight: bold;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.7);
+            background: rgba(0,0,0,0.3);
+            padding: 10px 15px;
+            border-radius: 10px;
+            z-index: 150;
+        }
+        
+        /* Celebration confetti */
+        .confetti {
+            position: absolute;
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            z-index: 250;
+        }
+        
+        /* Mobile responsiveness */
+        @media (max-width: 768px) {
+            .snake {
+                width: 50px;
+                height: 50px;
+                font-size: 40px;
+            }
+            
+            .rock {
+                font-size: 35px;
+            }
+            
+            .mouse {
+                font-size: 30px;
+            }
+            
+            h1 {
+                font-size: 36px;
+            }
+            
+            p {
+                font-size: 20px;
+            }
+            
+            .controls {
+                font-size: 14px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="game-container">
+        <!-- Start Screen -->
+        <div class="start-screen" id="startScreen">
+            <h1>🐍 Snake Adventure 🐭</h1>
+            <p>
+                Help the friendly snake catch all the mice!<br>
+                Use arrow keys to move around.<br>
+                Avoid the rocks or you'll get an OUCH!<br>
+                Watch out for the eagle on higher levels!<br>
+                Catch all the mice to win!
+                <br><br>
+                Designed, built, and tested by <b>Parker W</b>.
+            </p>
+            <button onclick="startGame()">Start Adventure!</button>
+        </div>
+        
+        <!-- Game Over Screen -->
+        <div class="game-over-screen hidden" id="gameOverScreen">
+            <h1>💥 OUCH! 💥</h1>
+            <p>
+                The snake bumped into something!<br>
+                Don't worry, let's try again!
+            </p>
+            <button onclick="restartGame()">Try Again</button>
+        </div>
+        
+        <!-- Win Screen -->
+        <div class="win-screen hidden" id="winScreen">
+            <h1>🎉 Amazing! 🎉</h1>
+            <p>
+                You caught all the mice!<br>
+                The snake is very happy and full!<br>
+                Great job, young adventurer!
+            </p>
+            <button onclick="restartGame()">Play Again</button>
+        </div>
+        
+        <!-- Game Board -->
+        <div class="game-board">
+            <!-- Snake -->
+            <div class="snake" id="snake">🐍</div>
+            
+            <!-- Score Display -->
+            <div class="score" id="score">Mice: 0 / 0</div>
+            
+            <!-- Level Indicator -->
+            <div class="level-indicator" id="levelIndicator">Level 1</div>
+            
+            <!-- Controls -->
+            <div class="controls hidden" id="controls">
+                Use ← → ↑ ↓ arrow keys<br>
+                to move the snake
+            </div>
+        </div>
+        
+        <!-- OUCH Popup -->
+        <div class="ouch-popup" id="ouchPopup">OUCH!</div>
+    </div>
+
+    <script>
+        // Game variables
+        let gameRunning = false;
+        let snakeX = 50; // percentage
+        let snakeY = 50; // percentage
+        let snakeDirection = null; // 'up', 'down', 'left', 'right', or null for stopped
+        let rocks = [];
+        let mice = [];
+        let miceEaten = 0;
+        let totalMice = 0;
+        let currentLevel = 1;
+        let gameSpeed = 200; // milliseconds between moves
+        let lastMoveTime = 0;
+        let eagle = null;
+        let eagleX = 0;
+        let eagleY = 0;
+        let eagleActive = false;
+        let eagleDirection = { x: 1, y: 1 };
+        
+        // Game constants
+        const SNAKE_SPEED = 5; // percentage points per move
+        const EAGLE_SPEED = 3; // Eagle movement speed
+        const LEVELS = [
+            { rocks: 5, mice: 3, speed: 250 },  // Level 1 - Easy
+            { rocks: 8, mice: 4, speed: 200 },  // Level 2 - Medium
+            { rocks: 12, mice: 5, speed: 150 }  // Level 3 - Harder
+        ];
+        
+        // DOM elements
+        const gameContainer = document.querySelector('.game-container');
+        const gameBoard = document.querySelector('.game-board');
+        const snake = document.getElementById('snake');
+        const startScreen = document.getElementById('startScreen');
+        const gameOverScreen = document.getElementById('gameOverScreen');
+        const winScreen = document.getElementById('winScreen');
+        const scoreElement = document.getElementById('score');
+        const levelIndicator = document.getElementById('levelIndicator');
+        const controlsElement = document.getElementById('controls');
+        const ouchPopup = document.getElementById('ouchPopup');
+        
+        // Keyboard input
+        const keys = {};
+        
+        document.addEventListener('keydown', (e) => {
+            if (!gameRunning) return;
+            
+            // Set snake direction based on arrow key
+            if (e.key === 'ArrowLeft') {
+                snakeDirection = 'left';
+            } else if (e.key === 'ArrowRight') {
+                snakeDirection = 'right';
+            } else if (e.key === 'ArrowUp') {
+                snakeDirection = 'up';
+            } else if (e.key === 'ArrowDown') {
+                snakeDirection = 'down';
+            }
+            
+            e.preventDefault(); // Prevent page scrolling
+        });
+        
+        // Initialize game
+        function initializeGame() {
+            // Reset snake position and direction
+            snakeX = 50;
+            snakeY = 50;
+            snakeDirection = null; // Snake starts at rest
+            miceEaten = 0;
+            currentLevel = 1;
+            eagleActive = false;
+            
+            // Clear existing objects
+            clearGameObjects();
+            
+            // Set up current level
+            setupLevel(currentLevel);
+            
+            // Update displays
+            updateScore();
+            updateLevelIndicator();
+            updateSnakePosition();
+        }
+        
+        // Clear all game objects from the board
+        function clearGameObjects() {
+            document.querySelectorAll('.rock').forEach(rock => rock.remove());
+            document.querySelectorAll('.mouse').forEach(mouse => mouse.remove());
+            document.querySelectorAll('.eagle').forEach(eagle => eagle.remove());
+            rocks = [];
+            mice = [];
+            eagle = null;
+            eagleActive = false;
+        }
+        
+        // Setup level with rocks and mice
+        function setupLevel(level) {
+            const levelData = LEVELS[level - 1];
+            gameSpeed = levelData.speed;
+            
+            // Create rocks
+            for (let i = 0; i < levelData.rocks; i++) {
+                createRock();
+            }
+            
+            // Create mice
+            totalMice = levelData.mice;
+            for (let i = 0; i < levelData.mice; i++) {
+                createMouse();
+            }
+        }
+        
+        // Create a rock at random position
+        function createRock() {
+            const rock = document.createElement('div');
+            rock.className = 'rock';
+            rock.textContent = '🪨';
+            
+            let x, y;
+            let validPosition = false;
+            let attempts = 0;
+            
+            // Find a valid position (not too close to snake or other objects)
+            while (!validPosition && attempts < 50) {
+                x = Math.random() * 85 + 5; // 5% to 90%
+                y = Math.random() * 85 + 5;
+                
+                // Check distance from snake
+                const distFromSnake = Math.sqrt(Math.pow(x - snakeX, 2) + Math.pow(y - snakeY, 2));
+                
+                if (distFromSnake > 15) { // At least 15% away from snake
+                    validPosition = true;
+                    
+                    // Check distance from other rocks
+                    for (let existingRock of rocks) {
+                        const distFromRock = Math.sqrt(Math.pow(x - existingRock.x, 2) + Math.pow(y - existingRock.y, 2));
+                        if (distFromRock < 12) { // At least 12% away from other rocks
+                            validPosition = false;
+                            break;
+                        }
+                    }
+                }
+                attempts++;
+            }
+            
+            rock.style.left = x + '%';
+            rock.style.top = y + '%';
+            
+            gameBoard.appendChild(rock);
+            rocks.push({ element: rock, x: x, y: y });
+        }
+        
+        // Create a mouse at random position
+        function createMouse() {
+            const mouse = document.createElement('div');
+            mouse.className = 'mouse';
+            mouse.textContent = '🐁';
+            
+            let x, y;
+            let validPosition = false;
+            let attempts = 0;
+            
+            // Find a valid position
+            while (!validPosition && attempts < 50) {
+                x = Math.random() * 85 + 5;
+                y = Math.random() * 85 + 5;
+                
+                // Check distance from snake
+                const distFromSnake = Math.sqrt(Math.pow(x - snakeX, 2) + Math.pow(y - snakeY, 2));
+                
+                if (distFromSnake > 10) {
+                    validPosition = true;
+                    
+                    // Check distance from rocks
+                    for (let rock of rocks) {
+                        const distFromRock = Math.sqrt(Math.pow(x - rock.x, 2) + Math.pow(y - rock.y, 2));
+                        if (distFromRock < 10) {
+                            validPosition = false;
+                            break;
+                        }
+                    }
+                }
+                attempts++;
+            }
+            
+            mouse.style.left = x + '%';
+            mouse.style.top = y + '%';
+            
+            gameBoard.appendChild(mouse);
+            mice.push({ element: mouse, x: x, y: y });
+        }
+        
+        // Create eagle (appears when only one mouse remains)
+        function createEagle() {
+            if (eagleActive || currentLevel < 2) return; // No eagle on level 1
+            
+            eagle = document.createElement('div');
+            eagle.className = 'eagle';
+            eagle.textContent = '🦅';
+            
+            // Start eagle at top-right corner
+            eagleX = 90;
+            eagleY = 10;
+            
+            eagle.style.left = eagleX + '%';
+            eagle.style.top = eagleY + '%';
+            
+            gameBoard.appendChild(eagle);
+            eagleActive = true;
+            
+            // Set initial eagle direction
+            eagleDirection = { x: -1, y: 1 };
+        }
+        
+        // Update eagle position
+        function updateEagle() {
+            if (!eagleActive || !eagle) return;
+            
+            // Move eagle
+            eagleX += eagleDirection.x * EAGLE_SPEED * 0.5;
+            eagleY += eagleDirection.y * EAGLE_SPEED * 0.5;
+            
+            // Bounce off walls
+            if (eagleX <= 5 || eagleX >= 95) {
+                eagleDirection.x *= -1;
+            }
+            if (eagleY <= 5 || eagleY >= 95) {
+                eagleDirection.y *= -1;
+            }
+            
+            // Keep eagle in bounds
+            eagleX = Math.max(5, Math.min(95, eagleX));
+            eagleY = Math.max(5, Math.min(95, eagleY));
+            
+            // Update eagle position
+            eagle.style.left = eagleX + '%';
+            eagle.style.top = eagleY + '%';
+            
+            // Make eagle somewhat chase the snake (not too aggressively)
+            if (Math.random() < 0.02) { // 2% chance to adjust direction each frame
+                const dx = snakeX - eagleX;
+                const dy = snakeY - eagleY;
+                eagleDirection.x = dx > 0 ? 1 : -1;
+                eagleDirection.y = dy > 0 ? 1 : -1;
+            }
+        }
+        
+        // Update snake position on screen
+        function updateSnakePosition() {
+            snake.style.left = snakeX + '%';
+            snake.style.top = snakeY + '%';
+        }
+        
+        // Update score display
+        function updateScore() {
+            scoreElement.textContent = `Mice: ${miceEaten} / ${totalMice}`;
+        }
+        
+        // Update level indicator
+        function updateLevelIndicator() {
+            levelIndicator.textContent = `Level ${currentLevel}`;
+        }
+        
+        // Start game
+        function startGame() {
+            gameRunning = true;
+            lastMoveTime = Date.now();
+            
+            // Initialize game state
+            initializeGame();
+            
+            // Show/hide UI elements
+            startScreen.classList.add('hidden');
+            gameOverScreen.classList.add('hidden');
+            winScreen.classList.add('hidden');
+            controlsElement.classList.remove('hidden');
+            
+            // Start game loop
+            gameLoop();
+        }
+        
+        // Game loop
+        function gameLoop() {
+            if (!gameRunning) return;
+            
+            const currentTime = Date.now();
+            
+            // Only move if enough time has passed (for consistent speed)
+            if (currentTime - lastMoveTime >= gameSpeed) {
+                updateSnake();
+                updateEagle(); // Update eagle position
+                checkCollisions();
+                lastMoveTime = currentTime;
+            }
+            
+            requestAnimationFrame(gameLoop);
+        }
+        
+        // Update snake movement based on current direction
+        function updateSnake() {
+            if (!snakeDirection) return; // Snake is at rest
+            
+            let newX = snakeX;
+            let newY = snakeY;
+            
+            // Move snake based on current direction
+            switch (snakeDirection) {
+                case 'left':
+                    newX = snakeX - SNAKE_SPEED;
+                    break;
+                case 'right':
+                    newX = snakeX + SNAKE_SPEED;
+                    break;
+                case 'up':
+                    newY = snakeY - SNAKE_SPEED;
+                    break;
+                case 'down':
+                    newY = snakeY + SNAKE_SPEED;
+                    break;
+            }
+            
+            // Check if snake would hit screen boundaries
+            if (newX < 2 || newX > 95 || newY < 2 || newY > 95) {
+                // Stop the snake at the edge
+                snakeDirection = null;
+                return;
+            }
+            
+            // Update snake position
+            snakeX = newX;
+            snakeY = newY;
+            updateSnakePosition();
+        }
+        
+        // Check collisions with rocks, mice, and eagle
+        function checkCollisions() {
+            // Check rock collisions
+            for (let rock of rocks) {
+                const distance = Math.sqrt(Math.pow(snakeX - rock.x, 2) + Math.pow(snakeY - rock.y, 2));
+                if (distance < 4) { // Collision threshold
+                    gameOver();
+                    return;
+                }
+            }
+            
+            // Check eagle collision
+            if (eagleActive && eagle) {
+                const eagleDistance = Math.sqrt(Math.pow(snakeX - eagleX, 2) + Math.pow(snakeY - eagleY, 2));
+                if (eagleDistance < 6) { // Eagle collision threshold
+                    gameOver();
+                    return;
+                }
+            }
+            
+            // Check mouse collisions
+            for (let i = mice.length - 1; i >= 0; i--) {
+                const mouse = mice[i];
+                const distance = Math.sqrt(Math.pow(snakeX - mouse.x, 2) + Math.pow(snakeY - mouse.y, 2));
+                if (distance < 4) { // Collision threshold
+                    // Eat the mouse
+                    mouse.element.remove();
+                    mice.splice(i, 1);
+                    miceEaten++;
+                    
+                    updateScore();
+                    
+                    // Check if only one mouse remains and eagle isn't active yet
+                    if (mice.length === 1 && !eagleActive && currentLevel >= 2) {
+                        createEagle();
+                    }
+                    
+                    // Check if level is complete
+                    if (miceEaten >= totalMice) {
+                        if (currentLevel < LEVELS.length) {
+                            // Next level
+                            nextLevel();
+                        } else {
+                            // Game won!
+                            winGame();
+                        }
+                        return;
+                    }
+                }
+            }
+        }
+        
+        // Advance to next level
+        function nextLevel() {
+            currentLevel++;
+            
+            // Clear existing objects
+            clearGameObjects();
+            
+            // Setup new level
+            setupLevel(currentLevel);
+            
+            // Reset mice count for this level and snake direction
+            miceEaten = 0;
+            snakeDirection = null; // Snake stops between levels
+            
+            // Update displays
+            updateScore();
+            updateLevelIndicator();
+            
+            // Brief pause with level announcement
+            showLevelTransition();
+        }
+        
+        // Show level transition
+        function showLevelTransition() {
+            const transition = document.createElement('div');
+            transition.style.position = 'absolute';
+            transition.style.top = '50%';
+            transition.style.left = '50%';
+            transition.style.transform = 'translate(-50%, -50%)';
+            transition.style.fontSize = '48px';
+            transition.style.fontWeight = 'bold';
+            transition.style.color = '#4CAF50';
+            transition.style.textShadow = '3px 3px 6px rgba(0,0,0,0.7)';
+            transition.style.zIndex = '250';
+            transition.style.backgroundColor = 'rgba(255, 255, 255, 0.9)';
+            transition.style.padding = '20px 40px';
+            transition.style.borderRadius = '20px';
+            transition.style.border = '5px solid #4CAF50';
+            transition.textContent = `Level ${currentLevel}!`;
+            
+            gameContainer.appendChild(transition);
+            
+            setTimeout(() => {
+                transition.remove();
+            }, 2000);
+        }
+        
+        // Game over
+        function gameOver() {
+            gameRunning = false;
+            
+            // Show OUCH popup
+            ouchPopup.classList.add('show');
+            
+            setTimeout(() => {
+                ouchPopup.classList.remove('show');
+                controlsElement.classList.add('hidden');
+                gameOverScreen.classList.remove('hidden');
+            }, 2000);
+        }
+        
+        // Win game
+        function winGame() {
+            gameRunning = false;
+            controlsElement.classList.add('hidden');
+            
+            // Create celebration effect
+            createConfetti();
+            
+            setTimeout(() => {
+                winScreen.classList.remove('hidden');
+                
+                // Notify parent if embedded
+                if (window.parent !== window) {
+                    window.parent.postMessage({
+                        type: 'gameCompletion',
+                        completed: true
+                    }, '*');
+                }
+            }, 2000);
+        }
+        
+        // Create confetti effect
+        function createConfetti() {
+            const colors = ['#FFD700', '#FFA500', '#FF6347', '#00CED1', '#32CD32', '#9370DB'];
+            
+            for (let i = 0; i < 100; i++) {
+                setTimeout(() => {
+                    const confetti = document.createElement('div');
+                    confetti.className = 'confetti';
+                    confetti.style.backgroundColor = colors[Math.floor(Math.random() * colors.length)];
+                    confetti.style.left = Math.random() * 100 + '%';
+                    confetti.style.top = '-10px';
+                    gameContainer.appendChild(confetti);
+                    
+                    // Animate falling
+                    let pos = -10;
+                    const fall = setInterval(() => {
+                        pos += 3;
+                        confetti.style.top = pos + 'px';
+                        confetti.style.transform = `translateX(${Math.sin(pos / 30) * 20}px) rotate(${pos * 2}deg)`;
+                        
+                        if (pos > window.innerHeight) {
+                            clearInterval(fall);
+                            confetti.remove();
+                        }
+                    }, 20);
+                }, i * 20);
+            }
+        }
+        
+        // Restart game
+        function restartGame() {
+            // Clear existing objects
+            clearGameObjects();
+            
+            // Reset game state
+            currentLevel = 1;
+            miceEaten = 0;
+            snakeDirection = null; // Snake starts at rest
+            
+            // Restart
+            startGame();
+        }
+        
+        // Initialize when page loads
+        window.addEventListener('load', () => {
+            initializeGame();
+            // Don't hide the snake - let it be visible on the start screen
+            updateSnakePosition();
+        });
+    </script>
+</body>
+</html>

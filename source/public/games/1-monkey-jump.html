@@ -1,0 +1,1023 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Monkey River Crossing</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            overflow-x: hidden;
+            background: #87CEEB;
+        }
+        
+        .game-scene {
+            width: 100%;
+            max-width: 1000px;
+            height: 400px;
+            position: relative;
+            margin-top: 20px;
+            border-radius: 20px;
+            overflow: hidden;
+            background: linear-gradient(to bottom, #87CEEB 0%, #98D8E8 100%);
+        }
+        
+        /* Animated river */
+        .river {
+            position: absolute;
+            top: 75%;
+            left: 0;
+            width: 100%;
+            height: 25%;
+            background: linear-gradient(45deg, 
+                #1E90FF 0%, 
+                #00CED1 20%, 
+                #20B2AA 40%, 
+                #48D1CC 60%, 
+                #00CED1 80%, 
+                #1E90FF 100%);
+            background-size: 200% 200%;
+            animation: riverFlow 8s ease-in-out infinite;
+        }
+        
+        @keyframes riverFlow {
+            0% {
+                background-position: 0% 50%;
+            }
+            50% {
+                background-position: 100% 50%;
+            }
+            100% {
+                background-position: 0% 50%;
+            }
+        }
+        
+        /* River banks - UPDATED: from 5% to 10% and 150px to 250px max */
+        .bank {
+            position: absolute;
+            bottom: 0;
+            height: 25%;
+            width: 10%;
+            background: linear-gradient(to bottom, #8FBC8F 0%, #228B22 50%, #006400 100%);
+            z-index: 5;
+        }
+        
+        /* Media query for larger screens to cap bank width - UPDATED */
+        @media (min-width: 2500px) {
+            .bank {
+                width: 250px;
+            }
+        }
+        
+        .bank.left {
+            left: 0;
+            border-radius: 0 20px 0 0;
+        }
+        
+        .bank.right {
+            right: 0;
+            border-radius: 20px 0 0 0;
+        }
+        
+        /* Stepping stones */
+        .stone {
+            position: absolute;
+            width: 80px;
+            height: 60px;
+            background: radial-gradient(ellipse at center, #A9A9A9 0%, #696969 70%, #2F4F4F 100%);
+            border-radius: 50%;
+            bottom: 20%;
+            transform: translateX(-50%);
+            box-shadow: 0 5px 10px rgba(0,0,0,0.3);
+            transition: all 0.3s ease;
+        }
+        
+        .stone.active {
+            background: radial-gradient(ellipse at center, #FFD700 0%, #FFA500 70%, #FF8C00 100%);
+            transform: translateX(-50%) scale(1.1);
+        }
+        
+        /* Monkey - Always facing left (scaleX(-1)) */
+        .monkey {
+            position: absolute;
+            width: 60px;
+            height: 60px;
+            bottom: 30%;
+            left: 25px;
+            transform: translateX(-50%) scaleX(-1); /* Always facing left */
+            font-size: 50px;
+            transition: all 0.5s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+            z-index: 10;
+        }
+        
+        .monkey.falling {
+            animation: fallIntoRiver 1s ease-in forwards;
+        }
+        
+        /* FIXED: Updated fall animation to maintain scaleX(-1) and ensure spinning works */
+        @keyframes fallIntoRiver {
+            0% {
+                transform: translateX(-50%) scaleX(-1) rotate(0deg);
+                bottom: 28%;
+            }
+            50% {
+                transform: translateX(-50%) scaleX(-1) rotate(720deg) scale(0.8);
+                bottom: 20%;
+            }
+            100% {
+                transform: translateX(-50%) scaleX(-1) rotate(1080deg) scale(0.6);
+                bottom: 10%;
+                opacity: 0.3;
+            }
+        }
+        
+        .monkey.jumping {
+            animation: jump 0.5s ease-out;
+        }
+        
+        /* Jump animation maintaining scaleX(-1) */
+        @keyframes jump {
+            0%, 100% {
+                transform: translateX(-50%) scaleX(-1) translateY(0); 
+            }
+            50% {
+                transform: translateX(-50%) scaleX(-1) translateY(-40px);
+            }
+        }
+        
+        /* Banana goal - FIXED: Better positioned on right bank */
+        .banana {
+            position: absolute;
+            bottom: 35%;
+            right: 5%; /* Positioned well within the right bank */
+            font-size: 50px;
+            transform: translateX(0);
+            animation: float 2s ease-in-out infinite;
+            z-index: 10;
+        }
+        
+        @keyframes float {
+            0%, 100% {
+                transform: translateY(0);
+            }
+            50% {
+                transform: translateY(-10px);
+            }
+        }
+        
+        /* Alligators */
+        .alligator {
+            position: absolute;
+            font-size: 40px;
+            bottom: 15%;
+            z-index: 6;
+        }
+        
+        .alligator1 {
+            animation: swim1 15s linear infinite;
+        }
+        
+        .alligator2 {
+            animation: swim2 18s linear infinite;
+            animation-delay: 5s;
+            bottom: 12%;
+        }
+        
+        .alligator3 {
+            animation: swim3 20s linear infinite;
+            animation-delay: 10s;
+            bottom: 18%;
+        }
+        
+        /* UPDATED: Alligator animations to account for 10% bank width */
+        @keyframes swim1 {
+            0% {
+                left: 10%;
+                transform: scaleX(1);
+            }
+            49% {
+                transform: scaleX(1);
+            }
+            50% {
+                left: calc(90% - 40px);
+                transform: scaleX(-1);
+            }
+            99% {
+                transform: scaleX(-1);
+            }
+            100% {
+                left: 10%;
+                transform: scaleX(1);
+            }
+        }
+        
+        @keyframes swim2 {
+            0% {
+                left: calc(90% - 40px);
+                transform: scaleX(-1);
+            }
+            49% {
+                transform: scaleX(-1);
+            }
+            50% {
+                left: 10%;
+                transform: scaleX(1);
+            }
+            99% {
+                transform: scaleX(1);
+            }
+            100% {
+                left: calc(90% - 40px);
+                transform: scaleX(-1);
+            }
+        }
+        
+        @keyframes swim3 {
+            0% {
+                left: 50%;
+                transform: scaleX(1);
+            }
+            25% {
+                left: calc(90% - 40px);
+                transform: scaleX(1);
+            }
+            26% {
+                transform: scaleX(-1);
+            }
+            50% {
+                left: 50%;
+                transform: scaleX(-1);
+            }
+            75% {
+                left: 10%;
+                transform: scaleX(-1);
+            }
+            76% {
+                transform: scaleX(1);
+            }
+            100% {
+                left: 50%;
+                transform: scaleX(1);
+            }
+        }
+        
+        /* Question Section */
+        .question-section {
+            width: 90%;
+            max-width: 800px;
+            background: white;
+            padding: 30px;
+            margin: 20px auto;
+            border-radius: 20px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+        }
+        
+        .question-container {
+            text-align: center;
+        }
+        
+        .question {
+            font-size: 22px;
+            color: #2e5931;
+            margin-bottom: 15px;
+            line-height: 1.5;
+        }
+        
+        .hint {
+            font-size: 14px;
+            color: #666;
+            font-style: italic;
+            margin-bottom: 20px;
+        }
+        
+        .answers {
+            display: flex;
+            gap: 20px;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+        
+        .answer-btn {
+            padding: 15px 40px;
+            font-size: 20px;
+            border: none;
+            border-radius: 15px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-weight: bold;
+            box-shadow: 0 3px 5px rgba(0,0,0,0.2);
+        }
+        
+        .answer-btn.yes {
+            background: #4CAF50;
+            color: white;
+        }
+        
+        .answer-btn.no {
+            background: #f44336;
+            color: white;
+        }
+        
+        .answer-btn:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 5px 10px rgba(0,0,0,0.3);
+        }
+        
+        .answer-btn:active {
+            transform: translateY(0);
+        }
+        
+        /* Feedback */
+        .feedback {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 48px;
+            font-weight: bold;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+            z-index: 200;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+            background: rgba(255, 255, 255, 0.9);
+            padding: 20px 40px;
+            border-radius: 20px;
+        }
+        
+        .feedback.show {
+            opacity: 1;
+        }
+        
+        .feedback.correct {
+            color: #4CAF50;
+        }
+        
+        .feedback.incorrect {
+            color: #f44336;
+        }
+        
+        /* Screens */
+        .start-screen, .win-screen {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(255, 255, 255, 0.95);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 300;
+        }
+        
+        .title {
+            font-size: 36px;
+            color: #2e5931;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+        
+        .start-btn, .play-again-btn {
+            padding: 20px 40px;
+            font-size: 24px;
+            background: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 20px;
+            cursor: pointer;
+            box-shadow: 0 5px 10px rgba(0,0,0,0.2);
+            transition: all 0.3s ease;
+        }
+        
+        .start-btn:hover, .play-again-btn:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 7px 15px rgba(0,0,0,0.3);
+        }
+        
+        .progress {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            font-size: 18px;
+            color: white;
+            background: rgba(0, 0, 0, 0.5);
+            padding: 5px 15px;
+            border-radius: 10px;
+            z-index: 20;
+        }
+        
+        .hidden {
+            display: none;
+        }
+        
+        /* Water ripples */
+        .ripple {
+            position: absolute;
+            border: 2px solid rgba(255, 255, 255, 0.5);
+            border-radius: 50%;
+            animation: ripple 2s ease-out;
+            pointer-events: none;
+        }
+        
+        @keyframes ripple {
+            0% {
+                width: 20px;
+                height: 20px;
+                opacity: 1;
+            }
+            100% {
+                width: 100px;
+                height: 100px;
+                opacity: 0;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Start Screen -->
+    <div class="start-screen" id="startScreen">
+        <h1 class="title">🐵 Monkey River Crossing 🌊</h1>
+        <p style="font-size: 20px; margin-bottom: 30px; text-align: center; color: #3b7a57;">
+            Help the monkey cross the river to get the banana!<br>
+            Answer questions correctly to jump from stone to stone!
+            <br><br>
+            Designed, built, and tested by <b>Finn J</b>.
+        </p>
+        <button class="start-btn" onclick="startGame()">Start Game!</button>
+    </div>
+    
+    <!-- Win Screen -->
+    <div class="win-screen hidden" id="winScreen">
+        <h1 class="title">🎉 Success! 🎉</h1>
+        <p style="font-size: 24px; margin-bottom: 30px; color: #3b7a57;">
+            The monkey got the banana! 🍌<br>
+            Great job!
+        </p>
+        <button class="play-again-btn" onclick="resetGame()">Play Again!</button>
+    </div>
+    
+    <!-- Game Scene -->
+    <div class="game-scene">
+        <!-- River -->
+        <div class="river" id="river"></div>
+        
+        <!-- Banks -->
+        <div class="bank left"></div>
+        <div class="bank right"></div>
+        
+        <!-- Stepping stones will be added dynamically -->
+        
+        <!-- Monkey -->
+        <div class="monkey" id="monkey">🐒</div>
+        
+        <!-- Banana -->
+        <div class="banana" id="banana">🍌</div>
+        
+        <!-- Alligators -->
+        <div class="alligator alligator1">🐊</div>
+        <div class="alligator alligator2">🐊</div>
+        <div class="alligator alligator3">🐊</div>
+    </div>
+    
+    <!-- Question Section -->
+    <div class="question-section hidden" id="questionSection">
+        <div class="question-container" id="questionContainer">
+            <div class="question" id="questionText"></div>
+            <div class="hint hidden" id="hintText"></div>
+            <div class="answers">
+                <button class="answer-btn yes" onclick="checkAnswer(true)">Yes</button>
+                <button class="answer-btn no" onclick="checkAnswer(false)">No</button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Feedback -->
+    <div class="feedback" id="feedback"></div>
+    
+    <script>
+        // Game variables
+        let currentStone = 0;
+        const totalStones = 4; // 4 stones between banks
+        const totalQuestions = 5; // 5 questions total (4 to stones, 1 to banana)
+        let isAnswering = false;
+        let stones = [];
+        let questionsAnswered = 0;
+        
+        // Full question bank - 40 questions about Amazon rainforest and Madre de Dios
+        const questions = [
+            // General Amazon Rainforest Questions
+            { 
+                text: "The Amazon rainforest is the largest rainforest in the world.", 
+                answer: true,
+                hint: "The Amazon is huge! Is it the biggest rainforest?"
+            },
+            { 
+                text: "It never rains in the Amazon rainforest.", 
+                answer: false,
+                hint: "Think about what 'rainforest' means!"
+            },
+            { 
+                text: "The Amazon River is the longest river in the world.", 
+                answer: false,
+                hint: "The Nile River in Africa is actually the longest!"
+            },
+            { 
+                text: "Monkeys live in the Amazon rainforest.", 
+                answer: true,
+                hint: "Many types of monkeys swing through the trees!"
+            },
+            { 
+                text: "The Amazon rainforest is very cold all year.", 
+                answer: false,
+                hint: "Rainforests are usually warm and humid!"
+            },
+            
+            // Trees and Plants
+            { 
+                text: "Some trees in the Amazon can grow taller than a 10-story building.", 
+                answer: true,
+                hint: "Giant trees can grow over 200 feet tall!"
+            },
+            { 
+                text: "All plants in the Amazon rainforest are safe to touch.", 
+                answer: false,
+                hint: "Some plants have thorns or can cause rashes!"
+            },
+            { 
+                text: "Brazil nut trees can live for over 500 years.", 
+                answer: true,
+                hint: "These ancient trees live for many centuries!"
+            },
+            { 
+                text: "Orchid flowers grow in the Amazon rainforest.", 
+                answer: true,
+                hint: "Beautiful orchids bloom high in the trees!"
+            },
+            { 
+                text: "Cacao trees, which give us chocolate, grow in the Amazon.", 
+                answer: true,
+                hint: "Chocolate comes from cacao pods!"
+            },
+            
+            // Animals - Mammals
+            { 
+                text: "Jaguars are the biggest cats in the Amazon.", 
+                answer: true,
+                hint: "Jaguars are powerful spotted cats!"
+            },
+            { 
+                text: "Pink river dolphins live in the Amazon River.", 
+                answer: true,
+                hint: "These special dolphins are really pink!"
+            },
+            { 
+                text: "Sloths move very fast through the trees.", 
+                answer: false,
+                hint: "Sloths are famous for being very slow!"
+            },
+            { 
+                text: "Howler monkeys are the loudest animals in the Amazon.", 
+                answer: true,
+                hint: "Their calls can be heard 3 miles away!"
+            },
+            { 
+                text: "Giant anteaters use their long tongues to eat ants.", 
+                answer: true,
+                hint: "Their tongues can be 2 feet long!"
+            },
+            
+            // Animals - Birds
+            { 
+                text: "Toucans have very small beaks.", 
+                answer: false,
+                hint: "Toucans are famous for their huge, colorful beaks!"
+            },
+            { 
+                text: "Macaw parrots in the Amazon are brightly colored.", 
+                answer: true,
+                hint: "Macaws have red, blue, and yellow feathers!"
+            },
+            { 
+                text: "Hummingbirds in the Amazon can fly backwards.", 
+                answer: true,
+                hint: "Hummingbirds are amazing flyers!"
+            },
+            { 
+                text: "All birds in the Amazon rainforest can swim.", 
+                answer: false,
+                hint: "Most rainforest birds live in trees, not water!"
+            },
+            { 
+                text: "The harpy eagle is one of the most powerful birds in the Amazon.", 
+                answer: true,
+                hint: "Harpy eagles can catch sloths and monkeys!"
+            },
+            
+            // Animals - Reptiles and Amphibians
+            { 
+                text: "Anacondas are the largest snakes in the Amazon.", 
+                answer: true,
+                hint: "Green anacondas can grow over 20 feet long!"
+            },
+            { 
+                text: "All frogs in the Amazon are poisonous.", 
+                answer: false,
+                hint: "Only some frogs, like poison dart frogs, are toxic!"
+            },
+            { 
+                text: "Caimans are related to alligators and crocodiles.", 
+                answer: true,
+                hint: "Caimans are smaller cousins of crocodiles!"
+            },
+            { 
+                text: "Some Amazon frogs carry their babies on their backs.", 
+                answer: true,
+                hint: "Poison dart frog dads give piggyback rides!"
+            },
+            { 
+                text: "Iguanas in the Amazon only eat meat.", 
+                answer: false,
+                hint: "Iguanas love to eat leaves and fruits!"
+            },
+            
+            // Insects and Spiders
+            { 
+                text: "Leaf-cutter ants grow their own food.", 
+                answer: true,
+                hint: "They grow fungus gardens with the leaves!"
+            },
+            { 
+                text: "All butterflies in the Amazon are brown.", 
+                answer: false,
+                hint: "Amazon butterflies are incredibly colorful!"
+            },
+            { 
+                text: "Some spiders in the Amazon are as big as dinner plates.", 
+                answer: true,
+                hint: "The Goliath bird-eating spider is huge!"
+            },
+            { 
+                text: "Army ants work together in large groups.", 
+                answer: true,
+                hint: "Millions of army ants march together!"
+            },
+            { 
+                text: "Butterflies in the Amazon never visit flowers.", 
+                answer: false,
+                hint: "Butterflies love nectar from flowers!"
+            },
+            
+            // Madre de Dios Region Specific
+            { 
+                text: "Madre de Dios is located in Peru.", 
+                answer: true,
+                hint: "This region is in southeastern Peru!"
+            },
+            { 
+                text: "Gold mining happens in some parts of Madre de Dios.", 
+                answer: true,
+                hint: "People search for gold in the rivers!"
+            },
+            { 
+                text: "The Manu National Park is in the Madre de Dios region.", 
+                answer: true,
+                hint: "Manu is a famous protected rainforest area!"
+            },
+            { 
+                text: "No indigenous people live in Madre de Dios.", 
+                answer: false,
+                hint: "Several indigenous groups call this region home!"
+            },
+            { 
+                text: "Giant river otters live in the rivers of Madre de Dios.", 
+                answer: true,
+                hint: "These playful otters can grow 6 feet long!"
+            },
+            
+            // Ecosystem and Environment
+            { 
+                text: "The Amazon rainforest helps make oxygen for us to breathe.", 
+                answer: true,
+                hint: "Trees release oxygen into the air!"
+            },
+            { 
+                text: "It's always sunny in the rainforest canopy.", 
+                answer: false,
+                hint: "Rain clouds often cover the forest!"
+            },
+            { 
+                text: "Many medicines come from Amazon rainforest plants.", 
+                answer: true,
+                hint: "Scientists study plants to make medicines!"
+            },
+            { 
+                text: "The forest floor gets lots of sunlight.", 
+                answer: false,
+                hint: "The thick canopy blocks most sunlight!"
+            },
+            { 
+                text: "Rivers in the Amazon sometimes flood the forest.", 
+                answer: true,
+                hint: "Seasonal floods create flooded forests!"
+            }
+        ];
+        
+        let currentQuestions = [];
+        
+        // Initialize game
+        function initGame() {
+            createSteppingStones();
+            shuffleQuestions();
+            positionMonkey(0);
+        }
+        
+        // Create stepping stones
+        function createSteppingStones() {
+            const gameScene = document.querySelector('.game-scene');
+            const gameWidth = gameScene.offsetWidth;
+            
+            // UPDATED: Account for 10% bank width (was 5%)
+            const bankWidth = gameWidth * 0.10;
+            const startX = bankWidth + 50; // Start after left bank with padding
+            const endX = gameWidth - bankWidth - 50; // End before right bank with padding
+            const stoneSpacing = (endX - startX) / (totalStones - 1);
+            
+            // Clear existing stones
+            document.querySelectorAll('.stone').forEach(stone => stone.remove());
+            stones = [];
+            
+            // Create new stones (left to right order)
+            for (let i = 0; i < totalStones; i++) {
+                const stone = document.createElement('div');
+                stone.className = 'stone';
+                stone.style.left = (startX + (i * stoneSpacing)) + 'px';
+                stone.style.bottom = '20%'; // All stones at same height
+                
+                gameScene.appendChild(stone);
+                stones.push(stone);
+            }
+        }
+        
+        // Position monkey
+        function positionMonkey(stoneIndex) {
+            const monkey = document.getElementById('monkey');
+            const gameScene = document.querySelector('.game-scene');
+            const gameWidth = gameScene.offsetWidth;
+            const bankWidth = gameWidth * 0.10; // UPDATED
+            
+            // Remove animation classes before positioning
+            monkey.classList.remove('falling', 'jumping');
+            
+            if (stoneIndex === 0) {
+                // Start position on left bank (centered in bank)
+                monkey.style.left = (bankWidth / 2) + 'px';
+                monkey.style.bottom = '30%';
+                monkey.style.opacity = '1';
+            } else if (stoneIndex > totalStones) {
+                // End position on right bank (centered in bank)
+                monkey.style.left = (gameWidth - bankWidth / 2) + 'px';
+                monkey.style.bottom = '30%';
+            } else {
+                // On a stone
+                const stone = stones[stoneIndex - 1];
+                const stoneLeft = parseInt(stone.style.left);
+                monkey.style.left = stoneLeft + 'px';
+                monkey.style.bottom = '28%';
+                
+                // Highlight current stone
+                stones.forEach(s => s.classList.remove('active'));
+                stone.classList.add('active');
+                
+                // Create ripple effect
+                createRipple(stoneLeft, 240);
+            }
+            
+            // Add jumping animation after a brief delay to ensure position is set
+            setTimeout(() => {
+                monkey.classList.add('jumping');
+            }, 50);
+        }
+        
+        // Create ripple effect
+        function createRipple(x, y) {
+            const ripple = document.createElement('div');
+            ripple.className = 'ripple';
+            ripple.style.left = (x - 10) + 'px';
+            ripple.style.bottom = '18%';
+            document.querySelector('.game-scene').appendChild(ripple);
+            
+            setTimeout(() => ripple.remove(), 2000);
+        }
+        
+        // Select random questions from the full bank
+        function shuffleQuestions() {
+            // First, shuffle all questions
+            let shuffled = JSON.parse(JSON.stringify(questions));
+            
+            // Fisher-Yates shuffle
+            for (let i = shuffled.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+            }
+            
+            // Take only the first 5 questions from the shuffled array
+            currentQuestions = shuffled.slice(0, totalQuestions);
+            
+            questionsAnswered = 0;
+        }
+        
+        // Start game
+        function startGame() {
+            document.getElementById('startScreen').classList.add('hidden');
+            document.getElementById('questionSection').classList.remove('hidden');
+            currentStone = 0;
+            questionsAnswered = 0;
+            shuffleQuestions(); // Ensure fresh shuffle on start
+            positionMonkey(0);
+            showQuestion();
+        }
+        
+        // Show question
+        function showQuestion() {
+            if (questionsAnswered < totalQuestions) {
+                const question = currentQuestions[questionsAnswered];
+                document.getElementById('questionText').textContent = question.text;
+                document.getElementById('questionText').dataset.answer = question.answer;
+                
+                // Show hint if available
+                const hintElement = document.getElementById('hintText');
+                if (question.hint) {
+                    hintElement.textContent = question.hint;
+                    hintElement.classList.remove('hidden');
+                } else {
+                    hintElement.classList.add('hidden');
+                }
+                
+                isAnswering = true;
+            }
+        }
+        
+        // Check answer
+        function checkAnswer(answer) {
+            if (!isAnswering) return;
+            isAnswering = false;
+            
+            const correctAnswer = document.getElementById('questionText').dataset.answer === 'true';
+            const feedback = document.getElementById('feedback');
+            
+            if (answer === correctAnswer) {
+                // Correct answer
+                feedback.textContent = '✅ Correct!';
+                feedback.className = 'feedback correct show';
+                questionsAnswered++;
+                currentStone++;
+                
+                setTimeout(() => {
+                    positionMonkey(currentStone);
+                    feedback.classList.remove('show');
+                    
+                    if (questionsAnswered >= totalQuestions) {
+                        // Win!
+                        setTimeout(winGame, 500);
+                    } else {
+                        setTimeout(showQuestion, 500);
+                    }
+                }, 1500);
+            } else {
+                // Wrong answer - monkey falls and splashes!
+                feedback.textContent = '💦 Splash! Try again!';
+                feedback.className = 'feedback incorrect';
+                
+                // Make monkey fall into river with spinning animation
+                const monkeyEl = document.getElementById('monkey');
+                monkeyEl.classList.remove('jumping'); // Remove any existing animations
+                void monkeyEl.offsetWidth; // Force reflow
+                monkeyEl.classList.add('falling');
+                
+                // Create big splash after fall
+                setTimeout(() => {
+                    const monkeyPos = parseInt(monkeyEl.style.left);
+                    for (let i = 0; i < 5; i++) {
+                        setTimeout(() => createRipple(monkeyPos + (Math.random() * 60 - 30), 240), i * 100);
+                    }
+                    
+                    // Show feedback after splash
+                    setTimeout(() => {
+                        feedback.classList.add('show');
+                    }, 500);
+                }, 800);
+                
+                setTimeout(() => {
+                    // Reset game state
+                    currentStone = 0;
+                    questionsAnswered = 0;
+                    shuffleQuestions(); // Fresh shuffle for new attempt
+                    
+                    // Clear all active stone highlights
+                    stones.forEach(s => s.classList.remove('active'));
+                    
+                    // Reset monkey position
+                    monkeyEl.classList.remove('falling');
+                    monkeyEl.style.opacity = '1';
+                    positionMonkey(0);
+                    
+                    feedback.classList.remove('show');
+                    setTimeout(showQuestion, 1000);
+                }, 3000);
+            }
+        }
+        
+        // Win game
+        function winGame() {
+            document.getElementById('questionSection').classList.add('hidden');
+            document.getElementById('winScreen').classList.remove('hidden');
+            
+            // Celebration effect
+            createConfetti();
+            
+            // Notify parent if embedded
+            if (window.parent !== window) {
+                window.parent.postMessage({
+                    type: 'gameCompletion',
+                    completed: true
+                }, '*');
+            }
+        }
+        
+        // Create confetti effect
+        function createConfetti() {
+            const colors = ['#FFD700', '#FFA500', '#FF6347', '#00CED1', '#32CD32'];
+            const gameScene = document.querySelector('.game-scene');
+            
+            for (let i = 0; i < 50; i++) {
+                setTimeout(() => {
+                    const confetti = document.createElement('div');
+                    confetti.style.position = 'absolute';
+                    confetti.style.width = '10px';
+                    confetti.style.height = '10px';
+                    confetti.style.backgroundColor = colors[Math.floor(Math.random() * colors.length)];
+                    confetti.style.left = Math.random() * 100 + '%';
+                    confetti.style.top = '-10px';
+                    confetti.style.borderRadius = '50%';
+                    confetti.style.zIndex = '200';
+                    gameScene.appendChild(confetti);
+                    
+                    // Animate falling
+                    let pos = -10;
+                    const fall = setInterval(() => {
+                        pos += 3;
+                        confetti.style.top = pos + 'px';
+                        confetti.style.transform = `translateX(${Math.sin(pos / 30) * 20}px) rotate(${pos * 2}deg)`;
+                        
+                        if (pos > gameScene.offsetHeight) {
+                            clearInterval(fall);
+                            confetti.remove();
+                        }
+                    }, 20);
+                }, i * 50);
+            }
+        }
+        
+        // Reset game
+        function resetGame() {
+            document.getElementById('winScreen').classList.add('hidden');
+            
+            // Clear all active stone highlights
+            stones.forEach(s => s.classList.remove('active'));
+            
+            // Reset monkey appearance
+            const monkeyEl = document.getElementById('monkey');
+            monkeyEl.classList.remove('falling', 'jumping');
+            monkeyEl.style.opacity = '1';
+            
+            currentStone = 0;
+            questionsAnswered = 0;
+            shuffleQuestions(); // Fresh shuffle for new game
+            positionMonkey(0);
+            startGame();
+        }
+        
+        // Recreate stones on window resize to handle responsive banks
+        window.addEventListener('resize', () => {
+            createSteppingStones();
+            positionMonkey(currentStone);
+        });
+        
+        // Initialize game when page loads
+        window.onload = () => {
+            initGame();
+        };
+    </script>
+</body>
+</html>

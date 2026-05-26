@@ -1,0 +1,897 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Jungle Word Search</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+            min-height: 100vh;
+            background: linear-gradient(135deg, #1e3f1e 0%, #2d5a2d 50%, #1e3f1e 100%);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 20px;
+            overflow-x: hidden;
+        }
+        
+        .game-container {
+            width: 100%;
+            max-width: 1000px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 20px;
+        }
+        
+        .title {
+            font-size: 36px;
+            color: #4CAF50;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+            margin-bottom: 10px;
+            text-align: center;
+        }
+        
+        .game-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            width: 100%;
+            max-width: 600px;
+            gap: 20px;
+            flex-wrap: wrap;
+        }
+        
+        .progress {
+            font-size: 18px;
+            color: white;
+            background: rgba(0, 0, 0, 0.6);
+            padding: 10px 20px;
+            border-radius: 20px;
+            font-weight: bold;
+        }
+        
+        .clicks-counter {
+            font-size: 18px;
+            color: white;
+            background: rgba(0, 0, 0, 0.6);
+            padding: 10px 20px;
+            border-radius: 20px;
+            font-weight: bold;
+        }
+        
+        .clicks-counter.danger {
+            background: rgba(255, 0, 0, 0.8);
+            animation: clicksShake 0.5s infinite;
+        }
+        
+        @keyframes clicksShake {
+            0%, 100% { transform: translateX(0); }
+            25% { transform: translateX(-3px); }
+            75% { transform: translateX(3px); }
+        }
+        
+        .timer {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 18px;
+            color: white;
+            background: rgba(0, 0, 0, 0.6);
+            padding: 10px 20px;
+            border-radius: 20px;
+            font-weight: bold;
+            transition: all 0.3s ease;
+        }
+        
+        .timer.critical {
+            background: rgba(255, 0, 0, 0.8);
+            font-size: 22px;
+            animation: pulse 1s infinite;
+        }
+        
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+        }
+        
+        .timer.critical #timeDisplay {
+            color: #FFE066;
+            text-shadow: 0 0 10px rgba(255, 0, 0, 0.8);
+        }
+        
+        .bomb {
+            font-size: 24px;
+            animation: none;
+        }
+        
+        .bomb.danger {
+            animation: bombShake 0.5s infinite;
+        }
+        
+        @keyframes bombShake {
+            0%, 100% { transform: rotate(0deg); }
+            25% { transform: rotate(-5deg); }
+            75% { transform: rotate(5deg); }
+        }
+        
+        .clues-container {
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 20px;
+            padding: 15px 25px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+            width: 100%;
+            max-width: 800px;
+            margin-top: 10px;
+        }
+        
+        .clues-title {
+            font-size: 18px;
+            color: #2e5931;
+            margin-bottom: 10px;
+            text-align: center;
+            font-weight: bold;
+        }
+        
+        .clue-grid {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            justify-content: center;
+            align-items: center;
+        }
+        
+        .clue-emoji {
+            font-size: 32px;
+            padding: 8px;
+            border-radius: 50%;
+            transition: all 0.3s ease;
+            cursor: help;
+            position: relative;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .clue-emoji.found {
+            border: 3px solid #4CAF50;
+            background: rgba(76, 175, 80, 0.1);
+            animation: foundBounce 0.5s ease;
+        }
+        
+        @keyframes foundBounce {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.2); }
+        }
+        
+        .game-area {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 20px;
+        }
+        
+        .grid-container {
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 20px;
+            padding: 20px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+        }
+        
+        .word-grid {
+            display: grid;
+            grid-template-columns: repeat(12, 1fr);
+            gap: 3px;
+            margin: 0 auto;
+        }
+        
+        .grid-cell {
+            width: 35px;
+            height: 35px;
+            background: #f0f8f0;
+            border: 2px solid #ccc;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 18px;
+            font-weight: bold;
+            color: #2e5931;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            user-select: none;
+        }
+        
+        .grid-cell:hover {
+            background: #e8f5e8;
+            transform: scale(1.1);
+        }
+        
+        .grid-cell.found {
+            background: #4CAF50;
+            border-color: #388E3C;
+            color: white;
+            animation: foundPulse 0.5s ease;
+        }
+        
+        @keyframes foundPulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.2); }
+            100% { transform: scale(1); }
+        }
+        
+        .start-screen, .win-screen, .bomb-screen {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(255, 255, 255, 0.95);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 300;
+        }
+        
+        .bomb-screen {
+            background: rgba(255, 0, 0, 0.9);
+        }
+        
+        .screen-title {
+            font-size: 48px;
+            color: #2e5931;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+        
+        .bomb-screen .screen-title {
+            color: white;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.5);
+        }
+        
+        .screen-description {
+            font-size: 20px;
+            margin-bottom: 30px;
+            text-align: center;
+            color: #3b7a57;
+            line-height: 1.5;
+            max-width: 600px;
+        }
+        
+        .bomb-screen .screen-description {
+            color: white;
+        }
+        
+        .start-btn, .play-again-btn, .try-again-btn {
+            padding: 20px 40px;
+            font-size: 24px;
+            background: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 20px;
+            cursor: pointer;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+            transition: all 0.3s ease;
+            font-weight: bold;
+        }
+        
+        .try-again-btn {
+            background: #ff6b6b;
+        }
+        
+        .start-btn:hover, .play-again-btn:hover, .try-again-btn:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 7px 20px rgba(0,0,0,0.3);
+        }
+        
+        .hidden {
+            display: none;
+        }
+        
+        .feedback {
+            position: fixed;
+            top: 20%;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 24px;
+            font-weight: bold;
+            color: #4CAF50;
+            background: rgba(255, 255, 255, 0.9);
+            padding: 15px 30px;
+            border-radius: 15px;
+            z-index: 400;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+            text-shadow: 1px 1px 2px rgba(0,0,0,0.2);
+        }
+        
+        .feedback.show {
+            opacity: 1;
+        }
+        
+        /* Confetti styles */
+        .confetti {
+            position: fixed;
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            z-index: 350;
+            pointer-events: none;
+        }
+        
+        /* Explosion effect */
+        .explosion {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 200px;
+            z-index: 350;
+            animation: explode 1s ease-out;
+        }
+        
+        @keyframes explode {
+            0% { transform: translate(-50%, -50%) scale(0); opacity: 1; }
+            50% { transform: translate(-50%, -50%) scale(1.5); opacity: 1; }
+            100% { transform: translate(-50%, -50%) scale(2); opacity: 0; }
+        }
+        
+        /* Responsive design */
+        @media (max-width: 768px) {
+            .grid-cell {
+                width: 28px;
+                height: 28px;
+                font-size: 14px;
+            }
+            
+            .word-grid {
+                gap: 2px;
+            }
+            
+            .title {
+                font-size: 28px;
+            }
+            
+            .screen-title {
+                font-size: 36px;
+            }
+            
+            .game-header {
+                flex-direction: column;
+                gap: 10px;
+            }
+            
+            .clue-emoji {
+                font-size: 28px;
+            }
+            
+            .timer.critical {
+                font-size: 20px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Start Screen -->
+    <div class="start-screen" id="startScreen">
+        <h1 class="screen-title">🌴 Jungle Word Search 🦜</h1>
+        <p class="screen-description">
+            Find hidden jungle words in the letter grid!<br>
+            Click the FIRST LETTER of a word to find it.<br>
+            You have 7 minutes before the bomb explodes!
+            <br><br>
+            Designed, built, and tested by <b>David</b>
+        </p>
+        <button class="start-btn" onclick="startGame()">Start Searching!</button>
+    </div>
+    
+    <!-- Win Screen -->
+    <div class="win-screen hidden" id="winScreen">
+        <h1 class="screen-title">🎉 Jungle Explorer! 🎉</h1>
+        <p class="screen-description">
+            Amazing! You found all the hidden jungle words!<br>
+            You defused the bomb and saved the jungle! 🌿
+        </p>
+        <button class="play-again-btn" onclick="resetGame()">Explore Again!</button>
+    </div>
+    
+    <!-- Bomb Screen -->
+    <div class="bomb-screen hidden" id="bombScreen">
+        <h1 class="screen-title">💥 BOOM! 💥</h1>
+        <p class="screen-description">
+            The bomb exploded! Time ran out!<br>
+            Don't worry, let's try a new jungle word search!
+        </p>
+        <button class="try-again-btn" onclick="resetGame()">Try Again!</button>
+    </div>
+    
+    <!-- Clicks Limit Screen -->
+    <div class="bomb-screen hidden" id="clicksScreen">
+        <h1 class="screen-title">🚫 Too Many Clicks! 🚫</h1>
+        <p class="screen-description">
+            You used too many clicks!<br>
+            Remember to click only the FIRST letter of each word.<br>
+            Let's try again with a new puzzle!
+        </p>
+        <button class="try-again-btn" onclick="resetGame()">Try Again!</button>
+    </div>
+    
+    <!-- Game Container -->
+    <div class="game-container hidden" id="gameContainer">
+        <h1 class="title">🌴 Jungle Word Search 🦜</h1>
+        
+        <div class="game-header">
+            <div class="progress" id="progress">Found: 0/10</div>
+            <div class="clicks-counter" id="clicksCounter">Clicks: 0/40</div>
+            <div class="timer" id="timer">
+                <span class="bomb" id="bomb">💣</span>
+                <span id="timeDisplay">7:00</span>
+            </div>
+        </div>
+        
+        <div class="game-area">
+            <div class="grid-container">
+                <div class="word-grid" id="wordGrid">
+                    <!-- Grid cells will be generated here -->
+                </div>
+            </div>
+            
+            <div class="clues-container">
+                <div class="clues-title">🔍 Find These:</div>
+                <div class="clue-grid" id="clueGrid">
+                    <!-- Clue emojis will be generated here -->
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Feedback -->
+    <div class="feedback" id="feedback"></div>
+
+    <script>
+        // Complete word bank with 25 jungle-themed words and emojis
+        const WORD_BANK = [
+            { word: 'MONKEY', emoji: '🐒' },
+            { word: 'TIGER', emoji: '🐅' },
+            { word: 'ELEPHANT', emoji: '🐘' },
+            { word: 'SNAKE', emoji: '🐍' },
+            { word: 'FROG', emoji: '🐸' },
+            { word: 'PARROT', emoji: '🦜' },
+            { word: 'TOUCAN', emoji: '🦜' },
+            { word: 'SLOTH', emoji: '🦥' },
+            { word: 'JAGUAR', emoji: '🐆' },
+            { word: 'TAPIR', emoji: '🦏' },
+            { word: 'TREE', emoji: '🌳' },
+            { word: 'VINE', emoji: '🌿' },
+            { word: 'BAMBOO', emoji: '🎋' },
+            { word: 'ORCHID', emoji: '🌺' },
+            { word: 'PALM', emoji: '🌴' },
+            { word: 'LEAF', emoji: '🍃' },
+            { word: 'FLOWER', emoji: '🌸' },
+            { word: 'RIVER', emoji: '🌊' },
+            { word: 'RAIN', emoji: '🌧️' },
+            { word: 'FRUIT', emoji: '🥭' },
+            { word: 'COCONUT', emoji: '🥥' },
+            { word: 'BANANA', emoji: '🍌' },
+            { word: 'ANT', emoji: '🐜' },
+            { word: 'SPIDER', emoji: '🕷️' },
+            { word: 'BUTTERFLY', emoji: '🦋' }
+        ];
+        
+        // Game variables
+        let currentWords = [];
+        let grid = [];
+        let foundWords = [];
+        let wordPositions = {}; // Store word positions and directions
+        let gameTimer;
+        let timeRemaining = 420; // 7 minutes in seconds
+        let clickCount = 0;
+        const MAX_CLICKS = 40;
+        
+        const GRID_SIZE = 12;
+        
+        // Jungle-themed colors for found words
+        const JUNGLE_COLORS = [
+            '#4CAF50', // Green
+            '#8BC34A', // Light Green
+            '#2E7D32', // Dark Green
+            '#66BB6A', // Medium Green
+            '#81C784', // Soft Green
+            '#388E3C', // Forest Green
+            '#558B2F', // Olive Green
+            '#689F38'  // Lime Green
+        ];
+        
+        // Initialize game
+        function startGame() {
+            document.getElementById('startScreen').classList.add('hidden');
+            document.getElementById('bombScreen').classList.add('hidden');
+            document.getElementById('winScreen').classList.add('hidden');
+            document.getElementById('clicksScreen').classList.add('hidden');
+            document.getElementById('gameContainer').classList.remove('hidden');
+            
+            // Reset game state
+            timeRemaining = 420;
+            foundWords = [];
+            wordPositions = {};
+            clickCount = 0;
+            
+            // Select 10 random words
+            selectRandomWords();
+            
+            // Create grid and place words
+            createGrid();
+            placeWords();
+            fillEmptySpaces();
+            
+            // Render grid
+            renderGrid();
+            renderClues();
+            
+            // Update displays
+            updateProgress();
+            updateClicksCounter();
+            
+            // Start timer
+            startTimer();
+        }
+        
+        // Start countdown timer
+        function startTimer() {
+            const bomb = document.getElementById('bomb');
+            const timer = document.getElementById('timer');
+            bomb.classList.remove('danger');
+            timer.classList.remove('critical');
+            
+            gameTimer = setInterval(() => {
+                timeRemaining--;
+                updateTimerDisplay();
+                
+                // Make timer critical when under 30 seconds
+                if (timeRemaining <= 30) {
+                    timer.classList.add('critical');
+                }
+                
+                // Make bomb shake when under 1 minute
+                if (timeRemaining <= 60) {
+                    bomb.classList.add('danger');
+                }
+                
+                // Time's up!
+                if (timeRemaining <= 0) {
+                    clearInterval(gameTimer);
+                    explodeBomb();
+                }
+            }, 1000);
+        }
+        
+        // Update timer display
+        function updateTimerDisplay() {
+            const minutes = Math.floor(timeRemaining / 60);
+            const seconds = timeRemaining % 60;
+            const timeDisplay = document.getElementById('timeDisplay');
+            timeDisplay.textContent = `${minutes}:${seconds.toString().padStart(2, '0')}`;
+        }
+        
+        // Explode bomb and show bomb screen
+        function explodeBomb() {
+            // Create explosion effect
+            const explosion = document.createElement('div');
+            explosion.className = 'explosion';
+            explosion.textContent = '💥';
+            document.body.appendChild(explosion);
+            
+            setTimeout(() => {
+                explosion.remove();
+                document.getElementById('gameContainer').classList.add('hidden');
+                document.getElementById('bombScreen').classList.remove('hidden');
+            }, 1000);
+        }
+        
+        // Select 10 random words from the bank
+        function selectRandomWords() {
+            const shuffled = [...WORD_BANK].sort(() => Math.random() - 0.5);
+            currentWords = shuffled.slice(0, 10);
+        }
+        
+        // Create empty grid
+        function createGrid() {
+            grid = Array(GRID_SIZE).fill().map(() => Array(GRID_SIZE).fill(''));
+        }
+        
+        // Place words in the grid
+        function placeWords() {
+            const directions = [
+                [0, 1],   // horizontal (left to right)
+                [1, 0]    // vertical (top to bottom)
+            ];
+            
+            currentWords.forEach(wordObj => {
+                const word = wordObj.word;
+                let placed = false;
+                let attempts = 0;
+                
+                while (!placed && attempts < 100) {
+                    const direction = directions[Math.floor(Math.random() * directions.length)];
+                    const startRow = Math.floor(Math.random() * GRID_SIZE);
+                    const startCol = Math.floor(Math.random() * GRID_SIZE);
+                    
+                    if (canPlaceWord(word, startRow, startCol, direction)) {
+                        placeWord(word, startRow, startCol, direction);
+                        
+                        // Store word position for click detection
+                        wordPositions[word] = {
+                            startRow,
+                            startCol,
+                            direction,
+                            emoji: wordObj.emoji,
+                            positions: [],
+                            color: JUNGLE_COLORS[Math.floor(Math.random() * JUNGLE_COLORS.length)]
+                        };
+                        
+                        // Calculate all positions for this word
+                        const [dRow, dCol] = direction;
+                        for (let i = 0; i < word.length; i++) {
+                            wordPositions[word].positions.push({
+                                row: startRow + (dRow * i),
+                                col: startCol + (dCol * i)
+                            });
+                        }
+                        
+                        placed = true;
+                    }
+                    attempts++;
+                }
+            });
+        }
+        
+        // Check if word can be placed at position
+        function canPlaceWord(word, startRow, startCol, direction) {
+            const [dRow, dCol] = direction;
+            
+            for (let i = 0; i < word.length; i++) {
+                const row = startRow + (dRow * i);
+                const col = startCol + (dCol * i);
+                
+                // Check bounds
+                if (row < 0 || row >= GRID_SIZE || col < 0 || col >= GRID_SIZE) {
+                    return false;
+                }
+                
+                // Check if cell is empty or has the same letter
+                if (grid[row][col] !== '' && grid[row][col] !== word[i]) {
+                    return false;
+                }
+            }
+            
+            return true;
+        }
+        
+        // Place word in grid
+        function placeWord(word, startRow, startCol, direction) {
+            const [dRow, dCol] = direction;
+            
+            for (let i = 0; i < word.length; i++) {
+                const row = startRow + (dRow * i);
+                const col = startCol + (dCol * i);
+                grid[row][col] = word[i];
+            }
+        }
+        
+        // Fill empty spaces with random letters
+        function fillEmptySpaces() {
+            const letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+            
+            for (let row = 0; row < GRID_SIZE; row++) {
+                for (let col = 0; col < GRID_SIZE; col++) {
+                    if (grid[row][col] === '') {
+                        grid[row][col] = letters[Math.floor(Math.random() * letters.length)];
+                    }
+                }
+            }
+        }
+        
+        // Render grid to DOM
+        function renderGrid() {
+            const gridElement = document.getElementById('wordGrid');
+            gridElement.innerHTML = '';
+            
+            for (let row = 0; row < GRID_SIZE; row++) {
+                for (let col = 0; col < GRID_SIZE; col++) {
+                    const cell = document.createElement('div');
+                    cell.className = 'grid-cell';
+                    cell.textContent = grid[row][col];
+                    cell.dataset.row = row;
+                    cell.dataset.col = col;
+                    
+                    // Add click listener
+                    cell.addEventListener('click', () => handleCellClick(row, col));
+                    
+                    gridElement.appendChild(cell);
+                }
+            }
+        }
+        
+        // Handle cell click - check if it's the first letter of a word
+        function handleCellClick(row, col) {
+            // Increment click count
+            clickCount++;
+            updateClicksCounter();
+            
+            // Check if click limit exceeded
+            if (clickCount > MAX_CLICKS) {
+                clearInterval(gameTimer);
+                setTimeout(clicksLimitReached, 500);
+                return;
+            }
+            
+            // Check each word to see if this cell is the first letter
+            for (const [word, wordData] of Object.entries(wordPositions)) {
+                if (foundWords.includes(word)) continue; // Skip already found words
+                
+                // Check if clicked cell is the first letter of this word
+                if (wordData.startRow === row && wordData.startCol === col) {
+                    foundWord(word, wordData);
+                    return;
+                }
+            }
+        }
+        
+        // Mark word as found
+        function foundWord(word, wordData) {
+            foundWords.push(word);
+            
+            // Highlight all cells of this word with random jungle color
+            wordData.positions.forEach(pos => {
+                const cell = document.querySelector(`[data-row="${pos.row}"][data-col="${pos.col}"]`);
+                if (cell) {
+                    cell.classList.add('found');
+                    cell.style.backgroundColor = wordData.color;
+                    cell.style.borderColor = wordData.color;
+                }
+            });
+            
+            // Circle the corresponding emoji clue
+            const clueEmoji = document.querySelector(`[data-word="${word}"]`);
+            if (clueEmoji) {
+                clueEmoji.classList.add('found');
+            }
+            
+            // Show feedback
+            showFeedback(`Found: ${word}! ${wordData.emoji}`);
+            
+            // Update displays
+            updateProgress();
+            
+            // Check win condition
+            if (foundWords.length === currentWords.length) {
+                clearInterval(gameTimer);
+                setTimeout(winGame, 1000);
+            }
+        }
+        
+        // Update clicks counter
+        function updateClicksCounter() {
+            const clicksCounter = document.getElementById('clicksCounter');
+            clicksCounter.textContent = `Clicks: ${clickCount}/${MAX_CLICKS}`;
+            
+            // Add danger styling when getting close to limit
+            if (clickCount >= MAX_CLICKS - 5) {
+                clicksCounter.classList.add('danger');
+            } else {
+                clicksCounter.classList.remove('danger');
+            }
+        }
+        
+        // Handle clicks limit reached
+        function clicksLimitReached() {
+            document.getElementById('gameContainer').classList.add('hidden');
+            document.getElementById('clicksScreen').classList.remove('hidden');
+        }
+        
+        // Update progress display
+        function updateProgress() {
+            const progress = document.getElementById('progress');
+            progress.textContent = `Found: ${foundWords.length}/${currentWords.length}`;
+        }
+        
+        // Render clues grid
+        function renderClues() {
+            const clueGrid = document.getElementById('clueGrid');
+            clueGrid.innerHTML = '';
+            
+            currentWords.forEach(wordObj => {
+                const clueEmoji = document.createElement('div');
+                clueEmoji.className = 'clue-emoji';
+                clueEmoji.textContent = wordObj.emoji;
+                clueEmoji.dataset.word = wordObj.word;
+                clueEmoji.title = wordObj.word; // Tooltip
+                
+                clueGrid.appendChild(clueEmoji);
+            });
+        }
+        
+        // Show feedback message
+        function showFeedback(message) {
+            const feedback = document.getElementById('feedback');
+            feedback.textContent = message;
+            feedback.classList.add('show');
+            
+            setTimeout(() => {
+                feedback.classList.remove('show');
+            }, 2000);
+        }
+        
+        // Create confetti effect
+        function createConfetti() {
+            const colors = ['#FFD700', '#FFA500', '#FF6347', '#00CED1', '#32CD32', '#9370DB', '#FF69B4', '#87CEEB'];
+            
+            for (let i = 0; i < 150; i++) {
+                setTimeout(() => {
+                    const confetti = document.createElement('div');
+                    confetti.className = 'confetti';
+                    confetti.style.backgroundColor = colors[Math.floor(Math.random() * colors.length)];
+                    confetti.style.left = Math.random() * 100 + '%';
+                    confetti.style.top = '-10px';
+                    document.body.appendChild(confetti);
+                    
+                    // Animate falling
+                    let pos = -10;
+                    let rotation = 0;
+                    const fall = setInterval(() => {
+                        pos += 4;
+                        rotation += 5;
+                        confetti.style.top = pos + 'px';
+                        confetti.style.transform = `translateX(${Math.sin(pos / 30) * 20}px) rotate(${rotation}deg)`;
+                        
+                        if (pos > window.innerHeight) {
+                            clearInterval(fall);
+                            confetti.remove();
+                        }
+                    }, 20);
+                }, i * 30);
+            }
+        }
+        
+        // Win game
+        function winGame() {
+            // Create confetti celebration
+            createConfetti();
+            
+            setTimeout(() => {
+                document.getElementById('gameContainer').classList.add('hidden');
+                document.getElementById('winScreen').classList.remove('hidden');
+                
+                // Notify parent if embedded
+                if (window.parent !== window) {
+                    window.parent.postMessage({
+                        type: 'gameCompletion',
+                        completed: true
+                    }, '*');
+                }
+            }, 2000);
+        }
+        
+        // Reset game
+        function resetGame() {
+            if (gameTimer) {
+                clearInterval(gameTimer);
+            }
+            
+            document.getElementById('winScreen').classList.add('hidden');
+            document.getElementById('bombScreen').classList.add('hidden');
+            document.getElementById('clicksScreen').classList.add('hidden');
+            startGame();
+        }
+    </script>
+</body>
+</html>
+            

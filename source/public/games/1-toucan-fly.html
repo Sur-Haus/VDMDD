@@ -1,0 +1,603 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Toucan Fly</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        /* Remove background styles from body and html */
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+            overflow: hidden;
+            height: 100%;
+            margin: 0;
+            padding: 0;
+        }
+        
+        html {
+            height: 100%;
+            margin: 0;
+            padding: 0;
+        }
+        
+        /* Add background to game container instead */
+        .game-container {
+            position: relative;
+            width: 100%;
+            height: 100vh; /* Use viewport height */
+            overflow: hidden;
+            background: #2e5c2e; /* Fallback solid color */
+            background: -webkit-linear-gradient(top, #2e5c2e 0%, #1f3f1f 100%); /* Safari/Chrome */
+            background: -moz-linear-gradient(top, #2e5c2e 0%, #1f3f1f 100%); /* Firefox */
+            background: linear-gradient(to bottom, #2e5c2e 0%, #1f3f1f 100%);
+        }
+        
+        .bird {
+            position: absolute;
+            width: 80px;
+            height: 80px;
+            left: 50%;
+            top: 50%;
+            transform: translate(-50%, -50%);
+            z-index: 100;
+            /* Remove transition on position to prevent trails */
+            transition: opacity 0.5s ease;
+            /* Remove border-radius to eliminate any circular styling */
+            /* Force hardware acceleration for smoother rendering */
+            will-change: transform;
+            backface-visibility: hidden;
+        }
+        
+        /* Bird direction styles - ONLY the image, no other UI elements */
+        .bird.left {
+            background-image: url('../images/toucan-fly-bird-left.png');
+            background-size: contain;
+            background-repeat: no-repeat;
+            background-position: center;
+        }
+        
+        .bird.right {
+            background-image: url('../images/toucan-fly-bird-right.png');
+            background-size: contain;
+            background-repeat: no-repeat;
+            background-position: center;
+        }
+        
+        .obstacle {
+            position: absolute;
+            font-size: 40px;
+            z-index: 50;
+            transition: transform 0.1s ease;
+        }
+        
+        .tree {
+            position: absolute;
+            font-size: 120px;
+            left: 50%;
+            top: 50%;
+            transform: translate(-50%, -50%);
+            z-index: 50;
+            filter: drop-shadow(0 0 20px rgba(255, 255, 255, 0.8)) 
+                    drop-shadow(0 0 40px rgba(255, 255, 255, 0.5));
+        }
+        
+        .start-screen, .game-over-screen, .win-screen {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(255, 255, 255, 0.95); /* Changed to white with slight transparency */
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            color: #333; /* Changed to dark gray text */
+            z-index: 200;
+        }
+        
+        .hidden {
+            display: none !important;
+        }
+        
+        h1 {
+            font-size: 48px;
+            margin-bottom: 20px;
+            text-align: center;
+            color: #2e5c2e; /* Changed to match the green theme but darker */
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.2); /* Reduced shadow opacity */
+        }
+
+        p {
+            font-size: 24px;
+            margin-bottom: 30px;
+            text-align: center;
+            line-height: 1.4;
+            color: #333; /* Ensure paragraph text is dark */
+        }
+        
+        button {
+            font-size: 24px;
+            padding: 15px 30px;
+            background: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 10px;
+            cursor: pointer;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.3);
+            transition: all 0.2s ease;
+        }
+        
+        button:hover {
+            background: #45a049;
+            transform: translateY(-2px);
+        }
+        
+        button:active {
+            transform: translateY(0);
+        }
+        
+        
+        .controls {
+            position: absolute;
+            bottom: 20px;
+            right: 20px;
+            color: white;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.5);
+            text-align: right;
+            z-index: 150;
+        }
+        
+        .ouch-popup {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 72px;
+            font-weight: bold;
+            color: #FF4444;
+            text-shadow: 3px 3px 6px rgba(0,0,0,0.7);
+            z-index: 300;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+        
+        .ouch-popup.show {
+            opacity: 1;
+        }
+    </style>
+</head>
+<body>
+    <div class="game-container" id="gameContainer">
+        <!-- Start Screen -->
+        <div class="start-screen" id="startScreen">
+            <h1>🦜 Toucan Fly 🌴</h1>
+            <p>
+                Help the toucan fly home to the tree!<br>
+                Dodge the fruit thrown by mischievous monkeys!<br>
+                Use arrow keys to fly safely through the jungle.
+                <br><br>
+                Designed, built, and tested by <b>Declan J</b>
+            </p>
+            <button onclick="startGame()">Start Flying!</button>
+        </div>
+        
+        <!-- Game Over Screen -->
+        <div class="game-over-screen hidden" id="gameOverScreen">
+            <h1>💥 OUCH! 💥</h1>
+            <p>
+                The toucan got hit by flying fruit!<br>
+                Those monkeys are tricky!
+            </p>
+            <button onclick="restartGame()">Try Again</button>
+        </div>
+        
+        <!-- Win Screen -->
+        <div class="win-screen hidden" id="winScreen">
+            <h1>🎉 You Did It! 🎉</h1>
+            <p>
+                The toucan made it home to the tree!<br>
+                Safe from all that flying fruit!
+            </p>
+            <button onclick="restartGame()">Play Again</button>
+        </div>
+        
+        <!-- Bird - Initially visible but positioned off-screen until game starts -->
+        <div class="bird right" id="bird" style="opacity: 0;"></div>
+        
+        <!-- Controls -->
+        <div class="controls hidden" id="controls">
+            Use ← → ↑ ↓ arrow keys<br>
+            to fly around branches
+        </div>
+        
+        <!-- OUCH Popup -->
+        <div class="ouch-popup" id="ouchPopup">OUCH!</div>
+    </div>
+
+    <script>
+        // Game variables
+        let gameRunning = false;
+        let birdX = 50; // percentage
+        let birdY = 50; // percentage
+        let obstacles = [];
+        let distance = 0;
+        let gameSpeed = 2;
+        let treeSpawned = false;
+        let tree = null;
+        let birdDirection = 'right'; // 'left' or 'right' only - no neutral state
+        let gameTime = 0; // Track game time in frames (60fps)
+        let imagesLoaded = false;
+        
+        // Game constants
+        const BIRD_SPEED = 1; // Reduced from 2 to 1 for finer movement (2x spatial resolution)
+        const MIN_BIRD_Y = 10; // Top constraint (10% from top - more space to dodge)
+        const MAX_BIRD_Y = 90; // Bottom constraint (90% from top - more space to dodge)
+        const FRUIT_SPEED = 3; // Base speed for flying fruit
+        const FRUIT_TYPES = ['🍎', '🍊', '🍋', '🥭', '🍌', '🥥', '🍉', '🍑', '🍐'];
+        const WIN_DISTANCE = 250;
+        
+        // Game phases (in seconds at 60fps)
+        const PHASE_1_DURATION = 3 * 60; // 3 seconds - no branches
+        const PHASE_2_DURATION = 8 * 60; // 8 seconds - easy (few branches)
+        const PHASE_3_DURATION = 12 * 60; // 12 seconds - medium hard
+        const PHASE_4_DURATION = 5 * 60; // 5 seconds - hardest (most branches)
+        const TOTAL_GAME_TIME = PHASE_1_DURATION + PHASE_2_DURATION + PHASE_3_DURATION + PHASE_4_DURATION;
+        
+        // DOM elements
+        const gameContainer = document.getElementById('gameContainer');
+        const bird = document.getElementById('bird');
+        const startScreen = document.getElementById('startScreen');
+        const gameOverScreen = document.getElementById('gameOverScreen');
+        const winScreen = document.getElementById('winScreen');
+        const controlsElement = document.getElementById('controls');
+        const ouchPopup = document.getElementById('ouchPopup');
+        
+        // Keyboard input
+        const keys = {};
+        
+        document.addEventListener('keydown', (e) => {
+            keys[e.key] = true;
+        });
+        
+        document.addEventListener('keyup', (e) => {
+            keys[e.key] = false;
+        });
+        
+        // Preload images function
+        function preloadImages() {
+            return new Promise((resolve) => {
+                const imagesToLoad = [
+                    '../images/toucan-fly-bird-left.png',
+                    '../images/toucan-fly-bird-right.png'
+                ];
+                
+                let loadedCount = 0;
+                const totalImages = imagesToLoad.length;
+                
+                function imageLoaded() {
+                    loadedCount++;
+                    if (loadedCount === totalImages) {
+                        imagesLoaded = true;
+                        resolve();
+                    }
+                }
+                
+                function imageError() {
+                    console.warn('Bird image failed to load, using fallback');
+                    imageLoaded(); // Continue anyway
+                }
+                
+                imagesToLoad.forEach(src => {
+                    const img = new Image();
+                    img.onload = imageLoaded;
+                    img.onerror = imageError;
+                    img.src = src;
+                });
+                
+                // Fallback timeout in case images take too long
+                setTimeout(() => {
+                    if (!imagesLoaded) {
+                        console.warn('Image loading timeout, proceeding with fallbacks');
+                        imagesLoaded = true;
+                        resolve();
+                    }
+                }, 2000);
+            });
+        }
+        
+        // Initialize bird position and appearance
+        function initializeBird() {
+            // Reset bird position to center
+            birdX = 50;
+            birdY = 50;
+            birdDirection = 'right';
+            
+            // Update bird appearance and position
+            updateBirdAppearance();
+            updateBirdPosition();
+            
+            // Make bird visible with a fade-in effect
+            bird.style.opacity = '1';
+            bird.style.transition = 'opacity 0.5s ease, all 0.1s ease';
+        }
+        
+        // Update bird position on screen
+        function updateBirdPosition() {
+            // Use transform instead of changing left/top for smoother animation
+            bird.style.transform = `translate(${birdX - 50}vw, ${birdY - 50}vh) translate(-50%, -50%)`;
+        }
+        
+        // Start game
+        function startGame() {
+            gameRunning = true;
+            
+            // Initialize bird
+            initializeBird();
+            
+            // Reset game state
+            obstacles = [];
+            distance = 0;
+            gameTime = 0; // Reset game time
+            treeSpawned = false;
+            tree = null;
+            
+            // Show/hide UI elements
+            startScreen.classList.add('hidden');
+            gameOverScreen.classList.add('hidden');
+            winScreen.classList.add('hidden');
+            bird.classList.remove('hidden');
+            controlsElement.classList.remove('hidden');
+            
+            gameLoop();
+        }
+        
+        // Restart game
+        function restartGame() {
+            // Clear existing obstacles and tree
+            document.querySelectorAll('.obstacle').forEach(obs => obs.remove());
+            document.querySelectorAll('.tree').forEach(t => t.remove());
+            
+            startGame();
+        }
+        
+        // Game loop
+        function gameLoop() {
+            if (!gameRunning) return;
+            
+            gameTime++; // Increment game time each frame
+            updateBird();
+            updateObstacles();
+            checkCollisions();
+            spawnObstacles();
+            spawnTree();
+            
+            requestAnimationFrame(gameLoop);
+        }
+        
+        // Get current game phase and obstacle spawn rate
+        function getCurrentPhase() {
+            if (gameTime <= PHASE_1_DURATION) {
+                return { phase: 1, spawnRate: 0 }; // No fruit
+            } else if (gameTime <= PHASE_1_DURATION + PHASE_2_DURATION) {
+                return { phase: 2, spawnRate: 0.005 }; // Easy - reduced from 0.008 (60% of original)
+            } else if (gameTime <= PHASE_1_DURATION + PHASE_2_DURATION + PHASE_3_DURATION) {
+                return { phase: 3, spawnRate: 0.009 }; // Medium hard - reduced from 0.015 (60% of original)
+            } else if (gameTime <= TOTAL_GAME_TIME) {
+                return { phase: 4, spawnRate: 0.015 }; // Hardest - reduced from 0.025 (60% of original)
+            } else {
+                return { phase: 5, spawnRate: 0 }; // End phase - spawn tree
+            }
+        }
+        
+        function updateBird() {
+            let directionChanged = false;
+            
+            // Handle horizontal input and track direction changes
+            if (keys['ArrowLeft'] || keys['a'] || keys['A']) {
+                birdX = Math.max(5, birdX - BIRD_SPEED);
+                if (birdDirection !== 'left') {
+                    birdDirection = 'left';
+                    directionChanged = true;
+                }
+            } else if (keys['ArrowRight'] || keys['d'] || keys['D']) {
+                birdX = Math.min(95, birdX + BIRD_SPEED);
+                if (birdDirection !== 'right') {
+                    birdDirection = 'right';
+                    directionChanged = true;
+                }
+            }
+            // Note: We no longer change direction when no keys are pressed
+            // The bird keeps its last direction
+            
+            // Vertical movement with constraints
+            if (keys['ArrowUp'] || keys['w'] || keys['W']) {
+                birdY = Math.max(MIN_BIRD_Y, birdY - BIRD_SPEED);
+            }
+            if (keys['ArrowDown'] || keys['s'] || keys['S']) {
+                birdY = Math.min(MAX_BIRD_Y, birdY + BIRD_SPEED);
+            }
+            
+            // Update bird appearance if direction changed
+            if (directionChanged) {
+                updateBirdAppearance();
+            }
+            
+            // Update bird position
+            updateBirdPosition();
+        }
+        
+        // Update bird appearance based on direction
+        function updateBirdAppearance() {
+            // Remove all direction classes
+            bird.classList.remove('left', 'right');
+            // Add current direction class
+            bird.classList.add(birdDirection);
+        }
+        
+        // Update obstacles (flying fruit moving horizontally)
+        function updateObstacles() {
+            obstacles.forEach((obstacle, index) => {
+                // Move fruit horizontally
+                if (obstacle.direction === 'left') {
+                    obstacle.x -= obstacle.speed;
+                } else {
+                    obstacle.x += obstacle.speed;
+                }
+                
+                // Remove fruit that has left the screen
+                if (obstacle.x < -50 || obstacle.x > window.innerWidth + 50) {
+                    obstacle.element.remove();
+                    obstacles.splice(index, 1);
+                    distance += 5;
+                } else {
+                    // Update position
+                    obstacle.element.style.left = obstacle.x + 'px';
+                    obstacle.element.style.top = obstacle.y + 'px';
+                    
+                    // Add slight rotation for visual effect
+                    const rotation = (obstacle.x / 5) % 360;
+                    obstacle.element.style.transform = `rotate(${rotation}deg)`;
+                }
+            });
+        }
+        
+        // Spawn obstacles (flying fruit) based on current game phase
+        function spawnObstacles() {
+            const currentPhase = getCurrentPhase();
+            
+            if (Math.random() < currentPhase.spawnRate) {
+                const isFromLeft = Math.random() < 0.5;
+                const isSlowFruit = Math.random() < 0.5; // 50% chance for slow fruit
+                
+                const obstacle = {
+                    direction: isFromLeft ? 'right' : 'left', // Direction fruit is moving
+                    x: isFromLeft ? -40 : window.innerWidth + 40, // Start off screen
+                    y: Math.random() * (window.innerHeight * 0.8) + (window.innerHeight * 0.1), // Most of screen height
+                    speed: isSlowFruit ? (FRUIT_SPEED / 2 + Math.random()) : (FRUIT_SPEED + Math.random() * 2), // Slow or normal speed
+                    type: FRUIT_TYPES[Math.floor(Math.random() * FRUIT_TYPES.length)],
+                    element: document.createElement('div')
+                };
+                
+                obstacle.element.className = 'obstacle';
+                obstacle.element.textContent = obstacle.type;
+                obstacle.element.style.left = obstacle.x + 'px';
+                obstacle.element.style.top = obstacle.y + 'px';
+                
+                gameContainer.appendChild(obstacle.element);
+                obstacles.push(obstacle);
+            }
+        }
+        
+        // Spawn tree at the end of all phases
+        function spawnTree() {
+            if (!treeSpawned && gameTime >= TOTAL_GAME_TIME) {
+                treeSpawned = true;
+                tree = document.createElement('div');
+                tree.className = 'tree';
+                tree.textContent = '🌳';
+                tree.style.left = '50%';
+                tree.style.top = '50%';
+                gameContainer.appendChild(tree);
+            }
+        }
+        
+        // Check collisions with flying fruit - MORE FORGIVING
+        function checkCollisions() {
+            // Make collision box smaller for more forgiving gameplay
+            const birdRect = {
+                left: (birdX / 100) * window.innerWidth - 20, // Reduced from 40 to 20
+                right: (birdX / 100) * window.innerWidth + 20, // Reduced from 40 to 20
+                top: (birdY / 100) * window.innerHeight - 20, // Reduced from 40 to 20
+                bottom: (birdY / 100) * window.innerHeight + 20 // Reduced from 40 to 20
+            };
+            
+            // Check fruit collisions
+            obstacles.forEach(obstacle => {
+                // Also make fruit collision box smaller
+                const obsRect = {
+                    left: obstacle.x + 10, // Add padding to make fruit smaller
+                    right: obstacle.x + 30, // Reduced from 40 to 30
+                    top: obstacle.y + 10, // Add padding
+                    bottom: obstacle.y + 30 // Reduced from 40 to 30
+                };
+                
+                if (birdRect.left < obsRect.right &&
+                    birdRect.right > obsRect.left &&
+                    birdRect.top < obsRect.bottom &&
+                    birdRect.bottom > obsRect.top) {
+                    gameOver();
+                    return;
+                }
+            });
+            
+            // Check tree collision (win condition)
+            if (tree) {
+                const treeRect = {
+                    left: window.innerWidth / 2 - 60,
+                    right: window.innerWidth / 2 + 60,
+                    top: window.innerHeight / 2 - 60,
+                    bottom: window.innerHeight / 2 + 60
+                };
+                
+                if (birdRect.left < treeRect.right &&
+                    birdRect.right > treeRect.left &&
+                    birdRect.top < treeRect.bottom &&
+                    birdRect.bottom > treeRect.top) {
+                    winGame();
+                }
+            }
+        }
+        
+        // Game over
+        function gameOver() {
+            gameRunning = false;
+            
+            // Show OUCH popup
+            ouchPopup.classList.add('show');
+            
+            setTimeout(() => {
+                ouchPopup.classList.remove('show');
+                bird.style.opacity = '0';
+                controlsElement.classList.add('hidden');
+                gameOverScreen.classList.remove('hidden');
+            }, 1500);
+        }
+        
+        // Win game
+        function winGame() {
+            gameRunning = false;
+            bird.style.opacity = '0';
+            controlsElement.classList.add('hidden');
+            winScreen.classList.remove('hidden');
+            // Notify parent if embedded
+            if (window.parent !== window) {
+                window.parent.postMessage({
+                    type: 'gameCompletion',
+                    completed: true
+                }, '*');
+            }
+        }
+        
+        // Initialize game when page loads
+        window.addEventListener('load', async () => {
+            // Preload images first
+            await preloadImages();
+            
+            // Initialize bird position and appearance
+            initializeBird();
+            
+            // Make sure bird is hidden until game starts
+            bird.style.opacity = '0';
+            
+            console.log('Game initialized, images loaded:', imagesLoaded);
+        });
+    </script>
+</body>
+</html>

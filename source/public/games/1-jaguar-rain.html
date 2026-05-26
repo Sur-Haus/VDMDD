@@ -1,0 +1,766 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Leaf Rain Collector</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+            overflow: hidden;
+            height: 100vh;
+            background: linear-gradient(to bottom, #4a90e2 0%, #7bb3f0 50%, #b3d9ff 100%);
+        }
+        
+        .game-container {
+            position: relative;
+            width: 100%;
+            height: 100vh;
+            overflow: hidden;
+        }
+        
+        /* Animated background clouds */
+        .cloud {
+            position: absolute;
+            color: rgba(255, 255, 255, 0.8);
+            font-size: 60px;
+            z-index: 1;
+            animation: floatCloud 20s linear infinite;
+        }
+        
+        .cloud:nth-child(1) { top: 10%; animation-delay: 0s; }
+        .cloud:nth-child(2) { top: 15%; animation-delay: -7s; }
+        .cloud:nth-child(3) { top: 5%; animation-delay: -14s; }
+        
+        @keyframes floatCloud {
+            0% { left: -100px; }
+            100% { left: calc(100% + 100px); }
+        }
+        
+        .bucket {
+            position: absolute;
+            width: 80px;
+            height: 80px;
+            left: 50%;
+            bottom: 10%;
+            transform: translateX(-50%);
+            z-index: 100;
+            transition: left 0.1s ease;
+            filter: drop-shadow(0 0 10px rgba(255, 255, 255, 0.8));
+        }
+        
+        .bucket-svg {
+            width: 100%;
+            height: 100%;
+        }
+        
+        .collected-drops {
+            position: absolute;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 60px;
+            height: 40px;
+            z-index: 101;
+            overflow: hidden;
+        }
+        
+        .collected-drop {
+            position: absolute;
+            font-size: 16px;
+            z-index: 102;
+            opacity: 0.8;
+        }
+        
+        .falling-item {
+            position: absolute;
+            font-size: 30px;
+            z-index: 50;
+            transition: transform 0.1s ease;
+        }
+        
+        .raindrop {
+            color: #4a90e2;
+            filter: drop-shadow(0 0 5px rgba(74, 144, 226, 0.8));
+        }
+        
+        .insect {
+            filter: drop-shadow(0 0 5px rgba(139, 69, 19, 0.5));
+        }
+        
+        .start-screen, .game-over-screen, .win-screen {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(255, 255, 255, 0.95);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 200;
+        }
+        
+        .hidden {
+            display: none !important;
+        }
+        
+        h1 {
+            font-size: 48px;
+            margin-bottom: 20px;
+            text-align: center;
+            color: #2e5c2e;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.2);
+        }
+
+        p {
+            font-size: 24px;
+            margin-bottom: 30px;
+            text-align: center;
+            line-height: 1.4;
+            color: #333;
+            max-width: 600px;
+        }
+        
+        button {
+            font-size: 24px;
+            padding: 15px 30px;
+            background: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 15px;
+            cursor: pointer;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.3);
+            transition: all 0.2s ease;
+            font-weight: bold;
+        }
+        
+        button:hover {
+            background: #45a049;
+            transform: translateY(-2px);
+            box-shadow: 0 6px 12px rgba(0,0,0,0.4);
+        }
+        
+        button:active {
+            transform: translateY(0);
+        }
+        
+        .controls {
+            position: absolute;
+            bottom: 20px;
+            right: 20px;
+            color: white;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.7);
+            text-align: right;
+            z-index: 150;
+            background: rgba(0,0,0,0.3);
+            padding: 10px 15px;
+            border-radius: 10px;
+        }
+        
+        .score {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            color: white;
+            font-size: 24px;
+            font-weight: bold;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.7);
+            background: rgba(0,0,0,0.3);
+            padding: 10px 20px;
+            border-radius: 10px;
+            z-index: 150;
+        }
+        
+        .percentage-counter {
+            position: absolute;
+            top: 60px;
+            left: 20px;
+            color: white;
+            font-size: 20px;
+            font-weight: bold;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.7);
+            background: rgba(0,0,0,0.3);
+            padding: 8px 16px;
+            border-radius: 10px;
+            z-index: 150;
+        }
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 72px;
+            font-weight: bold;
+            color: #FF4444;
+            text-shadow: 3px 3px 6px rgba(0,0,0,0.7);
+            z-index: 300;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+            background: rgba(255, 255, 255, 0.9);
+            padding: 20px 40px;
+            border-radius: 20px;
+            border: 5px solid #FF4444;
+        }
+        
+        .splash-popup.show {
+            opacity: 1;
+        }
+        
+        .jaguar-entrance {
+            position: absolute;
+            right: -200px;
+            bottom: 20%;
+            font-size: 120px;
+            z-index: 250;
+            transition: right 2s ease-in-out;
+            filter: drop-shadow(0 0 20px rgba(255, 255, 255, 0.8));
+        }
+        
+        .jaguar-entrance.enter {
+            right: 20%;
+        }
+        
+        /* Celebration confetti */
+        .confetti {
+            position: absolute;
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            z-index: 250;
+        }
+        
+        /* Progress indicator */
+        .progress-bar {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            width: 200px;
+            height: 20px;
+            background: rgba(0,0,0,0.3);
+            border-radius: 10px;
+            overflow: hidden;
+            z-index: 150;
+        }
+        
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #4CAF50, #81C784);
+            width: 0%;
+            transition: width 0.3s ease;
+            border-radius: 10px;
+        }
+        
+        .progress-text {
+            position: absolute;
+            top: 25px;
+            right: 20px;
+            color: white;
+            font-size: 14px;
+            font-weight: bold;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.7);
+            z-index: 151;
+        }
+        
+            /* Mobile responsiveness */
+        @media (max-width: 768px) {
+            .bucket {
+                width: 70px;
+                height: 70px;
+            }
+            
+            .collected-drops {
+                width: 50px;
+                height: 35px;
+                top: 15px;
+            }
+            
+            .collected-drop {
+                font-size: 14px;
+            }
+            
+            .falling-item {
+                font-size: 25px;
+            }
+            
+            h1 {
+                font-size: 36px;
+            }
+            
+            p {
+                font-size: 20px;
+            }
+            
+            .controls {
+                font-size: 14px;
+            }
+            
+            .progress-bar {
+                width: 150px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="game-container">
+        <!-- Background clouds -->
+        <div class="cloud">☁️</div>
+        <div class="cloud">☁️</div>
+        <div class="cloud">☁️</div>
+        
+        <!-- Start Screen -->
+        <div class="start-screen" id="startScreen">
+            <h1>🪣 Bucket Rain Collector 🌧️</h1>
+            <p>
+                Your pet jaguar is very thirsty!<br>
+                Use your bucket to collect raindrops for your jaguar to drink.<br>
+                Move left and right with arrow keys.<br>
+                Avoid the falling fruit and insects - they will make the water taste yucky!<br>
+                Fill your bucket to 100% to make your jaguar happy!
+                <br><br>
+                Designed, built, and tested by <b>Camden</b>.
+            </p>
+            <button onclick="startGame()">Start Collecting!</button>
+        </div>
+        
+        <!-- Game Over Screen -->
+        <div class="game-over-screen hidden" id="gameOverScreen">
+            <h1>💦 Splash! 💦</h1>
+            <p>
+                Oh no! Something yucky fell into your bucket!<br>
+                The water is contaminated now!<br>
+                Let's try collecting clean rainwater again!
+            </p>
+            <button onclick="restartGame()">Try Again</button>
+        </div>
+        
+        <!-- Win Screen -->
+        <div class="win-screen hidden" id="winScreen">
+            <h1>🎉 Perfect! 🎉</h1>
+            <p>
+                You collected enough clean rainwater!<br>
+                Your pet jaguar is very happy and hydrated!<br>
+                You're an amazing rainforest helper!
+            </p>
+            <button onclick="restartGame()">Help Again</button>
+        </div>
+        
+        <!-- Game elements -->
+        <div class="bucket" id="bucket">
+            <svg class="bucket-svg" viewBox="0 0 80 80" xmlns="http://www.w3.org/2000/svg">
+                <!-- Bucket outline -->
+                <path d="M15 25 L15 65 Q15 70 20 70 L60 70 Q65 70 65 65 L65 25" 
+                      fill="none" 
+                      stroke="#4682B4" 
+                      stroke-width="4" 
+                      stroke-linecap="round"/>
+            </svg>
+            <div class="collected-drops" id="collectedDrops">
+                <!-- Collected raindrops will appear here -->
+            </div>
+        </div>
+        
+        <!-- Score Display -->
+        <div class="score" id="score">Raindrops: 0 / 20</div>
+        
+        <!-- Percentage Counter -->
+        <div class="percentage-counter" id="percentageCounter">Bucket: 0%</div>
+        
+        <!-- Progress Bar -->
+        <div class="progress-bar">
+            <div class="progress-fill" id="progressFill"></div>
+        </div>
+        <div class="progress-text" id="progressText">Jaguar's Thirst: 0%</div>
+        
+        <!-- Controls -->
+        <div class="controls hidden" id="controls">
+            Use ← → arrow keys<br>
+            to move your bucket
+        </div>
+        
+        <!-- Splash Popup -->
+        <div class="splash-popup" id="splashPopup">SPLASH!</div>
+        
+        <!-- Jaguar entrance -->
+        <div class="jaguar-entrance" id="jaguar">🐆</div>
+    </div>
+
+    <script>
+        // Game variables
+        let gameRunning = false;
+        let bucketX = 50; // percentage
+        let fallingItems = [];
+        let raindropsCollected = 0;
+        let gameSpeed = 1;
+        let spawnRate = 0.02;
+        let badItemSpawnRate = 0.012; // Combined rate for fruit and insects
+        
+        // Game constants
+        const BUCKET_SPEED = 0.75; // percentage points per frame (25% of original 3)
+        const MAX_RAINDROPS = 20;
+        const FALL_SPEED = 2;
+        const RAINDROP_EMOJI = '💧'; // Single drop only
+        const FRUIT_EMOJIS = ['🍎', '🍊', '🍋', '🥭', '🍌', '🍑', '🍐'];
+        const INSECT_EMOJIS = ['🐛', '🦗', '🐞', '🕷️', '🐜', '🦟', '🪲'];
+        
+        // DOM elements
+        const gameContainer = document.querySelector('.game-container');
+        const bucket = document.getElementById('bucket');
+        const collectedDrops = document.getElementById('collectedDrops');
+        const startScreen = document.getElementById('startScreen');
+        const gameOverScreen = document.getElementById('gameOverScreen');
+        const winScreen = document.getElementById('winScreen');
+        const scoreElement = document.getElementById('score');
+        const percentageCounter = document.getElementById('percentageCounter');
+        const progressFill = document.getElementById('progressFill');
+        const progressText = document.getElementById('progressText');
+        const controlsElement = document.getElementById('controls');
+        const splashPopup = document.getElementById('splashPopup');
+        const jaguar = document.getElementById('jaguar');
+        
+        // Keyboard input
+        const keys = {};
+        
+        document.addEventListener('keydown', (e) => {
+            keys[e.key] = true;
+            e.preventDefault();
+        });
+        
+        document.addEventListener('keyup', (e) => {
+            keys[e.key] = false;
+        });
+        
+        // Initialize bucket position
+        function initializeBucket() {
+            bucketX = 50;
+            updateBucketPosition();
+            clearCollectedDrops();
+        }
+        
+        // Update bucket position on screen
+        function updateBucketPosition() {
+            bucket.style.left = bucketX + '%';
+        }
+        
+        // Clear collected drops from bucket
+        function clearCollectedDrops() {
+            collectedDrops.innerHTML = '';
+        }
+        
+        // Add collected drop to bucket with random position
+        function addCollectedDrop() {
+            const drop = document.createElement('div');
+            drop.className = 'collected-drop';
+            drop.textContent = RAINDROP_EMOJI;
+            
+            // Random position within the bucket with some variance
+            const x = Math.random() * 40 + 10; // 10px to 50px from left
+            const y = Math.random() * 20 + 10; // 10px to 30px from top
+            
+            drop.style.left = x + 'px';
+            drop.style.top = y + 'px';
+            
+            collectedDrops.appendChild(drop);
+        }
+        
+        // Start game
+        function startGame() {
+            gameRunning = true;
+            
+            // Initialize game state
+            initializeBucket();
+            raindropsCollected = 0;
+            fallingItems = [];
+            
+            // Clear any existing falling items
+            document.querySelectorAll('.falling-item').forEach(item => item.remove());
+            
+            // Show/hide UI elements
+            startScreen.classList.add('hidden');
+            gameOverScreen.classList.add('hidden');
+            winScreen.classList.add('hidden');
+            controlsElement.classList.remove('hidden');
+            
+            // Update displays
+            updateScore();
+            updatePercentage();
+            updateProgress();
+            
+            // Reset jaguar position
+            jaguar.classList.remove('enter');
+            
+            // Start game loop
+            gameLoop();
+        }
+        
+        // Game loop
+        function gameLoop() {
+            if (!gameRunning) return;
+            
+            updateBucket();
+            updateFallingItems();
+            spawnFallingItems();
+            checkCollisions();
+            
+            requestAnimationFrame(gameLoop);
+        }
+        
+        // Update bucket movement
+        function updateBucket() {
+            if (keys['ArrowLeft']) {
+                bucketX = Math.max(5, bucketX - BUCKET_SPEED);
+            }
+            if (keys['ArrowRight']) {
+                bucketX = Math.min(95, bucketX + BUCKET_SPEED);
+            }
+            
+            updateBucketPosition();
+        }
+        
+        // Spawn falling items (raindrops, fruit, and insects)
+        function spawnFallingItems() {
+            // Spawn raindrops
+            if (Math.random() < spawnRate) {
+                createFallingItem('raindrop');
+            }
+            
+            // Spawn bad items (fruit and insects combined)
+            if (Math.random() < badItemSpawnRate) {
+                const itemType = Math.random() < 0.6 ? 'fruit' : 'insect'; // 60% fruit, 40% insects
+                createFallingItem(itemType);
+            }
+        }
+        
+        // Create falling item
+        function createFallingItem(type) {
+            const item = document.createElement('div');
+            item.className = `falling-item ${type}`;
+            
+            if (type === 'raindrop') {
+                item.textContent = RAINDROP_EMOJI;
+            } else if (type === 'fruit') {
+                item.textContent = FRUIT_EMOJIS[Math.floor(Math.random() * FRUIT_EMOJIS.length)];
+            } else if (type === 'insect') {
+                item.textContent = INSECT_EMOJIS[Math.floor(Math.random() * INSECT_EMOJIS.length)];
+            }
+            
+            const x = Math.random() * 90 + 5; // 5% to 95%
+            item.style.left = x + '%';
+            item.style.top = '-50px';
+            
+            gameContainer.appendChild(item);
+            
+            fallingItems.push({
+                element: item,
+                x: x,
+                y: -50,
+                type: type
+            });
+        }
+        
+        // Update falling items
+        function updateFallingItems() {
+            fallingItems.forEach((item, index) => {
+                item.y += FALL_SPEED;
+                item.element.style.top = item.y + 'px';
+                
+                // Remove items that have fallen off screen
+                if (item.y > window.innerHeight) {
+                    item.element.remove();
+                    fallingItems.splice(index, 1);
+                }
+            });
+        }
+        
+        // Check collisions between bucket and falling items
+        function checkCollisions() {
+            const bucketRect = {
+                left: bucketX - 4, // percentage
+                right: bucketX + 4,
+                top: 85, // approximate bucket position
+                bottom: 95
+            };
+            
+            fallingItems.forEach((item, index) => {
+                const itemRect = {
+                    left: item.x - 2,
+                    right: item.x + 2,
+                    top: (item.y / window.innerHeight) * 100,
+                    bottom: ((item.y + 30) / window.innerHeight) * 100
+                };
+                
+                // Check if item overlaps with bucket
+                if (bucketRect.left < itemRect.right &&
+                    bucketRect.right > itemRect.left &&
+                    bucketRect.top < itemRect.bottom &&
+                    bucketRect.bottom > itemRect.top) {
+                    
+                    // Remove the item
+                    item.element.remove();
+                    fallingItems.splice(index, 1);
+                    
+                    if (item.type === 'raindrop') {
+                        // Collected a raindrop
+                        raindropsCollected++;
+                        addCollectedDrop();
+                        updateScore();
+                        updatePercentage();
+                        updateProgress();
+                        
+                        // Create splash effect
+                        createSplashEffect(bucketX);
+                        
+                        // Check win condition
+                        if (raindropsCollected >= MAX_RAINDROPS) {
+                            winGame();
+                        }
+                    } else {
+                        // Hit by fruit or insect - game over
+                        gameOver();
+                    }
+                }
+            });
+        }
+        
+        // Create splash effect when raindrop is collected
+        function createSplashEffect(x) {
+            const splash = document.createElement('div');
+            splash.style.position = 'absolute';
+            splash.style.left = x + '%';
+            splash.style.bottom = '15%';
+            splash.style.fontSize = '30px';
+            splash.style.color = '#4a90e2';
+            splash.style.zIndex = '150';
+            splash.style.pointerEvents = 'none';
+            splash.textContent = '💦';
+            splash.style.animation = 'splashUp 1s ease-out forwards';
+            
+            // Add splash animation
+            const style = document.createElement('style');
+            style.textContent = `
+                @keyframes splashUp {
+                    0% { transform: translateY(0) scale(1); opacity: 1; }
+                    100% { transform: translateY(-50px) scale(1.5); opacity: 0; }
+                }
+            `;
+            document.head.appendChild(style);
+            
+            gameContainer.appendChild(splash);
+            
+            setTimeout(() => {
+                splash.remove();
+                style.remove();
+            }, 1000);
+        }
+        
+        // Update score display
+        function updateScore() {
+            scoreElement.textContent = `Raindrops: ${raindropsCollected} / ${MAX_RAINDROPS}`;
+        }
+        
+        // Update percentage counter
+        function updatePercentage() {
+            const percentage = Math.round((raindropsCollected / MAX_RAINDROPS) * 100);
+            percentageCounter.textContent = `Bucket: ${percentage}%`;
+        }
+        
+        // Update progress bar
+        function updateProgress() {
+            const progress = (raindropsCollected / MAX_RAINDROPS) * 100;
+            progressFill.style.width = progress + '%';
+            progressText.textContent = `Jaguar's Thirst: ${Math.round(progress)}%`;
+        }
+        
+        // Game over
+        function gameOver() {
+            gameRunning = false;
+            
+            // Show splash popup
+            splashPopup.classList.add('show');
+            
+            setTimeout(() => {
+                splashPopup.classList.remove('show');
+                controlsElement.classList.add('hidden');
+                gameOverScreen.classList.remove('hidden');
+            }, 2000);
+        }
+        
+        // Win game
+        function winGame() {
+            gameRunning = false;
+            controlsElement.classList.add('hidden');
+            
+            // Make jaguar enter from the right
+            jaguar.classList.add('enter');
+            
+            // Create celebration effect
+            createConfetti();
+            
+            setTimeout(() => {
+                winScreen.classList.remove('hidden');
+                
+                // Notify parent if embedded
+                if (window.parent !== window) {
+                    window.parent.postMessage({
+                        type: 'gameCompletion',
+                        completed: true
+                    }, '*');
+                }
+            }, 3000);
+        }
+        
+        // Create confetti effect
+        function createConfetti() {
+            const colors = ['#FFD700', '#FFA500', '#FF6347', '#00CED1', '#32CD32', '#9370DB'];
+            
+            for (let i = 0; i < 100; i++) {
+                setTimeout(() => {
+                    const confetti = document.createElement('div');
+                    confetti.className = 'confetti';
+                    confetti.style.backgroundColor = colors[Math.floor(Math.random() * colors.length)];
+                    confetti.style.left = Math.random() * 100 + '%';
+                    confetti.style.top = '-10px';
+                    gameContainer.appendChild(confetti);
+                    
+                    // Animate falling
+                    let pos = -10;
+                    const fall = setInterval(() => {
+                        pos += 3;
+                        confetti.style.top = pos + 'px';
+                        confetti.style.transform = `translateX(${Math.sin(pos / 30) * 20}px) rotate(${pos * 2}deg)`;
+                        
+                        if (pos > window.innerHeight) {
+                            clearInterval(fall);
+                            confetti.remove();
+                        }
+                    }, 20);
+                }, i * 20);
+            }
+        }
+        
+        // Restart game
+        function restartGame() {
+            // Clear all falling items
+            document.querySelectorAll('.falling-item').forEach(item => item.remove());
+            fallingItems = [];
+            
+            // Reset jaguar
+            jaguar.classList.remove('enter');
+            
+            // Restart game
+            startGame();
+        }
+        
+        // Initialize when page loads
+        window.addEventListener('load', () => {
+            initializeBucket();
+        });
+    </script>
+</body>
+</html>

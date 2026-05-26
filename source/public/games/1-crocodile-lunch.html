@@ -1,0 +1,1020 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Crocodile's Lunch</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+            overflow: hidden;
+            height: 100vh;
+            background: linear-gradient(to bottom, #87CEEB 0%, #4682B4 50%, #1E90FF 100%);
+        }
+        
+        .game-container {
+            position: relative;
+            width: 100%;
+            height: 100vh;
+            overflow: hidden;
+        }
+        
+        /* River background */
+        .river {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            height: 40%;
+            background: linear-gradient(45deg, 
+                #1E90FF 0%, 
+                #00CED1 20%, 
+                #20B2AA 40%, 
+                #48D1CC 60%, 
+                #00CED1 80%, 
+                #1E90FF 100%);
+            background-size: 200% 200%;
+            animation: riverFlow 6s ease-in-out infinite;
+        }
+        
+        @keyframes riverFlow {
+            0% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+            100% { background-position: 0% 50%; }
+        }
+        
+        /* Tree positioned at center */
+        .tree {
+            position: absolute;
+            bottom: 35%;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 300px;
+            z-index: 20;
+            transform-origin: bottom center;
+            transition: transform 0.3s ease;
+            filter: drop-shadow(0 0 20px rgba(255, 255, 255, 0.3));
+            user-select: none;
+        }
+        
+        .tree.shaking {
+            animation: treeShake 0.5s ease-in-out;
+        }
+        
+        @keyframes treeShake {
+            0%, 100% { transform: translateX(-50%) rotate(0deg); }
+            25% { transform: translateX(-50%) rotate(-3deg); }
+            75% { transform: translateX(-50%) rotate(3deg); }
+        }
+        
+        /* Crocodile */
+        .crocodile {
+            position: absolute;
+            bottom: 8%;
+            left: 20%;
+            transform: translateX(-50%);
+            font-size: 60px;
+            z-index: 100;
+            transition: all 0.2s ease;
+            filter: drop-shadow(0 0 15px rgba(255, 255, 255, 0.5));
+        }
+        
+        .crocodile.eating {
+            animation: chomp 0.5s ease-in-out;
+        }
+        
+        @keyframes chomp {
+            0%, 100% { transform: translateX(-50%) scale(1); }
+            50% { transform: translateX(-50%) scale(1.2); }
+        }
+        
+        /* Jaguar - chasing the crocodile */
+        .jaguar {
+            position: absolute;
+            bottom: 8%;
+            left: 2%;
+            transform: translateX(-50%);
+            font-size: 70px;
+            z-index: 90;
+            transition: all 0.3s ease;
+            filter: drop-shadow(0 0 15px rgba(255, 255, 0, 0.5));
+            display: none;
+        }
+        
+        .jaguar.active {
+            display: block;
+            opacity: 1;
+            animation: jaguarEntrance 1s ease-out;
+        }
+        
+        @keyframes jaguarEntrance {
+            0% { 
+                opacity: 0;
+                transform: translateX(-50%) scale(0.5); 
+            }
+            100% { 
+                opacity: 1;
+                transform: translateX(-50%) scale(1); 
+            }
+        }
+        
+        .jaguar.pouncing {
+            animation: pounce 0.5s ease-in-out;
+        }
+        
+        @keyframes pounce {
+            0%, 100% { transform: translateX(-50%) scale(1); }
+            50% { transform: translateX(-50%) scale(1.3) translateY(-20px); }
+        }
+        
+        /* Monkeys in tree and water */
+        .monkey {
+            position: absolute;
+            font-size: 50px;
+            z-index: 50;
+            transition: bottom 0.5s ease, left 0.1s linear;
+            cursor: pointer;
+        }
+        
+        .monkey.in-tree {
+            bottom: 55%;
+            animation: monkeySwing 3s ease-in-out infinite;
+        }
+        
+        .monkey.falling {
+            animation: fall 1s ease-in forwards;
+        }
+        
+        .monkey.swimming {
+            bottom: 15%;
+            z-index: 60;
+        }
+        
+        .monkey.eaten {
+            animation: getEaten 0.5s ease-in forwards;
+        }
+        
+        @keyframes monkeySwing {
+            0%, 100% { transform: translateY(0) rotate(-5deg); }
+            50% { transform: translateY(-10px) rotate(5deg); }
+        }
+        
+        @keyframes fall {
+            0% { 
+                bottom: 55%; 
+                transform: rotate(0deg) translateX(0); 
+            }
+            50% { 
+                bottom: 40%; 
+                transform: rotate(360deg) translateX(var(--jump-distance)); 
+            }
+            100% { 
+                bottom: 15%; 
+                transform: rotate(720deg) translateX(var(--jump-distance)); 
+            }
+        }
+        
+        @keyframes getEaten {
+            0% { transform: scale(1) rotate(0deg); opacity: 1; }
+            50% { transform: scale(1.5) rotate(180deg); opacity: 0.8; }
+            100% { transform: scale(0) rotate(360deg); opacity: 0; }
+        }
+        
+        /* Splash effects */
+        .splash {
+            position: absolute;
+            font-size: 40px;
+            color: #00CED1;
+            z-index: 80;
+            animation: splashEffect 1s ease-out forwards;
+            pointer-events: none;
+        }
+        
+        @keyframes splashEffect {
+            0% { 
+                transform: scale(0.5) translateY(0); 
+                opacity: 1; 
+            }
+            50% { 
+                transform: scale(1.2) translateY(-20px); 
+                opacity: 0.8; 
+            }
+            100% { 
+                transform: scale(1.5) translateY(-40px); 
+                opacity: 0; 
+            }
+        }
+        
+        /* UI Elements */
+        .start-screen, .game-over-screen, .win-screen {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(255, 255, 255, 0.95);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 200;
+        }
+        
+        .hidden {
+            display: none !important;
+        }
+        
+        h1 {
+            font-size: 48px;
+            margin-bottom: 20px;
+            text-align: center;
+            color: #2e5c2e;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.2);
+        }
+
+        p {
+            font-size: 24px;
+            margin-bottom: 30px;
+            text-align: center;
+            line-height: 1.4;
+            color: #333;
+            max-width: 700px;
+        }
+        
+        button {
+            font-size: 24px;
+            padding: 15px 30px;
+            background: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 15px;
+            cursor: pointer;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.3);
+            transition: all 0.2s ease;
+            font-weight: bold;
+        }
+        
+        button:hover {
+            background: #45a049;
+            transform: translateY(-2px);
+            box-shadow: 0 6px 12px rgba(0,0,0,0.4);
+        }
+        
+        button:active {
+            transform: translateY(0);
+        }
+        
+        .score {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            color: white;
+            font-size: 24px;
+            font-weight: bold;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.7);
+            background: rgba(0,0,0,0.3);
+            padding: 10px 20px;
+            border-radius: 10px;
+            z-index: 150;
+        }
+        
+        .instructions {
+            position: absolute;
+            bottom: 20px;
+            left: 20px;
+            color: white;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.7);
+            background: rgba(0,0,0,0.3);
+            padding: 10px 15px;
+            border-radius: 10px;
+            z-index: 150;
+            max-width: 300px;
+        }
+        
+        .danger-warning {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 72px;
+            font-weight: bold;
+            color: #FF4444;
+            text-shadow: 3px 3px 6px rgba(0,0,0,0.7);
+            z-index: 300;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+            background: rgba(255, 255, 255, 0.9);
+            padding: 20px 40px;
+            border-radius: 20px;
+            border: 5px solid #FF4444;
+        }
+        
+        .danger-warning.show {
+            opacity: 1;
+        }
+        
+        /* Celebration confetti */
+        .confetti {
+            position: absolute;
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            z-index: 250;
+        }
+        
+        /* YUM popup */
+        .yum-popup {
+            position: absolute;
+            top: 10%;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 96px;
+            font-weight: bold;
+            color: #4CAF50;
+            text-shadow: 3px 3px 6px rgba(0,0,0,0.7);
+            z-index: 300;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+            background: rgba(255, 255, 255, 0.9);
+            padding: 20px 60px;
+            border-radius: 30px;
+            border: 5px solid #4CAF50;
+        }
+        
+        .yum-popup.show {
+            opacity: 1;
+            animation: yumBounce 0.5s ease-out;
+        }
+        
+        @keyframes yumBounce {
+            0% { transform: translateX(-50%) scale(0.5); }
+            50% { transform: translateX(-50%) scale(1.2); }
+            100% { transform: translateX(-50%) scale(1); }
+        }
+        
+        /* Mobile responsiveness */
+        @media (max-width: 768px) {
+            .tree {
+                font-size: 200px;
+            }
+            
+            .crocodile {
+                font-size: 50px;
+            }
+            
+            .jaguar {
+                font-size: 55px;
+            }
+            
+            .monkey {
+                font-size: 40px;
+            }
+            
+            h1 {
+                font-size: 36px;
+            }
+            
+            p {
+                font-size: 20px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="game-container">
+        <!-- Start Screen -->
+        <div class="start-screen" id="startScreen">
+            <h1>🐊 Crocodile's Lunch 🐒</h1>
+            <p>
+                Help the hungry crocodile catch lunch!<br>
+                Use arrow keys to move the crocodile around the river.<br>
+                Touch the tree to shake it and make a monkey fall into the water.<br>
+                Catch the swimming monkeys before they escape!<br>
+                But watch out - the jaguar is hunting the crocodile!<br>
+                Catch 5 monkeys to win!
+                <br><br>
+                Designed, built, and tested by <b>Cannon W</b>.
+            </p>
+            <button onclick="startGame()">Start Hunting!</button>
+        </div>
+        
+        <!-- Game Over Screen -->
+        <div class="game-over-screen hidden" id="gameOverScreen">
+            <h1>🐆 Caught! 🐆</h1>
+            <p>
+                The jaguar caught the crocodile!<br>
+                That's what happens when you're not careful!<br>
+                Try to be faster next time!
+            </p>
+            <button onclick="restartGame()">Try Again</button>
+        </div>
+        
+        <!-- Win Screen -->
+        <div class="win-screen hidden" id="winScreen">
+            <h1>🎉 Feast Complete! 🎉</h1>
+            <p>
+                The crocodile caught all 5 monkeys!<br>
+                And escaped from the jaguar!<br>
+                You're an excellent crocodile hunter!
+            </p>
+            <button onclick="restartGame()">Hunt Again</button>
+        </div>
+        
+        <!-- River background -->
+        <div class="river"></div>
+        
+        <!-- Tree -->
+        <div class="tree" id="tree">🌳</div>
+        
+        <!-- Crocodile -->
+        <div class="crocodile" id="crocodile">🐊</div>
+        
+        <!-- Jaguar -->
+        <div class="jaguar" id="jaguar">🐆</div>
+        
+        <!-- Score -->
+        <div class="score" id="score">Monkeys Caught: 0 / 5</div>
+        
+        <!-- Instructions -->
+        <div class="instructions hidden" id="instructions">
+            Use ← → ↑ ↓ arrow keys to move<br>
+            Touch the tree to shake it!<br>
+            Jaguar appears after 10 seconds!
+        </div>
+        
+        <!-- Danger Warning -->
+        <div class="danger-warning" id="dangerWarning">CAUGHT!</div>
+        
+        <!-- YUM Popup -->
+        <div class="yum-popup" id="yumPopup">YUM!</div>
+    </div>
+
+    <script>
+        // Game variables
+        let gameRunning = false;
+        let crocodileX = 20; // percentage
+        let crocodileY = 8; // percentage from bottom
+        let jaguarX = 2; // Start at far left
+        let jaguarY = 8; // percentage from bottom
+        let jaguarVx = 0; // Jaguar velocity X
+        let jaguarVy = 0; // Jaguar velocity Y
+        let monkeysCaught = 0;
+        let monkeysInTree = [];
+        let swimmingMonkeys = [];
+        let canShakeTree = true;
+        let nearTree = false; // Track if crocodile is near tree
+        let jaguarSpeed = 0.3; // Doubled speed for jaguar movement
+        let jaguarActive = false;
+        let gameStartTime = 0;
+        
+        // Game constants
+        const MAX_MONKEYS = 5;
+        const CROCODILE_SPEED = 0.75; // Halved from 1.5 for finer control
+        const TREE_CENTER_X = 50; // tree is at center
+        const TREE_CENTER_Y = 35; // tree bottom position
+        const TREE_COLLISION_DISTANCE = 5; // Reduced from 15 - much closer proximity needed
+        const COLLISION_DISTANCE = 3; // Reduced from 8 - more precise collision detection
+        const JAGUAR_DELAY = 10000; // 10 seconds before jaguar appears
+        const MONKEY_SWIM_DURATION = 5000; // 5 seconds
+        
+        // DOM elements
+        const gameContainer = document.querySelector('.game-container');
+        const tree = document.getElementById('tree');
+        const crocodile = document.getElementById('crocodile');
+        const jaguar = document.getElementById('jaguar');
+        const startScreen = document.getElementById('startScreen');
+        const gameOverScreen = document.getElementById('gameOverScreen');
+        const winScreen = document.getElementById('winScreen');
+        const scoreElement = document.getElementById('score');
+        const instructionsElement = document.getElementById('instructions');
+        const dangerWarning = document.getElementById('dangerWarning');
+        const yumPopup = document.getElementById('yumPopup');
+        
+        // Keyboard input
+        const keys = {};
+        
+        document.addEventListener('keydown', (e) => {
+            keys[e.key] = true;
+            e.preventDefault();
+        });
+        
+        document.addEventListener('keyup', (e) => {
+            keys[e.key] = false;
+        });
+        
+        // Initialize game
+        function initializeGame() {
+            crocodileX = 20;
+            crocodileY = 8;
+            jaguarX = 2; // Start at far left
+            jaguarY = 8;
+            jaguarVx = 0;
+            jaguarVy = 0;
+            monkeysCaught = 0;
+            monkeysInTree = [];
+            swimmingMonkeys = [];
+            canShakeTree = true;
+            nearTree = false;
+            jaguarActive = false;
+            gameStartTime = Date.now();
+            
+            // Hide jaguar initially
+            jaguar.classList.remove('active');
+            jaguar.style.display = 'none';
+            
+            // Clear any existing monkeys
+            document.querySelectorAll('.monkey').forEach(monkey => monkey.remove());
+            
+            // Create initial monkeys in tree
+            createMonkeysInTree(8); // Start with 8 monkeys in tree
+            
+            updateScore();
+            updateCrocodilePosition();
+            updateJaguarPosition();
+        }
+        
+        // Create monkeys in the tree
+        function createMonkeysInTree(count) {
+            for (let i = 0; i < count; i++) {
+                const monkey = document.createElement('div');
+                monkey.className = 'monkey in-tree';
+                monkey.textContent = '🐒';
+                
+                // Position monkeys around the tree center
+                const angle = (i / count) * 360;
+                const radius = 60 + Math.random() * 40;
+                const x = TREE_CENTER_X + Math.cos(angle * Math.PI / 180) * (radius / 10);
+                const y = 55 + Math.sin(angle * Math.PI / 180) * 8;
+                
+                monkey.style.left = Math.max(35, Math.min(65, x)) + '%';
+                monkey.style.bottom = Math.max(50, Math.min(70, y)) + '%';
+                monkey.style.animationDelay = (i * 0.5) + 's';
+                
+                gameContainer.appendChild(monkey);
+                monkeysInTree.push(monkey);
+            }
+        }
+        
+        // Update crocodile position
+        function updateCrocodilePosition() {
+            crocodile.style.left = crocodileX + '%';
+            crocodile.style.bottom = crocodileY + '%';
+        }
+        
+        // Update jaguar position
+        function updateJaguarPosition() {
+            jaguar.style.left = jaguarX + '%';
+            jaguar.style.bottom = jaguarY + '%';
+        }
+        
+        // Move crocodile with arrow keys
+        function updateCrocodile() {
+            if (keys['ArrowLeft']) {
+                crocodileX = Math.max(2, crocodileX - CROCODILE_SPEED);
+            }
+            if (keys['ArrowRight']) {
+                crocodileX = Math.min(98, crocodileX + CROCODILE_SPEED);
+            }
+            if (keys['ArrowUp']) {
+                crocodileY = Math.min(35, crocodileY + CROCODILE_SPEED);
+            }
+            if (keys['ArrowDown']) {
+                crocodileY = Math.max(2, crocodileY - CROCODILE_SPEED);
+            }
+            
+            updateCrocodilePosition();
+            
+            // Check if crocodile is touching the tree
+            checkTreeCollision();
+        }
+        
+        // Update jaguar AI - random movement with slight bias toward crocodile
+        function updateJaguar() {
+            // Only move jaguar if it's active
+            if (!jaguarActive) return;
+            
+            // Update random movement
+            if (Math.random() < 0.05) { // Change direction occasionally
+                // Random movement with slight bias toward crocodile
+                const dx = crocodileX - jaguarX;
+                const dy = crocodileY - jaguarY;
+                
+                // Base random movement
+                jaguarVx = (Math.random() - 0.5) * 0.6;  // Doubled from 0.3
+                jaguarVy = (Math.random() - 0.5) * 0.4;  // Doubled from 0.2
+                
+                // Add slight bias toward crocodile (20% influence)
+                if (dx > 0) jaguarVx += 0.2;  // Doubled from 0.1
+                else jaguarVx -= 0.2;
+                
+                if (dy > 0) jaguarVy += 0.1;  // Doubled from 0.05
+                else jaguarVy -= 0.1;
+            }
+            
+            // Apply movement
+            jaguarX += jaguarVx * jaguarSpeed;
+            jaguarY += jaguarVy * jaguarSpeed;
+            
+            // Keep jaguar in bounds
+            if (jaguarX <= 2 || jaguarX >= 98) {
+                jaguarVx *= -1;
+                jaguarX = Math.max(2, Math.min(98, jaguarX));
+            }
+            if (jaguarY <= 2 || jaguarY >= 35) {
+                jaguarVy *= -1;
+                jaguarY = Math.max(2, Math.min(35, jaguarY));
+            }
+            
+            updateJaguarPosition();
+        }
+        
+        // Check if crocodile touches tree
+        function checkTreeCollision() {
+            const distance = Math.sqrt(
+                Math.pow(crocodileX - TREE_CENTER_X, 2) + 
+                Math.pow(crocodileY - TREE_CENTER_Y, 2)
+            );
+            
+            const isNearTree = distance < TREE_COLLISION_DISTANCE;
+            
+            // Only shake tree if:
+            // 1. Crocodile just entered the tree area (wasn't near before, but is now)
+            // 2. Can shake tree (cooldown has passed)
+            // 3. There are monkeys in the tree
+            if (!nearTree && isNearTree && canShakeTree && monkeysInTree.length > 0) {
+                shakeTree();
+                canShakeTree = false;
+            }
+            
+            // If crocodile leaves the tree area, reset the ability to shake
+            if (nearTree && !isNearTree) {
+                canShakeTree = true;
+            }
+            
+            // Update the nearTree state
+            nearTree = isNearTree;
+        }
+        
+        // Shake the tree - now only drops 1 monkey
+        function shakeTree() {
+            // Add shaking animation to tree
+            tree.classList.add('shaking');
+            
+            // Drop exactly 1 monkey
+            if (monkeysInTree.length > 0) {
+                const randomIndex = Math.floor(Math.random() * monkeysInTree.length);
+                const monkey = monkeysInTree.splice(randomIndex, 1)[0];
+                makeMonkeyFall(monkey);
+            }
+            
+            // Remove shaking animation
+            setTimeout(() => {
+                tree.classList.remove('shaking');
+            }, 500);
+        }
+        
+        // Make a monkey fall from tree to water
+        function makeMonkeyFall(monkey) {
+            monkey.classList.remove('in-tree');
+            monkey.classList.add('falling');
+            
+            // Calculate jump distance (25-35% of screen width away from tree)
+            const direction = Math.random() < 0.5 ? -1 : 1; // Random left or right
+            const jumpDistance = (25 + Math.random() * 10) * direction;
+            
+            // Set CSS variable for the animation
+            monkey.style.setProperty('--jump-distance', jumpDistance + 'vw');
+            
+            // Calculate final landing position
+            const landingX = TREE_CENTER_X + jumpDistance;
+            
+            // Create splash effect when monkey hits water
+            setTimeout(() => {
+                createSplash(landingX + '%');
+                
+                // Start swimming with very slow random movement
+                monkey.classList.remove('falling');
+                monkey.classList.add('swimming');
+                monkey.style.left = landingX + '%';
+                
+                // Create a swimming monkey object with slow movement data
+                const swimmingMonkey = {
+                    element: monkey,
+                    x: landingX,
+                    y: 15, // Swimming at 15% from bottom
+                    vx: (Math.random() - 0.5) * 0.15, // Very slow horizontal velocity
+                    vy: (Math.random() - 0.5) * 0.05, // Very slow vertical velocity
+                    startTime: Date.now()
+                };
+                
+                swimmingMonkeys.push(swimmingMonkey);
+                
+                // Remove monkey after 5 seconds if not caught
+                setTimeout(() => {
+                    const index = swimmingMonkeys.findIndex(m => m.element === monkey);
+                    if (index !== -1) {
+                        monkey.remove();
+                        swimmingMonkeys.splice(index, 1);
+                    }
+                }, MONKEY_SWIM_DURATION);
+                
+            }, 1000);
+        }
+        
+        // Update swimming monkeys with random movement
+        function updateSwimmingMonkeys() {
+            swimmingMonkeys.forEach(monkeyData => {
+                // Update position with velocity
+                monkeyData.x += monkeyData.vx;
+                monkeyData.y += monkeyData.vy;
+                
+                // Bounce off edges
+                if (monkeyData.x <= 5 || monkeyData.x >= 95) {
+                    monkeyData.vx *= -1;
+                    monkeyData.x = Math.max(5, Math.min(95, monkeyData.x));
+                }
+                
+                // Keep within water bounds (10% to 25% from bottom)
+                if (monkeyData.y <= 10 || monkeyData.y >= 25) {
+                    monkeyData.vy *= -1;
+                    monkeyData.y = Math.max(10, Math.min(25, monkeyData.y));
+                }
+                
+                // Occasionally change direction (less frequently for slower movement)
+                if (Math.random() < 0.01) {
+                    monkeyData.vx = (Math.random() - 0.5) * 0.15;
+                    monkeyData.vy = (Math.random() - 0.5) * 0.05;
+                }
+                
+                // Update visual position
+                monkeyData.element.style.left = monkeyData.x + '%';
+                monkeyData.element.style.bottom = monkeyData.y + '%';
+            });
+        }
+        
+        // Create splash effect
+        function createSplash(left) {
+            const splash = document.createElement('div');
+            splash.className = 'splash';
+            splash.textContent = '💦';
+            splash.style.left = left;
+            splash.style.bottom = '15%';
+            
+            gameContainer.appendChild(splash);
+            
+            setTimeout(() => {
+                splash.remove();
+            }, 1000);
+        }
+        
+        // Check collisions
+        function checkCollisions() {
+            // Check jaguar catching crocodile (only if jaguar is active)
+            if (jaguarActive) {
+                const jaguarDistance = Math.sqrt(
+                    Math.pow(crocodileX - jaguarX, 2) + 
+                    Math.pow(crocodileY - jaguarY, 2)
+                );
+                
+                if (jaguarDistance < COLLISION_DISTANCE) {
+                    gameOver();
+                    return;
+                }
+            }
+            
+            // Check crocodile catching swimming monkeys
+            for (let i = swimmingMonkeys.length - 1; i >= 0; i--) {
+                const monkeyData = swimmingMonkeys[i];
+                const monkeyDistance = Math.sqrt(
+                    Math.pow(crocodileX - monkeyData.x, 2) + 
+                    Math.pow(crocodileY - monkeyData.y, 2)
+                );
+                
+                if (monkeyDistance < COLLISION_DISTANCE) {
+                    catchMonkey(monkeyData.element, i);
+                }
+            }
+        }
+        
+        // Catch a swimming monkey
+        function catchMonkey(monkey, index) {
+            // Remove from swimming monkeys
+            swimmingMonkeys.splice(index, 1);
+            
+            // Add eating animation to crocodile
+            crocodile.classList.add('eating');
+            
+            // Add eaten animation to monkey
+            monkey.classList.add('eaten');
+            
+            // Show YUM popup
+            showYumPopup();
+            
+            // Update score
+            monkeysCaught++;
+            updateScore();
+            
+            // Remove monkey after animation
+            setTimeout(() => {
+                monkey.remove();
+            }, 500);
+            
+            // Remove eating animation from crocodile
+            setTimeout(() => {
+                crocodile.classList.remove('eating');
+            }, 500);
+            
+            // Check win condition
+            if (monkeysCaught >= MAX_MONKEYS) {
+                setTimeout(winGame, 1000);
+            }
+        }
+        
+        // Show YUM popup
+        function showYumPopup() {
+            yumPopup.classList.add('show');
+            
+            setTimeout(() => {
+                yumPopup.classList.remove('show');
+            }, 1500);
+        }
+        
+        // Update score display
+        function updateScore() {
+            scoreElement.textContent = `Monkeys Caught: ${monkeysCaught} / ${MAX_MONKEYS}`;
+        }
+        
+        // Game loop
+        function gameLoop() {
+            if (!gameRunning) return;
+            
+            // Check if it's time to activate the jaguar
+            if (!jaguarActive && Date.now() - gameStartTime >= JAGUAR_DELAY) {
+                activateJaguar();
+            }
+            
+            updateCrocodile();
+            updateJaguar();
+            updateSwimmingMonkeys();
+            checkCollisions();
+            
+            requestAnimationFrame(gameLoop);
+        }
+        
+        // Activate the jaguar after delay
+        function activateJaguar() {
+            jaguarActive = true;
+            jaguar.style.display = 'block';
+            
+            // Small delay to ensure display is set before adding active class
+            setTimeout(() => {
+                jaguar.classList.add('active');
+            }, 50);
+            
+            // Initialize random movement
+            jaguarVx = (Math.random() - 0.5) * 0.6;  // Doubled from 0.3
+            jaguarVy = (Math.random() - 0.5) * 0.4;  // Doubled from 0.2
+            
+            // Show warning message
+            showJaguarWarning();
+        }
+        
+        // Show jaguar warning
+        function showJaguarWarning() {
+            const warning = document.createElement('div');
+            warning.style.position = 'absolute';
+            warning.style.top = '30%';
+            warning.style.left = '50%';
+            warning.style.transform = 'translate(-50%, -50%)';
+            warning.style.fontSize = '36px';
+            warning.style.fontWeight = 'bold';
+            warning.style.color = '#FF4444';
+            warning.style.textShadow = '3px 3px 6px rgba(0,0,0,0.7)';
+            warning.style.zIndex = '250';
+            warning.style.backgroundColor = 'rgba(255, 255, 255, 0.9)';
+            warning.style.padding = '20px 40px';
+            warning.style.borderRadius = '20px';
+            warning.style.border = '5px solid #FF4444';
+            warning.textContent = '🐆 The Jaguar is Coming! 🐆';
+            
+            gameContainer.appendChild(warning);
+            
+            setTimeout(() => {
+                warning.remove();
+            }, 3000);
+        }
+        
+        // Start game
+        function startGame() {
+            gameRunning = true;
+            
+            // Initialize game state
+            initializeGame();
+            
+            // Show/hide UI elements
+            startScreen.classList.add('hidden');
+            gameOverScreen.classList.add('hidden');
+            winScreen.classList.add('hidden');
+            instructionsElement.classList.remove('hidden');
+            
+            // Start game loop
+            gameLoop();
+        }
+        
+        // Game over
+        function gameOver() {
+            gameRunning = false;
+            
+            // Add pouncing animation to jaguar
+            jaguar.classList.add('pouncing');
+            
+            // Show danger warning
+            dangerWarning.classList.add('show');
+            
+            setTimeout(() => {
+                dangerWarning.classList.remove('show');
+                jaguar.classList.remove('pouncing');
+                instructionsElement.classList.add('hidden');
+                gameOverScreen.classList.remove('hidden');
+            }, 2000);
+        }
+        
+        // Win game
+        function winGame() {
+            gameRunning = false;
+            
+            // Hide game UI
+            instructionsElement.classList.add('hidden');
+            
+            // Create celebration effect
+            createConfetti();
+            
+            setTimeout(() => {
+                winScreen.classList.remove('hidden');
+                
+                // Notify parent if embedded
+                if (window.parent !== window) {
+                    window.parent.postMessage({
+                        type: 'gameCompletion',
+                        completed: true
+                    }, '*');
+                }
+            }, 2000);
+        }
+        
+        // Create confetti effect
+        function createConfetti() {
+            const colors = ['#FFD700', '#FFA500', '#FF6347', '#00CED1', '#32CD32', '#9370DB'];
+            
+            for (let i = 0; i < 100; i++) {
+                setTimeout(() => {
+                    const confetti = document.createElement('div');
+                    confetti.className = 'confetti';
+                    confetti.style.backgroundColor = colors[Math.floor(Math.random() * colors.length)];
+                    confetti.style.left = Math.random() * 100 + '%';
+                    confetti.style.top = '-10px';
+                    gameContainer.appendChild(confetti);
+                    
+                    // Animate falling
+                    let pos = -10;
+                    const fall = setInterval(() => {
+                        pos += 3;
+                        confetti.style.top = pos + 'px';
+                        confetti.style.transform = `translateX(${Math.sin(pos / 30) * 20}px) rotate(${pos * 2}deg)`;
+                        
+                        if (pos > window.innerHeight) {
+                            clearInterval(fall);
+                            confetti.remove();
+                        }
+                    }, 20);
+                }, i * 20);
+            }
+        }
+        
+        // Restart game
+        function restartGame() {
+            // Clear all monkeys and effects
+            document.querySelectorAll('.monkey, .splash, .confetti').forEach(el => el.remove());
+            
+            // Reset animations and jaguar state
+            crocodile.classList.remove('eating');
+            jaguar.classList.remove('pouncing', 'active');
+            jaguar.style.display = 'none';
+            
+            // Restart game
+            startGame();
+        }
+        
+        // Initialize when page loads
+        window.addEventListener('load', () => {
+            // Game starts with start screen visible
+        });
+    </script>
+</body>
+</html>

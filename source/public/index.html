@@ -810,6 +810,105 @@
             letter-spacing: 1px;
         }
 
+        /* ===== Level Carousel ===== */
+        .level-carousel {
+            position: relative;
+            width: 100vw;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        .level-track {
+            display: flex;
+            height: 100vh;
+            transition: transform 0.6s cubic-bezier(0.25, 0.1, 0.25, 1);
+        }
+
+        .level-slide {
+            width: 100vw;
+            height: 100vh;
+            flex-shrink: 0;
+        }
+
+        .level-arrow {
+            position: fixed;
+            top: 50%;
+            transform: translateY(-50%);
+            z-index: 500;
+            background: rgba(0, 0, 0, 0.2);
+            color: white;
+            border: none;
+            font-size: 28px;
+            width: 28px;
+            height: 72px;
+            cursor: pointer;
+            transition: background 0.2s, opacity 0.3s;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            line-height: 1;
+            padding: 0;
+        }
+
+        .level-arrow.visible {
+            display: flex;
+        }
+
+        .level-arrow:hover {
+            background: rgba(0, 0, 0, 0.45);
+        }
+
+        .level-arrow-left {
+            left: 0;
+            border-radius: 0 6px 6px 0;
+        }
+
+        .level-arrow-right {
+            right: 0;
+            border-radius: 6px 0 0 6px;
+        }
+
+        .trail-node.placeholder {
+            background: rgba(200, 190, 170, 0.4);
+            border-color: rgba(140, 120, 90, 0.35);
+            border-style: dashed;
+            cursor: default;
+        }
+
+        .level2-cta-overlay {
+            position: absolute;
+            bottom: 80px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 5;
+            text-align: center;
+            width: 85%;
+            max-width: 340px;
+            background: rgba(250, 246, 240, 0.92);
+            border-radius: 20px;
+            padding: 20px 24px 16px;
+            box-shadow: 0 4px 24px rgba(0,0,0,0.10);
+        }
+
+        .level2-cta-overlay .cta-text {
+            color: #8B6914;
+            font-size: 18px;
+            font-weight: bold;
+            line-height: 1.4;
+            margin-bottom: 8px;
+        }
+
+        .level2-cta-overlay .cta-arrow {
+            font-size: 32px;
+            display: block;
+            animation: bounce-down 1.5s ease-in-out infinite;
+        }
+
+        @keyframes bounce-down {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(8px); }
+        }
+
         /* ===== Story overlay (from old index.html) ===== */
         .story-overlay {
             display: none;
@@ -957,14 +1056,28 @@
 
         /* Responsive */
         @media (max-width: 768px) {
-            .container {
-                flex-direction: column;
+            .level-slide {
+                overflow-y: auto;
+                -webkit-overflow-scrolling: touch;
             }
 
-            .left-section,
+            .container {
+                flex-direction: column;
+                height: auto;
+                min-height: 100vh;
+            }
+
+            .left-section {
+                width: 100%;
+                height: 40vh;
+                min-height: 180px;
+                flex-shrink: 0;
+            }
+
             .right-section {
                 width: 100%;
-                height: 50%;
+                height: auto;
+                overflow-y: visible;
             }
 
             .divider {
@@ -1001,6 +1114,12 @@
             .forest-wrap {
                 height: 180px;
             }
+
+            .level-arrow {
+                height: 48px;
+                width: 24px;
+                font-size: 22px;
+            }
         }
     </style>
 </head>
@@ -1019,38 +1138,88 @@
         <footer class="story-footer">&copy; 2026 Sur Haus</footer>
     </div>
 
-    <!-- ===== Main App ===== -->
-    <div class="container">
-        <div class="left-section"></div>
-        <div class="divider"></div>
-        <div class="right-section">
-            <div class="trail-section">
-                <div class="trail-title">🌿 Jungle Trail</div>
-                <div class="trail-container" id="trailContainer"></div>
-                <div class="secret-path-section" id="secretPathSection" style="display:none">
-                    <div class="secret-path-title">🔑 Secret Donors' Trail</div>
-                    <div class="trail-container" id="secretTrailContainer"></div>
+    <!-- ===== Level Carousel ===== -->
+    <div class="level-carousel" id="levelCarousel">
+        <div class="level-track" id="levelTrack">
+            <!-- Level 1 -->
+            <div class="level-slide" data-level="1">
+                <div class="container">
+                    <div class="left-section"></div>
+                    <div class="divider"></div>
+                    <div class="right-section">
+                        <div class="trail-section">
+                            <div class="trail-title">🌿 Jungle Trail</div>
+                            <div class="trail-container" id="trailContainer"></div>
+                            <div class="secret-path-section" id="secretPathSection" style="display:none">
+                                <div class="secret-path-title">🔑 Secret Donors' Trail</div>
+                                <div class="trail-container" id="secretTrailContainer"></div>
+                            </div>
+                        </div>
+
+                        <div class="fundraising-section">
+                            <button class="fundraising-button" onclick="showOverlayModal()">
+                                <span class="fundraising-label">🌿 Donations for the Rainforest</span>
+                                <span class="fundraising-amount" id="fundraisingTotal">...</span>
+                            </button>
+                            <button class="fundraising-button game-idea-button" onclick="showGameIdeaModal()">
+                                <span class="fundraising-label">🎮 Got an idea?</span>
+                                <span class="fundraising-amount" style="font-size:16px;">Build Your Own Jungle Game!</span>
+                            </button>
+                        </div>
+
+                        <div class="footer">
+                            <p>Created with &#10084;&#65039; by young forest lovers across the world.</p>
+                            <div class="footer-buttons">
+                                <a href="#" onclick="showVideoModal(); return false;" style="text-decoration: none; font-size: 20px; cursor: pointer;">&#128250;</a>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
 
-            <div class="fundraising-section">
-                <button class="fundraising-button" onclick="showOverlayModal()">
-                    <span class="fundraising-label">🌿 Donations for the Rainforest</span>
-                    <span class="fundraising-amount" id="fundraisingTotal">...</span>
-                </button>
-                <button class="fundraising-button game-idea-button" onclick="showGameIdeaModal()">
-                    <span class="fundraising-label">🎮 Got an idea?</span>
-                    <span class="fundraising-amount" style="font-size:16px;">Build Your Own Jungle Game!</span>
-                </button>
-            </div>
+            <!-- Level 2 -->
+            <div class="level-slide" data-level="2">
+                <div class="container">
+                    <div class="left-section" style="background-image: url('images/intro6.jpg')"></div>
+                    <div class="divider"></div>
+                    <div class="right-section">
+                        <div class="trail-section">
+                            <div class="trail-title">🔥 Level 2 Trail</div>
+                            <div class="trail-container" id="level2TrailContainer" style="position:relative;">
+                                <div class="level2-cta-overlay" id="level2CtaOverlay">
+                                    <div class="cta-text">🚧 Help us complete Level 2 by submitting your own jungle game!!</div>
+                                    <span class="cta-arrow">⬇</span>
+                                </div>
+                            </div>
+                        </div>
 
-            <div class="footer">
-                <p>Created with &#10084;&#65039; by young forest lovers across the world.</p>
-                <div class="footer-buttons">
-                    <a href="#" onclick="showVideoModal(); return false;" style="text-decoration: none; font-size: 20px; cursor: pointer;">&#128250;</a>
+                        <div class="fundraising-section">
+                            <button class="fundraising-button" onclick="showOverlayModal()">
+                                <span class="fundraising-label">🌿 Donations for the Rainforest</span>
+                                <span class="fundraising-amount" id="fundraisingTotal2">...</span>
+                            </button>
+                            <button class="fundraising-button game-idea-button" onclick="showGameIdeaModal()">
+                                <span class="fundraising-label">🎮 Got an idea?</span>
+                                <span class="fundraising-amount" style="font-size:16px;">Build Your Own Jungle Game!</span>
+                            </button>
+                        </div>
+
+                        <div class="footer">
+                            <p>Created with &#10084;&#65039; by young forest lovers across the world.</p>
+                            <div class="footer-buttons">
+                                <a href="#" onclick="showVideoModal(); return false;" style="text-decoration: none; font-size: 20px; cursor: pointer;">&#128250;</a>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
+
+        <button class="level-arrow level-arrow-left" id="levelArrowLeft" onclick="goToLevel(0)">&#8249;</button>
+        <button class="level-arrow level-arrow-right" id="levelArrowRight" onclick="goToLevel(1)">&#8250;</button>
+
+        <!-- TEMP: remove before deploy -->
+        <button id="debugWinAll" onclick="mainTrailGames.forEach(function(g){gameCompletionStatus[g.id]={completed:true,score:100,timestamp:new Date().toISOString()}});localStorage.setItem('gameCompletionStatus',JSON.stringify(gameCompletionStatus));generateTrail();" style="position:fixed;bottom:10px;right:10px;z-index:9999;background:#e53e3e;color:#fff;border:none;padding:6px 14px;border-radius:8px;font-size:12px;cursor:pointer;opacity:0.85;">Win All L1</button>
     </div>
 
     <!-- Game Modal -->
@@ -1350,19 +1519,69 @@
 
         var donorTrailGames = [
             { id: 11, name: 'Tiger vs Leopard', emoji: '🐯', color: '#FF8C00', file: 'games/1-tiger-v-leopard.html' },
-            { id: 12, name: 'Monkey Maze',      emoji: '🐒', color: '#c8d400', file: 'games/1-monkey-maze.html' },
-            { id: 13, name: 'Forest Defender',  emoji: '🌲', color: '#2d8b3a', file: 'games/2-forest-defender.html' }
+            { id: 12, name: 'Monkey Maze',      emoji: '🐒', color: '#c8d400', file: 'games/1-monkey-maze.html' }
         ];
+
+        var level2Games = [
+            { id: 21, name: 'Forest Defender', emoji: '🌲', color: '#2d8b3a', file: 'games/2-forest-defender.html' },
+            { id: 22, name: 'Monkey Climb',    emoji: '🐒', color: '#8B4513', file: 'games/2-monkey-climb.html' },
+            { id: 23, name: 'River Run',       emoji: '🚣', color: '#00CED1', file: 'games/2-river-run.html' }
+        ];
+
+        var level2Padded = level2Games.concat([
+            { id: -1, name: 'Coming Soon', emoji: '❓', placeholder: true },
+            { id: -2, name: 'Coming Soon', emoji: '❓', placeholder: true },
+            { id: -3, name: 'Coming Soon', emoji: '❓', placeholder: true },
+            { id: -4, name: 'Coming Soon', emoji: '❓', placeholder: true },
+            { id: -5, name: 'Coming Soon', emoji: '❓', placeholder: true }
+        ]);
 
         var currentGame = null;
         var gameCompletionStatus = {};
+
+        // Level carousel state
+        var currentLevel = 0;
+        var level2Unlocked = false;
+
+        function isLevel1Complete() {
+            return mainTrailGames.every(function(g) {
+                return gameCompletionStatus[g.id] && gameCompletionStatus[g.id].completed;
+            });
+        }
+
+        function updateArrowVisibility() {
+            var leftArrow = document.getElementById('levelArrowLeft');
+            var rightArrow = document.getElementById('levelArrowRight');
+            if (!level2Unlocked) {
+                leftArrow.classList.remove('visible');
+                rightArrow.classList.remove('visible');
+                return;
+            }
+            if (currentLevel === 0) {
+                leftArrow.classList.remove('visible');
+                rightArrow.classList.add('visible');
+            } else {
+                leftArrow.classList.add('visible');
+                rightArrow.classList.remove('visible');
+            }
+        }
+
+        function goToLevel(level) {
+            if (level === 1 && !level2Unlocked) return;
+            if (level < 0 || level > 1) return;
+            currentLevel = level;
+            document.getElementById('levelTrack').style.transform = 'translateX(-' + (level * 100) + 'vw)';
+            updateArrowVisibility();
+        }
 
         var NODE_R = 36;
         var STEP_H = 150;
 
         function isUnlocked(gameList, index) {
             if (index === 0) return true;
+            if (gameList[index].placeholder) return false;
             var prevId = gameList[index - 1].id;
+            if (gameList[index - 1].placeholder) return false;
             return !!(gameCompletionStatus[prevId] && gameCompletionStatus[prevId].completed);
         }
 
@@ -1407,6 +1626,17 @@
 
             gameList.forEach(function(game, i) {
                 var pos = positions[i];
+
+                if (game.placeholder) {
+                    var ph = document.createElement('div');
+                    ph.className = 'trail-node placeholder';
+                    ph.style.left = (pos.x - NODE_R) + 'px';
+                    ph.style.top = (pos.y - NODE_R) + 'px';
+                    ph.innerHTML = '<span style="font-size:26px;opacity:0.45">❓</span>';
+                    container.appendChild(ph);
+                    return;
+                }
+
                 var completed = !!(gameCompletionStatus[game.id] && gameCompletionStatus[game.id].completed);
                 var unlocked = isUnlocked(gameList, i);
                 var nodeClass = completed ? 'completed' : (unlocked ? 'current' : 'locked');
@@ -1439,7 +1669,7 @@
             });
 
             var lastPos = positions[positions.length - 1];
-            var allDone = gameList.every(function(g) { return gameCompletionStatus[g.id] && gameCompletionStatus[g.id].completed; });
+            var allDone = gameList.filter(function(g) { return !g.placeholder; }).every(function(g) { return gameCompletionStatus[g.id] && gameCompletionStatus[g.id].completed; });
             var flag = document.createElement('div');
             flag.className = 'trail-end-flag';
             flag.textContent = allDone ? '🏆' : '🏁';
@@ -1453,6 +1683,11 @@
             if (HAS_DONATED) {
                 document.getElementById('secretPathSection').style.display = 'block';
                 buildTrail(donorTrailGames, 'secretTrailContainer');
+            }
+            buildTrail(level2Padded, 'level2TrailContainer');
+            if (isLevel1Complete()) {
+                level2Unlocked = true;
+                updateArrowVisibility();
             }
         }
 
@@ -1506,9 +1741,13 @@
                     timestamp: new Date().toISOString()
                 };
                 if (event.data.completed) {
+                    var wasUnlocked = level2Unlocked;
                     showGameCompletionFeedback(true, event.data.score, event.data.timeElapsed);
                     localStorage.setItem('gameCompletionStatus', JSON.stringify(gameCompletionStatus));
                     generateTrail();
+                    if (!wasUnlocked && level2Unlocked) {
+                        setTimeout(function() { goToLevel(1); }, 2000);
+                    }
                 } else {
                     showGameCompletionFeedback(false, event.data.score, event.data.timeElapsed);
                 }
@@ -1606,7 +1845,10 @@
                 campaignGoals = campaignData.goals || campaignGoals;
 
                 var donationCount = forestDonors.length;
-                document.getElementById('fundraisingTotal').textContent = donationCount + ' donation' + (donationCount !== 1 ? 's' : '');
+                var totalText = donationCount + ' donation' + (donationCount !== 1 ? 's' : '');
+                document.getElementById('fundraisingTotal').textContent = totalText;
+                var ft2 = document.getElementById('fundraisingTotal2');
+                if (ft2) ft2.textContent = totalText;
 
                 if (forestInitialized) {
                     refreshForest();

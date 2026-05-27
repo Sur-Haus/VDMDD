@@ -120,8 +120,8 @@
 <body>
     <div class="overlay" id="startScreen">
         <h1>🚣 River Run</h1>
-        <h2>Navigate the jungle river!</h2>
-        <p>Use <strong>← →</strong> arrow keys or <strong>drag/tilt</strong> to steer your boat.</p>
+        <h2>Help Declan 🤠 navigate the jungle river!</h2>
+        <p>Use <strong>← → ↑ ↓</strong> arrow keys or <strong>drag/tilt</strong> to steer your boat.</p>
         <p>Dodge <strong>rocks</strong> 🪨 and <strong>arrows</strong> 🏹 from the jungle!</p>
         <p>Catch <strong>small fish</strong> 🐟 for a shield, <strong>big fish</strong> 🐠 for an invincibility boost!</p>
         <p>Watch out for the <strong>piranha</strong> 🐡 — one bite and you're done!</p>
@@ -282,9 +282,11 @@
             boat: {
                 x: startSeg ? startSeg.cx : W / 2,
                 screenY: H * 0.65,
+                baseScreenY: H * 0.65,
                 w: 28,
                 h: 48,
-                vx: 0
+                vx: 0,
+                vy: 0
             },
             rocks: [],
             fish: [],
@@ -429,10 +431,11 @@
 
     function spawnArrow() {
         var screenY = Math.random() * H * 0.5 + H * 0.1;
+        var worldY = game.boatWorldY + (screenY - game.boat.screenY);
         var fromLeft = Math.random() < 0.5;
         game.arrows.push({
             x: fromLeft ? -20 : W + 20,
-            screenY: screenY,
+            worldY: worldY,
             vx: fromLeft ? (3 + Math.random() * 2) : -(3 + Math.random() * 2),
             vy: (Math.random() - 0.5) * 1,
             alive: true
@@ -460,6 +463,16 @@
         if (keys['ArrowRight'] || keys['KeyD']) game.boat.vx += steerSpeed * 0.3;
         game.boat.vx *= 0.88;
         game.boat.x += game.boat.vx;
+
+        /* Steer boat up/down (limited to ±10% of screen height) */
+        if (keys['ArrowUp'] || keys['KeyW']) game.boat.vy -= steerSpeed * 0.25;
+        if (keys['ArrowDown'] || keys['KeyS']) game.boat.vy += steerSpeed * 0.25;
+        game.boat.vy *= 0.88;
+        game.boat.screenY += game.boat.vy;
+        var minSY = game.boat.baseScreenY - H * 0.10;
+        var maxSY = game.boat.baseScreenY + H * 0.10;
+        if (game.boat.screenY < minSY) { game.boat.screenY = minSY; game.boat.vy = 0; }
+        if (game.boat.screenY > maxSY) { game.boat.screenY = maxSY; game.boat.vy = 0; }
 
         /* Keep boat in canvas bounds */
         if (game.boat.x < 14) game.boat.x = 14;
@@ -587,21 +600,22 @@
             }
         }
 
-        /* Update arrows (move in screen space) */
+        /* Update arrows (world-space Y so they scroll with the scene) */
         for (var ai = game.arrows.length - 1; ai >= 0; ai--) {
             var a = game.arrows[ai];
             a.x += a.vx;
-            a.screenY += a.vy;
+            a.worldY += a.vy;
+            var asy = toScreen(a.worldY);
 
             if (a.alive && rectsOverlap(
                 bx - game.boat.w / 2, bsy - game.boat.h / 2, game.boat.w, game.boat.h,
-                a.x - 12, a.screenY - 3, 24, 6
+                a.x - 12, asy - 3, 24, 6
             )) {
                 a.alive = false;
                 hitBoat('Hit by an arrow!');
             }
 
-            if (a.x < -50 || a.x > W + 50 || a.screenY < -60 || a.screenY > H + 60) {
+            if (a.x < -50 || a.x > W + 50 || asy < -60 || asy > H + 60) {
                 game.arrows.splice(ai, 1);
             }
         }
@@ -759,6 +773,12 @@
         ctx.fillRect(-9, -2, 18, 3);
         ctx.fillRect(-8, 8, 16, 3);
 
+        /* Cowboy Declan */
+        ctx.font = '16px serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText('🤠', 0, 2);
+
         ctx.restore();
 
         /* Shield effect */
@@ -846,11 +866,12 @@
 
     function drawArrow(a) {
         if (!a.alive) return;
-        if (a.screenY < -40 || a.screenY > H + 40) return;
+        var asy = toScreen(a.worldY);
+        if (asy < -40 || asy > H + 40) return;
 
         var angle = Math.atan2(a.vy, a.vx);
         ctx.save();
-        ctx.translate(a.x, a.screenY);
+        ctx.translate(a.x, asy);
         ctx.rotate(angle);
 
         ctx.fillStyle = '#5D4037';
@@ -930,7 +951,7 @@
     /* ── Input ── */
     document.addEventListener('keydown', function(e) {
         keys[e.code] = true;
-        if (e.code === 'ArrowLeft' || e.code === 'ArrowRight' || e.code === 'Space') {
+        if (e.code === 'ArrowLeft' || e.code === 'ArrowRight' || e.code === 'ArrowUp' || e.code === 'ArrowDown' || e.code === 'Space') {
             e.preventDefault();
         }
     });

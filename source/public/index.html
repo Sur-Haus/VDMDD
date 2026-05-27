@@ -1183,13 +1183,12 @@
                     <div class="left-section" style="background-image: url('images/intro6.jpg')"></div>
                     <div class="divider"></div>
                     <div class="right-section">
-                        <div class="trail-section">
+                        <div class="trail-section" style="position:relative;">
                             <div class="trail-title">🔥 Level 2 Trail</div>
-                            <div class="trail-container" id="level2TrailContainer" style="position:relative;">
-                                <div class="level2-cta-overlay" id="level2CtaOverlay">
-                                    <div class="cta-text">🚧 Help us complete Level 2 by submitting your own jungle game!!</div>
-                                    <span class="cta-arrow">⬇</span>
-                                </div>
+                            <div class="trail-container" id="level2TrailContainer"></div>
+                            <div class="level2-cta-overlay" id="level2CtaOverlay">
+                                <div class="cta-text">🚧 Help us complete Level 2 by submitting your own jungle game!!</div>
+                                <span class="cta-arrow">⬇</span>
                             </div>
                         </div>
 
@@ -1218,8 +1217,6 @@
         <button class="level-arrow level-arrow-left" id="levelArrowLeft" onclick="goToLevel(0)">&#8249;</button>
         <button class="level-arrow level-arrow-right" id="levelArrowRight" onclick="goToLevel(1)">&#8250;</button>
 
-        <!-- TEMP: remove before deploy -->
-        <button id="debugWinAll" onclick="mainTrailGames.forEach(function(g){gameCompletionStatus[g.id]={completed:true,score:100,timestamp:new Date().toISOString()}});localStorage.setItem('gameCompletionStatus',JSON.stringify(gameCompletionStatus));generateTrail();" style="position:fixed;bottom:10px;right:10px;z-index:9999;background:#e53e3e;color:#fff;border:none;padding:6px 14px;border-radius:8px;font-size:12px;cursor:pointer;opacity:0.85;">Win All L1</button>
     </div>
 
     <!-- Game Modal -->

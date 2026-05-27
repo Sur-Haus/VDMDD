@@ -876,18 +876,22 @@
         }
 
         .level2-cta-overlay {
-            position: absolute;
-            bottom: 80px;
-            left: 50%;
-            transform: translateX(-50%);
-            z-index: 5;
-            text-align: center;
-            width: 85%;
+            position: fixed;
+            top: 50%;
+            right: 4%;
+            width: 42%;
             max-width: 340px;
-            background: rgba(250, 246, 240, 0.92);
+            z-index: 50;
+            text-align: center;
+            background: rgba(250, 246, 240, 0.94);
             border-radius: 20px;
             padding: 20px 24px 16px;
-            box-shadow: 0 4px 24px rgba(0,0,0,0.10);
+            box-shadow: 0 4px 24px rgba(0,0,0,0.12);
+            display: none;
+        }
+
+        .level2-cta-overlay.visible {
+            display: block;
         }
 
         .level2-cta-overlay .cta-text {
@@ -1120,6 +1124,15 @@
                 width: 24px;
                 font-size: 22px;
             }
+
+            .level2-cta-overlay {
+                right: 5%;
+                left: 5%;
+                width: 90%;
+                max-width: none;
+                top: auto;
+                bottom: 80px;
+            }
         }
     </style>
 </head>
@@ -1183,13 +1196,9 @@
                     <div class="left-section" style="background-image: url('images/intro6.jpg')"></div>
                     <div class="divider"></div>
                     <div class="right-section">
-                        <div class="trail-section" style="position:relative;">
+                        <div class="trail-section">
                             <div class="trail-title">🔥 Level 2 Trail</div>
                             <div class="trail-container" id="level2TrailContainer"></div>
-                            <div class="level2-cta-overlay" id="level2CtaOverlay">
-                                <div class="cta-text">🚧 Help us complete Level 2 by submitting your own jungle game!!</div>
-                                <span class="cta-arrow">⬇</span>
-                            </div>
                         </div>
 
                         <div class="fundraising-section">
@@ -1217,6 +1226,12 @@
         <button class="level-arrow level-arrow-left" id="levelArrowLeft" onclick="goToLevel(0)">&#8249;</button>
         <button class="level-arrow level-arrow-right" id="levelArrowRight" onclick="goToLevel(1)">&#8250;</button>
 
+    </div>
+
+    <!-- Level 2 CTA overlay (fixed position, shown only on Level 2) -->
+    <div class="level2-cta-overlay" id="level2CtaOverlay">
+        <div class="cta-text">🚧🤠🌳 Help us complete Level 2 by submitting your own jungle game!! 🌴👦🏽🔨</div>
+        <span class="cta-arrow">⬇</span>
     </div>
 
     <!-- Game Modal -->
@@ -1569,6 +1584,11 @@
             currentLevel = level;
             document.getElementById('levelTrack').style.transform = 'translateX(-' + (level * 100) + 'vw)';
             updateArrowVisibility();
+            var cta = document.getElementById('level2CtaOverlay');
+            if (cta) {
+                if (level === 1) cta.classList.add('visible');
+                else cta.classList.remove('visible');
+            }
         }
 
         var NODE_R = 36;

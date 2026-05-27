@@ -1,0 +1,842 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Monkey Climb</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            overflow: hidden;
+            height: 100vh;
+            background: #87CEEB;
+        }
+
+        canvas {
+            display: block;
+            margin: 0 auto;
+            background: #87CEEB;
+        }
+
+        .overlay {
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 100;
+            background: rgba(0,0,0,0.75);
+        }
+
+        .overlay.hidden { display: none; }
+
+        .overlay h1 {
+            font-size: 48px;
+            color: #FFD700;
+            text-shadow: 2px 2px 8px rgba(0,0,0,0.5);
+            margin-bottom: 10px;
+        }
+
+        .overlay h2 {
+            font-size: 28px;
+            color: white;
+            margin-bottom: 20px;
+        }
+
+        .overlay p {
+            color: #ddd;
+            font-size: 16px;
+            max-width: 400px;
+            text-align: center;
+            line-height: 1.6;
+            margin-bottom: 8px;
+        }
+
+        .overlay button {
+            margin-top: 20px;
+            padding: 14px 40px;
+            font-size: 20px;
+            font-weight: bold;
+            border: none;
+            border-radius: 50px;
+            cursor: pointer;
+            background: linear-gradient(135deg, #2e5931, #3b7a57);
+            color: white;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+
+        .overlay button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 16px rgba(46,89,49,0.5);
+        }
+
+        .hud {
+            position: fixed;
+            top: 10px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            gap: 24px;
+            z-index: 50;
+            background: rgba(0,0,0,0.5);
+            padding: 8px 20px;
+            border-radius: 20px;
+            color: white;
+            font-size: 16px;
+            font-weight: bold;
+        }
+
+        .hud.hidden { display: none; }
+
+        .hud span { display: flex; align-items: center; gap: 4px; }
+    </style>
+</head>
+<body>
+    <div class="overlay" id="startScreen">
+        <h1>🐒 Monkey Climb</h1>
+        <h2>Reach the bananas at the top!</h2>
+        <p>Press <strong>SPACE</strong> or <strong>TAP</strong> to jump to the next branch.</p>
+        <p>Watch out for <strong>arrows</strong> flying at you!</p>
+        <p>If a <strong>jaguar 🐆</strong> is on the next branch, aim and hold <strong>SPACE</strong> to throw 💩 at it!</p>
+        <p>You only get <strong>6 poops</strong> — aim carefully!</p>
+        <button onclick="startGame()">🌿 Start Climbing!</button>
+    </div>
+
+    <div class="overlay hidden" id="winScreen">
+        <h1>🍌 You Made It! 🍌</h1>
+        <h2>The monkey got the bananas!</h2>
+        <p id="winStats"></p>
+        <button onclick="startGame()">Play Again</button>
+    </div>
+
+    <div class="overlay hidden" id="loseScreen">
+        <h1 id="loseTitle">💀 Game Over</h1>
+        <h2 id="loseReason"></h2>
+        <button onclick="startGame()">Try Again</button>
+    </div>
+
+    <div class="hud hidden" id="hud">
+        <span>🌿 Branch: <b id="hudBranch">1</b></span>
+        <span>💩 Ammo: <b id="hudAmmo">6</b></span>
+        <span>❤️ Lives: <b id="hudLives">3</b></span>
+    </div>
+
+    <canvas id="gameCanvas"></canvas>
+
+    <script>
+    var canvas = document.getElementById('gameCanvas');
+    var ctx = canvas.getContext('2d');
+
+    var W, H;
+    var BRANCH_COUNT = 12;
+    var TOTAL_POOPS = 6;
+    var TOTAL_LIVES = 3;
+    var JAGUAR_COUNT = 3;
+
+    var game = null;
+    var keys = {};
+    var animFrame = null;
+
+    function resize() {
+        W = Math.min(document.documentElement.clientWidth || window.innerWidth || 500, 500);
+        if (W < 100) W = 500;
+        H = document.documentElement.clientHeight || window.innerHeight || 800;
+        if (H < 200) H = 800;
+        canvas.width = W;
+        canvas.height = H;
+    }
+    resize();
+    window.addEventListener('resize', resize);
+
+    function startGame() {
+        document.getElementById('startScreen').classList.add('hidden');
+        document.getElementById('winScreen').classList.add('hidden');
+        document.getElementById('loseScreen').classList.add('hidden');
+        document.getElementById('hud').classList.remove('hidden');
+
+        var jaguarBranches = [];
+        while (jaguarBranches.length < JAGUAR_COUNT) {
+            var b = 2 + Math.floor(Math.random() * (BRANCH_COUNT - 3));
+            if (jaguarBranches.indexOf(b) === -1) jaguarBranches.push(b);
+        }
+
+        var branches = [];
+        var branchSpacing = (H - 120) / (BRANCH_COUNT + 1);
+        for (var i = 0; i <= BRANCH_COUNT; i++) {
+            var y = H - 60 - i * branchSpacing;
+            var side = (i % 2 === 0) ? 'left' : 'right';
+            var bw = 100 + Math.random() * 60;
+            var bx = side === 'left' ? 0 : W - bw;
+            branches.push({
+                x: bx, y: y, w: bw, h: 14, side: side,
+                hasJaguar: jaguarBranches.indexOf(i) !== -1,
+                jaguarAlive: jaguarBranches.indexOf(i) !== -1
+            });
+        }
+
+        var startBranch = branches[0];
+        var monkeyX = startBranch.side === 'left' ? startBranch.x + startBranch.w / 2 : startBranch.x + startBranch.w / 2;
+
+        game = {
+            state: 'climbing',
+            branches: branches,
+            monkey: {
+                x: monkeyX, y: startBranch.y - 30,
+                w: 36, h: 36,
+                currentBranch: 0,
+                jumping: false,
+                jumpT: 0,
+                jumpFrom: { x: 0, y: 0 },
+                jumpTo: { x: 0, y: 0 },
+                facingRight: startBranch.side === 'left'
+            },
+            arrows: [],
+            arrowTimer: 0,
+            arrowInterval: 90,
+            poops: [],
+            poopAmmo: TOTAL_POOPS,
+            lives: TOTAL_LIVES,
+            aiming: false,
+            aimAngle: 0,
+            aimPower: 0,
+            charging: false,
+            chargeTime: 0,
+            cameraY: 0,
+            targetCameraY: 0,
+            ticks: 0,
+            hitFlash: 0,
+            jaguarsDefeated: 0,
+            leafParticles: [],
+            bananaFloat: 0
+        };
+
+        updateHUD();
+        if (animFrame) cancelAnimationFrame(animFrame);
+        loop();
+    }
+
+    function updateHUD() {
+        document.getElementById('hudBranch').textContent = (game.monkey.currentBranch + 1) + '/' + (BRANCH_COUNT + 1);
+        document.getElementById('hudAmmo').textContent = game.poopAmmo;
+        document.getElementById('hudLives').textContent = game.lives;
+    }
+
+    function getNextBranch() {
+        var idx = game.monkey.currentBranch + 1;
+        if (idx > BRANCH_COUNT) return null;
+        return { branch: game.branches[idx], index: idx };
+    }
+
+    function monkeyCenter() {
+        return { x: game.monkey.x, y: game.monkey.y + game.monkey.h / 2 };
+    }
+
+    function needsAiming() {
+        var next = getNextBranch();
+        if (!next) return false;
+        return next.branch.jaguarAlive;
+    }
+
+    function tryJump() {
+        if (game.monkey.jumping) return;
+        if (game.state !== 'climbing') return;
+
+        if (needsAiming()) {
+            game.aiming = true;
+            game.charging = true;
+            game.chargeTime = 0;
+            game.aimPower = 0;
+            return;
+        }
+
+        var next = getNextBranch();
+        if (!next) {
+            winGame();
+            return;
+        }
+
+        doJump(next.index);
+    }
+
+    function doJump(targetIdx) {
+        var target = game.branches[targetIdx];
+        var landX = target.side === 'left' ? target.x + target.w * 0.6 : target.x + target.w * 0.4;
+
+        game.monkey.jumping = true;
+        game.monkey.jumpT = 0;
+        game.monkey.jumpFrom = { x: game.monkey.x, y: game.monkey.y };
+        game.monkey.jumpTo = { x: landX, y: target.y - 30 };
+        game.monkey.facingRight = target.side === 'left';
+    }
+
+    function throwPoop() {
+        if (game.poopAmmo <= 0) return;
+        if (!game.aiming) return;
+
+        game.poopAmmo--;
+        game.aiming = false;
+        game.charging = false;
+
+        var next = getNextBranch();
+        if (!next) return;
+
+        var mc = monkeyCenter();
+        var jag = {
+            x: next.branch.side === 'left' ? next.branch.x + next.branch.w * 0.5 : next.branch.x + next.branch.w * 0.5,
+            y: next.branch.y - 20
+        };
+
+        var dx = jag.x - mc.x;
+        var dy = jag.y - mc.y;
+        var dist = Math.sqrt(dx * dx + dy * dy);
+        var power = Math.min(game.aimPower, 1.0);
+        var speed = 4 + power * 6;
+
+        var angle = Math.atan2(dy, dx);
+        var aimSpread = (1 - power) * 0.4;
+        angle += (Math.random() - 0.5) * aimSpread;
+
+        game.poops.push({
+            x: mc.x, y: mc.y,
+            vx: Math.cos(angle) * speed,
+            vy: Math.sin(angle) * speed,
+            targetBranch: next.index,
+            alive: true,
+            trail: []
+        });
+
+        updateHUD();
+
+        if (game.poopAmmo <= 0 && next.branch.jaguarAlive) {
+            setTimeout(function() {
+                if (game && game.state === 'climbing' && needsAiming()) {
+                    loseGame('Out of ammo! The jaguar blocks the path!');
+                }
+            }, 1500);
+        }
+    }
+
+    function spawnArrow() {
+        var side = Math.random() < 0.5 ? 'left' : 'right';
+        var fromBottom = Math.random() < 0.7;
+
+        var x, y, vx, vy;
+        if (fromBottom) {
+            x = side === 'left' ? -20 : W + 20;
+            y = game.cameraY + H + 20;
+            vx = side === 'left' ? (1.5 + Math.random() * 2) : -(1.5 + Math.random() * 2);
+            vy = -(3 + Math.random() * 2);
+        } else {
+            x = side === 'left' ? -20 : W + 20;
+            y = game.cameraY + Math.random() * H;
+            vx = side === 'left' ? (2 + Math.random() * 2) : -(2 + Math.random() * 2);
+            vy = -(0.5 + Math.random() * 1.5);
+        }
+
+        game.arrows.push({ x: x, y: y, vx: vx, vy: vy, alive: true });
+    }
+
+    function checkArrowHit(arrow) {
+        var mx = game.monkey.x, my = game.monkey.y - game.cameraY;
+        var mw = game.monkey.w, mh = game.monkey.h;
+        var ax = arrow.x, ay = arrow.y - game.cameraY;
+
+        return ax > mx - mw/2 && ax < mx + mw/2 && ay > my - mh/2 && ay < my + mh/2;
+    }
+
+    function checkPoopHitJaguar(poop) {
+        var branch = game.branches[poop.targetBranch];
+        if (!branch || !branch.jaguarAlive) return false;
+
+        var jx = branch.side === 'left' ? branch.x + branch.w * 0.5 : branch.x + branch.w * 0.5;
+        var jy = branch.y - 20;
+        var dx = poop.x - jx;
+        var dy = poop.y - jy;
+        return Math.sqrt(dx * dx + dy * dy) < 45;
+    }
+
+    function hitMonkey() {
+        game.lives--;
+        game.hitFlash = 20;
+        updateHUD();
+
+        for (var i = 0; i < 8; i++) {
+            game.leafParticles.push({
+                x: game.monkey.x, y: game.monkey.y,
+                vx: (Math.random() - 0.5) * 4,
+                vy: -Math.random() * 3,
+                life: 30 + Math.random() * 20,
+                color: ['#ff4444', '#ff6666', '#ff2222'][Math.floor(Math.random() * 3)]
+            });
+        }
+
+        if (game.lives <= 0) {
+            loseGame('The arrows got you!');
+        }
+    }
+
+    function loseGame(reason) {
+        game.state = 'lost';
+        document.getElementById('hud').classList.add('hidden');
+        document.getElementById('loseReason').textContent = reason;
+        document.getElementById('loseScreen').classList.remove('hidden');
+    }
+
+    function winGame() {
+        game.state = 'won';
+        document.getElementById('hud').classList.add('hidden');
+        document.getElementById('winStats').textContent =
+            'Poops used: ' + (TOTAL_POOPS - game.poopAmmo) + '/' + TOTAL_POOPS +
+            '  |  Lives left: ' + game.lives + '/' + TOTAL_LIVES;
+        document.getElementById('winScreen').classList.remove('hidden');
+
+        if (window.parent !== window) {
+            window.parent.postMessage({ type: 'gameCompletion', completed: true }, '*');
+        }
+    }
+
+    function update() {
+        if (!game || game.state !== 'climbing') return;
+        game.ticks++;
+        game.bananaFloat = Math.sin(game.ticks * 0.04) * 6;
+
+        if (game.hitFlash > 0) game.hitFlash--;
+
+        if (game.monkey.jumping) {
+            game.monkey.jumpT += 0.035;
+            if (game.monkey.jumpT >= 1) {
+                game.monkey.jumpT = 1;
+                game.monkey.jumping = false;
+                game.monkey.currentBranch++;
+                game.monkey.x = game.monkey.jumpTo.x;
+                game.monkey.y = game.monkey.jumpTo.y;
+
+                for (var lp = 0; lp < 5; lp++) {
+                    game.leafParticles.push({
+                        x: game.monkey.x, y: game.monkey.y + 20,
+                        vx: (Math.random() - 0.5) * 3,
+                        vy: Math.random() * 2,
+                        life: 20 + Math.random() * 15,
+                        color: ['#3a7d44', '#6abf6e', '#2d8b3a'][Math.floor(Math.random() * 3)]
+                    });
+                }
+
+                if (game.monkey.currentBranch > BRANCH_COUNT) {
+                    winGame();
+                    return;
+                }
+
+                updateHUD();
+            } else {
+                var t = game.monkey.jumpT;
+                var ease = t < 0.5 ? 2 * t * t : -1 + (4 - 2 * t) * t;
+                game.monkey.x = game.monkey.jumpFrom.x + (game.monkey.jumpTo.x - game.monkey.jumpFrom.x) * ease;
+                var arcHeight = -120;
+                game.monkey.y = game.monkey.jumpFrom.y + (game.monkey.jumpTo.y - game.monkey.jumpFrom.y) * ease + arcHeight * Math.sin(Math.PI * t);
+            }
+        }
+
+        var monkeyScreenY = game.monkey.y - game.cameraY;
+        game.targetCameraY = game.monkey.y - H * 0.6;
+        if (game.targetCameraY < -(H * 0.2)) game.targetCameraY = -(H * 0.2);
+        game.cameraY += (game.targetCameraY - game.cameraY) * 0.08;
+
+        if (game.charging) {
+            game.chargeTime++;
+            game.aimPower = Math.min(game.chargeTime / 60, 1.0);
+        }
+
+        game.arrowTimer++;
+        var interval = Math.max(40, game.arrowInterval - game.monkey.currentBranch * 4);
+        if (game.arrowTimer >= interval) {
+            game.arrowTimer = 0;
+            spawnArrow();
+        }
+
+        for (var ai = game.arrows.length - 1; ai >= 0; ai--) {
+            var a = game.arrows[ai];
+            a.x += a.vx;
+            a.y += a.vy;
+            a.vy += 0.02;
+
+            if (!game.monkey.jumping && a.alive && checkArrowHit(a)) {
+                a.alive = false;
+                hitMonkey();
+            }
+
+            if (a.y < game.cameraY - 100 || a.x < -60 || a.x > W + 60) {
+                game.arrows.splice(ai, 1);
+            }
+        }
+
+        for (var pi = game.poops.length - 1; pi >= 0; pi--) {
+            var p = game.poops[pi];
+            p.trail.push({ x: p.x, y: p.y });
+            if (p.trail.length > 8) p.trail.shift();
+            p.x += p.vx;
+            p.y += p.vy;
+            p.vy += 0.02;
+
+            if (p.alive && checkPoopHitJaguar(p)) {
+                p.alive = false;
+                var branch = game.branches[p.targetBranch];
+                branch.jaguarAlive = false;
+                game.jaguarsDefeated++;
+
+                for (var sp = 0; sp < 10; sp++) {
+                    game.leafParticles.push({
+                        x: p.x, y: p.y,
+                        vx: (Math.random() - 0.5) * 5,
+                        vy: (Math.random() - 0.5) * 5,
+                        life: 25 + Math.random() * 15,
+                        color: ['#8B6914', '#FFD700', '#FFA500'][Math.floor(Math.random() * 3)]
+                    });
+                }
+            }
+
+            if (p.y > game.cameraY + H + 50 || p.y < game.cameraY - 200 || p.x < -50 || p.x > W + 50) {
+                game.poops.splice(pi, 1);
+            }
+        }
+
+        for (var li = game.leafParticles.length - 1; li >= 0; li--) {
+            var lf = game.leafParticles[li];
+            lf.x += lf.vx;
+            lf.y += lf.vy;
+            lf.vy += 0.1;
+            lf.life--;
+            if (lf.life <= 0) game.leafParticles.splice(li, 1);
+        }
+    }
+
+    function drawTrunk(cx) {
+        var trunkW = 50;
+        var grad = ctx.createLinearGradient(cx - trunkW/2, 0, cx + trunkW/2, 0);
+        grad.addColorStop(0, '#5D4037');
+        grad.addColorStop(0.3, '#795548');
+        grad.addColorStop(0.7, '#795548');
+        grad.addColorStop(1, '#5D4037');
+        ctx.fillStyle = grad;
+        ctx.fillRect(cx - trunkW/2, -500 - game.cameraY, trunkW, H + 1000);
+
+        ctx.strokeStyle = 'rgba(0,0,0,0.1)';
+        ctx.lineWidth = 1;
+        for (var ky = -500; ky < H + 500; ky += 25) {
+            var screenY = ky - game.cameraY;
+            ctx.beginPath();
+            ctx.moveTo(cx - trunkW/2 + 5, screenY);
+            ctx.quadraticCurveTo(cx, screenY + (Math.sin(ky * 0.1) * 3), cx + trunkW/2 - 5, screenY);
+            ctx.stroke();
+        }
+    }
+
+    function drawBranch(branch, idx) {
+        var screenY = branch.y - game.cameraY;
+        if (screenY < -60 || screenY > H + 60) return;
+
+        var cx = W / 2;
+        ctx.fillStyle = '#795548';
+        ctx.strokeStyle = '#5D4037';
+        ctx.lineWidth = 2;
+
+        ctx.beginPath();
+        if (branch.side === 'left') {
+            ctx.moveTo(cx - 20, screenY - branch.h/2);
+            ctx.lineTo(branch.x, screenY - branch.h/2 - 3);
+            ctx.lineTo(branch.x - 5, screenY);
+            ctx.lineTo(branch.x, screenY + branch.h/2 + 2);
+            ctx.lineTo(cx - 20, screenY + branch.h/2);
+        } else {
+            ctx.moveTo(cx + 20, screenY - branch.h/2);
+            ctx.lineTo(branch.x + branch.w, screenY - branch.h/2 - 3);
+            ctx.lineTo(branch.x + branch.w + 5, screenY);
+            ctx.lineTo(branch.x + branch.w, screenY + branch.h/2 + 2);
+            ctx.lineTo(cx + 20, screenY + branch.h/2);
+        }
+        ctx.closePath();
+        ctx.fill();
+        ctx.stroke();
+
+        var leafCount = 3 + Math.floor(Math.random() * 0.5);
+        ctx.fillStyle = '#4CAF50';
+        var tip = branch.side === 'left' ? branch.x : branch.x + branch.w;
+        for (var lci = 0; lci < leafCount; lci++) {
+            var lx = tip + (branch.side === 'left' ? -8 - lci * 10 : 8 + lci * 10);
+            var ly = screenY - 8 - Math.random() * 6;
+            ctx.beginPath();
+            ctx.ellipse(lx, ly, 8, 5, (branch.side === 'left' ? -0.3 : 0.3) + lci * 0.2, 0, Math.PI * 2);
+            ctx.fill();
+        }
+
+        if (branch.jaguarAlive) {
+            var jx = branch.side === 'left' ? branch.x + branch.w * 0.4 : branch.x + branch.w * 0.6;
+            ctx.font = '28px serif';
+            ctx.textAlign = 'center';
+            ctx.fillText('🐆', jx, screenY - 14);
+        }
+    }
+
+    function drawMonkey() {
+        var screenX = game.monkey.x;
+        var screenY = game.monkey.y - game.cameraY;
+
+        if (game.hitFlash > 0 && game.hitFlash % 4 < 2) return;
+
+        ctx.save();
+        ctx.translate(screenX, screenY);
+        if (!game.monkey.facingRight) ctx.scale(-1, 1);
+
+        ctx.font = '34px serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText('🐒', 0, 0);
+        ctx.restore();
+
+        if (game.aiming) {
+            ctx.font = '20px serif';
+            ctx.textAlign = 'center';
+            var poopOffX = game.monkey.facingRight ? 20 : -20;
+            ctx.fillText('💩', screenX + poopOffX, screenY - 10);
+
+            var next = getNextBranch();
+            if (next) {
+                var jx = next.branch.side === 'left' ? next.branch.x + next.branch.w * 0.5 : next.branch.x + next.branch.w * 0.5;
+                var jy = next.branch.y - game.cameraY - 20;
+
+                var dx = jx - screenX;
+                var dy = jy - screenY;
+                var dist = Math.sqrt(dx * dx + dy * dy);
+                var ndx = dx / dist;
+                var ndy = dy / dist;
+
+                var barLen = 40 + game.aimPower * 40;
+                ctx.strokeStyle = 'rgba(255,255,0,0.7)';
+                ctx.lineWidth = 3;
+                ctx.setLineDash([6, 4]);
+                ctx.beginPath();
+                ctx.moveTo(screenX, screenY);
+                ctx.lineTo(screenX + ndx * barLen, screenY + ndy * barLen);
+                ctx.stroke();
+                ctx.setLineDash([]);
+
+                var pw = 50;
+                var barX = screenX - pw/2;
+                var barY = screenY + 26;
+                ctx.fillStyle = 'rgba(0,0,0,0.4)';
+                ctx.fillRect(barX, barY, pw, 6);
+                ctx.fillStyle = game.aimPower > 0.7 ? '#4CAF50' : '#FFD700';
+                ctx.fillRect(barX, barY, pw * game.aimPower, 6);
+            }
+        }
+    }
+
+    function drawArrow(a) {
+        var sx = a.x;
+        var sy = a.y - game.cameraY;
+        if (sy < -40 || sy > H + 40) return;
+
+        var angle = Math.atan2(a.vy, a.vx);
+
+        ctx.save();
+        ctx.translate(sx, sy);
+        ctx.rotate(angle);
+
+        ctx.fillStyle = '#5c3d1e';
+        ctx.fillRect(-18, -2, 30, 4);
+
+        ctx.fillStyle = '#888';
+        ctx.beginPath();
+        ctx.moveTo(14, -6);
+        ctx.lineTo(22, 0);
+        ctx.lineTo(14, 6);
+        ctx.closePath();
+        ctx.fill();
+
+        ctx.fillStyle = '#cc3333';
+        ctx.beginPath();
+        ctx.moveTo(-18, -4);
+        ctx.lineTo(-14, 0);
+        ctx.lineTo(-18, 4);
+        ctx.lineTo(-22, 0);
+        ctx.closePath();
+        ctx.fill();
+
+        ctx.restore();
+    }
+
+    function drawPoop(p) {
+        for (var ti = 0; ti < p.trail.length; ti++) {
+            var tp = p.trail[ti];
+            var alpha = (ti / p.trail.length) * 0.3;
+            ctx.globalAlpha = alpha;
+            ctx.font = '10px serif';
+            ctx.fillText('💩', tp.x, tp.y - game.cameraY);
+        }
+        ctx.globalAlpha = 1;
+        ctx.font = '18px serif';
+        ctx.textAlign = 'center';
+        ctx.fillText('💩', p.x, p.y - game.cameraY);
+    }
+
+    function drawBananas() {
+        var topBranch = game.branches[BRANCH_COUNT];
+        var screenY = topBranch.y - game.cameraY - 30 + game.bananaFloat;
+        if (screenY < -60 || screenY > H + 60) return;
+
+        var bx = topBranch.side === 'left' ? topBranch.x + topBranch.w * 0.5 : topBranch.x + topBranch.w * 0.5;
+
+        ctx.font = '36px serif';
+        ctx.textAlign = 'center';
+        ctx.fillText('🍌', bx - 12, screenY);
+        ctx.fillText('🍌', bx + 12, screenY - 5);
+        ctx.fillText('🍌', bx, screenY + 10);
+    }
+
+    function drawBackground() {
+        var skyGrad = ctx.createLinearGradient(0, 0, 0, H);
+        skyGrad.addColorStop(0, '#5BC0EB');
+        skyGrad.addColorStop(0.4, '#87CEEB');
+        skyGrad.addColorStop(0.8, '#A8E6CF');
+        skyGrad.addColorStop(1, '#6ABF6E');
+        ctx.fillStyle = skyGrad;
+        ctx.fillRect(0, 0, W, H);
+
+        ctx.fillStyle = 'rgba(255,255,255,0.5)';
+        for (var si = 0; si < 12; si++) {
+            var sx = (si * 137.5 + 50) % W;
+            var sy = ((si * 97.3 + 20) % (H + 400)) - game.cameraY * 0.05;
+            sy = ((sy % H) + H) % H;
+            ctx.beginPath();
+            ctx.ellipse(sx, sy, 20 + (si % 3) * 10, 8, 0, 0, Math.PI * 2);
+            ctx.fill();
+        }
+    }
+
+    function drawParticles() {
+        for (var i = 0; i < game.leafParticles.length; i++) {
+            var p = game.leafParticles[i];
+            var sy = p.y - game.cameraY;
+            ctx.globalAlpha = Math.min(1, p.life / 15);
+            ctx.fillStyle = p.color;
+            ctx.beginPath();
+            ctx.arc(p.x, sy, 3, 0, Math.PI * 2);
+            ctx.fill();
+        }
+        ctx.globalAlpha = 1;
+    }
+
+    function drawGround() {
+        var groundY = game.branches[0].y + 40 - game.cameraY;
+        if (groundY < H) {
+            var gGrad = ctx.createLinearGradient(0, groundY, 0, H);
+            gGrad.addColorStop(0, '#4CAF50');
+            gGrad.addColorStop(0.5, '#388E3C');
+            gGrad.addColorStop(1, '#2E7D32');
+            ctx.fillStyle = gGrad;
+            ctx.fillRect(0, groundY, W, H - groundY);
+        }
+    }
+
+    function draw() {
+        if (!game) return;
+        ctx.clearRect(0, 0, W, H);
+
+        drawBackground();
+        drawTrunk(W / 2);
+        drawGround();
+
+        for (var i = 0; i < game.branches.length; i++) {
+            drawBranch(game.branches[i], i);
+        }
+
+        drawBananas();
+        drawMonkey();
+
+        for (var ai = 0; ai < game.arrows.length; ai++) {
+            if (game.arrows[ai].alive) drawArrow(game.arrows[ai]);
+        }
+
+        for (var pi = 0; pi < game.poops.length; pi++) {
+            drawPoop(game.poops[pi]);
+        }
+
+        drawParticles();
+    }
+
+    function loop() {
+        update();
+        draw();
+        if (game && game.state === 'climbing') {
+            animFrame = requestAnimationFrame(loop);
+        }
+    }
+
+    document.addEventListener('keydown', function(e) {
+        if (e.code === 'Space') {
+            e.preventDefault();
+            if (!game || game.state !== 'climbing') return;
+
+            if (!game.aiming && !game.monkey.jumping) {
+                tryJump();
+            }
+        }
+    });
+
+    document.addEventListener('keyup', function(e) {
+        if (e.code === 'Space') {
+            e.preventDefault();
+            if (!game || game.state !== 'climbing') return;
+
+            if (game.aiming && game.charging) {
+                throwPoop();
+            }
+        }
+    });
+
+    var touchStartTime = 0;
+    canvas.addEventListener('touchstart', function(e) {
+        e.preventDefault();
+        if (!game || game.state !== 'climbing') return;
+
+        if (!game.aiming && !game.monkey.jumping) {
+            tryJump();
+            touchStartTime = Date.now();
+        }
+    });
+
+    canvas.addEventListener('touchend', function(e) {
+        e.preventDefault();
+        if (!game || game.state !== 'climbing') return;
+
+        if (game.aiming && game.charging) {
+            throwPoop();
+        }
+    });
+
+    canvas.addEventListener('click', function(e) {
+        if (!game || game.state !== 'climbing') return;
+        if (!game.aiming && !game.monkey.jumping) {
+            tryJump();
+        }
+    });
+
+    canvas.addEventListener('mousedown', function(e) {
+        if (!game || game.state !== 'climbing') return;
+        if (game.aiming && !game.charging) {
+            game.charging = true;
+            game.chargeTime = 0;
+        }
+    });
+
+    canvas.addEventListener('mouseup', function(e) {
+        if (!game || game.state !== 'climbing') return;
+        if (game.aiming && game.charging) {
+            throwPoop();
+        }
+    });
+    </script>
+</body>
+</html>

@@ -1,0 +1,893 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>River Run</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            overflow: hidden;
+            height: 100vh;
+            background: #1b5e20;
+        }
+
+        canvas {
+            display: block;
+            margin: 0 auto;
+            background: #2196F3;
+        }
+
+        .overlay {
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 100;
+            background: rgba(0,0,0,0.8);
+        }
+
+        .overlay.hidden { display: none; }
+
+        .overlay h1 {
+            font-size: 44px;
+            color: #4FC3F7;
+            text-shadow: 2px 2px 8px rgba(0,0,0,0.5);
+            margin-bottom: 8px;
+        }
+
+        .overlay h2 {
+            font-size: 24px;
+            color: white;
+            margin-bottom: 16px;
+        }
+
+        .overlay p {
+            color: #ccc;
+            font-size: 15px;
+            max-width: 420px;
+            text-align: center;
+            line-height: 1.5;
+            margin-bottom: 6px;
+        }
+
+        .overlay .creator {
+            color: #81C784;
+            font-size: 13px;
+            margin-top: 14px;
+            font-style: italic;
+        }
+
+        .overlay button {
+            margin-top: 18px;
+            padding: 14px 40px;
+            font-size: 20px;
+            font-weight: bold;
+            border: none;
+            border-radius: 50px;
+            cursor: pointer;
+            background: linear-gradient(135deg, #1565C0, #1E88E5);
+            color: white;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+
+        .overlay button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 16px rgba(21,101,192,0.5);
+        }
+
+        .hud {
+            position: fixed;
+            top: 10px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            gap: 20px;
+            z-index: 50;
+            background: rgba(0,0,0,0.55);
+            padding: 8px 18px;
+            border-radius: 20px;
+            color: white;
+            font-size: 15px;
+            font-weight: bold;
+        }
+
+        .hud.hidden { display: none; }
+        .hud span { display: flex; align-items: center; gap: 4px; }
+
+        .powerup-indicator {
+            position: fixed;
+            bottom: 14px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 50;
+            padding: 6px 16px;
+            border-radius: 16px;
+            font-size: 14px;
+            font-weight: bold;
+            color: white;
+            display: none;
+        }
+
+        .powerup-indicator.shield { background: rgba(33,150,243,0.8); display: block; }
+        .powerup-indicator.boost { background: rgba(255,193,7,0.8); display: block; }
+    </style>
+</head>
+<body>
+    <div class="overlay" id="startScreen">
+        <h1>🚣 River Run</h1>
+        <h2>Navigate the jungle river!</h2>
+        <p>Use <strong>← →</strong> arrow keys or <strong>drag/tilt</strong> to steer your boat.</p>
+        <p>Dodge <strong>rocks</strong> 🪨 and <strong>arrows</strong> 🏹 from the jungle!</p>
+        <p>Catch <strong>small fish</strong> 🐟 for a shield, <strong>big fish</strong> 🐠 for an invincibility boost!</p>
+        <p>You can survive <strong>3 hits</strong> — after that, you're sunk!</p>
+        <p class="creator">Built by Declan J from San Diego 🌴</p>
+        <button onclick="startGame()">🌊 Set Sail!</button>
+    </div>
+
+    <div class="overlay hidden" id="winScreen">
+        <h1>🎉 You Made It!</h1>
+        <h2>Safe passage through the jungle!</h2>
+        <p id="winStats"></p>
+        <p class="creator">A game by Declan J from San Diego</p>
+        <button onclick="startGame()">Play Again</button>
+    </div>
+
+    <div class="overlay hidden" id="loseScreen">
+        <h1>💀 Capsized!</h1>
+        <h2 id="loseReason"></h2>
+        <p class="creator">A game by Declan J from San Diego</p>
+        <button onclick="startGame()">Try Again</button>
+    </div>
+
+    <div class="hud hidden" id="hud">
+        <span>📏 <b id="hudDist">0</b>m</span>
+        <span>❤️ <b id="hudLives">3</b></span>
+        <span>🐟 <b id="hudFish">0</b></span>
+    </div>
+
+    <div class="powerup-indicator" id="powerupBar"></div>
+
+    <canvas id="gameCanvas"></canvas>
+
+    <script>
+    var canvas = document.getElementById('gameCanvas');
+    var ctx = canvas.getContext('2d');
+
+    var W, H;
+    var RIVER_LENGTH = 3000;
+    var TOTAL_LIVES = 3;
+    var BOAT_SPEED = 2.5;
+
+    var game = null;
+    var keys = {};
+    var animFrame = null;
+    var touchStartX = null;
+
+    function resize() {
+        W = Math.min(document.documentElement.clientWidth || window.innerWidth || 500, 500);
+        if (W < 100) W = 500;
+        H = document.documentElement.clientHeight || window.innerHeight || 800;
+        if (H < 200) H = 800;
+        canvas.width = W;
+        canvas.height = H;
+    }
+    resize();
+    window.addEventListener('resize', resize);
+
+    /* ── River generation ── */
+    function generateRiver() {
+        var segments = [];
+        var centerX = W / 2;
+        var riverW = 200;
+        var minRiverW = 130;
+
+        for (var y = 0; y < RIVER_LENGTH + H; y += 4) {
+            centerX += (Math.sin(y * 0.006) * 1.2 + Math.sin(y * 0.002) * 0.6);
+            centerX = Math.max(riverW / 2 + 20, Math.min(W - riverW / 2 - 20, centerX));
+
+            var widthWobble = Math.sin(y * 0.008) * 30;
+            var curW = Math.max(minRiverW, riverW + widthWobble);
+
+            segments.push({
+                y: y,
+                cx: centerX,
+                w: curW,
+                left: centerX - curW / 2,
+                right: centerX + curW / 2
+            });
+        }
+        return segments;
+    }
+
+    /* ── Obstacle/item spawning ── */
+    function spawnRock(scrollY) {
+        var seg = getRiverAt(scrollY);
+        if (!seg) return null;
+        var margin = 20;
+        var rx = seg.left + margin + Math.random() * (seg.w - margin * 2);
+        return { x: rx, y: scrollY, w: 22 + Math.random() * 16, h: 18 + Math.random() * 12, hit: false };
+    }
+
+    function spawnFish(scrollY) {
+        var seg = getRiverAt(scrollY);
+        if (!seg) return null;
+        var margin = 15;
+        var fx = seg.left + margin + Math.random() * (seg.w - margin * 2);
+        var big = Math.random() < 0.25;
+        return { x: fx, y: scrollY, big: big, collected: false, bobPhase: Math.random() * Math.PI * 2 };
+    }
+
+    function spawnArrow(scrollY) {
+        var fromLeft = Math.random() < 0.5;
+        var ay = scrollY + Math.random() * H * 0.6;
+        return {
+            x: fromLeft ? -20 : W + 20,
+            y: ay,
+            vx: fromLeft ? (3 + Math.random() * 2) : -(3 + Math.random() * 2),
+            vy: (Math.random() - 0.5) * 1.5,
+            alive: true
+        };
+    }
+
+    function getRiverAt(worldY) {
+        if (!game) return null;
+        var idx = Math.floor(worldY / 4);
+        if (idx < 0) idx = 0;
+        if (idx >= game.river.length) idx = game.river.length - 1;
+        return game.river[idx];
+    }
+
+    /* ── Game init ── */
+    function startGame() {
+        document.getElementById('startScreen').classList.add('hidden');
+        document.getElementById('winScreen').classList.add('hidden');
+        document.getElementById('loseScreen').classList.add('hidden');
+        document.getElementById('hud').classList.remove('hidden');
+        document.getElementById('powerupBar').className = 'powerup-indicator';
+
+        var river = generateRiver();
+        var startSeg = river[Math.floor(H * 0.7 / 4)];
+
+        game = {
+            state: 'playing',
+            river: river,
+            scrollY: 0,
+            boat: {
+                x: startSeg ? startSeg.cx : W / 2,
+                y: H * 0.7,
+                w: 28,
+                h: 48,
+                vx: 0
+            },
+            rocks: [],
+            fish: [],
+            arrows: [],
+            particles: [],
+            lives: TOTAL_LIVES,
+            fishCollected: 0,
+            distance: 0,
+            hitFlash: 0,
+            shieldTimer: 0,
+            boostTimer: 0,
+            arrowTimer: 0,
+            rockTimer: 0,
+            fishTimer: 0,
+            ticks: 0,
+            nextRockY: H,
+            nextFishY: H * 1.5,
+            invulnTimer: 0
+        };
+
+        /* Pre-spawn some obstacles ahead */
+        for (var ry = H; ry < H + 800; ry += 80 + Math.random() * 60) {
+            var r = spawnRock(ry);
+            if (r) game.rocks.push(r);
+        }
+        game.nextRockY = H + 800;
+        for (var fy = H * 1.2; fy < H + 600; fy += 150 + Math.random() * 120) {
+            var f = spawnFish(fy);
+            if (f) game.fish.push(f);
+        }
+        game.nextFishY = H + 600;
+
+        updateHUD();
+        if (animFrame) cancelAnimationFrame(animFrame);
+        loop();
+    }
+
+    function updateHUD() {
+        document.getElementById('hudDist').textContent = Math.floor(game.distance);
+        document.getElementById('hudLives').textContent = game.lives;
+        document.getElementById('hudFish').textContent = game.fishCollected;
+
+        var bar = document.getElementById('powerupBar');
+        if (game.boostTimer > 0) {
+            bar.className = 'powerup-indicator boost';
+            bar.textContent = '⚡ INVINCIBLE ' + Math.ceil(game.boostTimer / 60) + 's';
+        } else if (game.shieldTimer > 0) {
+            bar.className = 'powerup-indicator shield';
+            bar.textContent = '🛡️ SHIELD ' + Math.ceil(game.shieldTimer / 60) + 's';
+        } else {
+            bar.className = 'powerup-indicator';
+        }
+    }
+
+    /* ── Collision helpers ── */
+    function rectsOverlap(ax, ay, aw, ah, bx, by, bw, bh) {
+        return ax < bx + bw && ax + aw > bx && ay < by + bh && ay + ah > by;
+    }
+
+    function boatWorldY() {
+        return game.scrollY + game.boat.y;
+    }
+
+    /* ── Hit handling ── */
+    function hitBoat(reason) {
+        if (game.invulnTimer > 0) return;
+        if (game.boostTimer > 0) return;
+
+        if (game.shieldTimer > 0) {
+            game.shieldTimer = 0;
+            game.invulnTimer = 30;
+            spawnParticles(game.boat.x, game.boat.y, '#2196F3', 8);
+            updateHUD();
+            return;
+        }
+
+        game.lives--;
+        game.hitFlash = 20;
+        game.invulnTimer = 60;
+        spawnParticles(game.boat.x, game.boat.y, '#ff4444', 10);
+        updateHUD();
+
+        if (game.lives <= 0) {
+            loseGame(reason);
+        }
+    }
+
+    function spawnParticles(x, y, color, count) {
+        for (var i = 0; i < count; i++) {
+            game.particles.push({
+                x: x, y: y,
+                vx: (Math.random() - 0.5) * 5,
+                vy: (Math.random() - 0.5) * 5,
+                life: 20 + Math.random() * 15,
+                color: color
+            });
+        }
+    }
+
+    function loseGame(reason) {
+        game.state = 'lost';
+        document.getElementById('hud').classList.add('hidden');
+        document.getElementById('powerupBar').className = 'powerup-indicator';
+        document.getElementById('loseReason').textContent = reason || 'Too much damage!';
+        document.getElementById('loseScreen').classList.remove('hidden');
+    }
+
+    function winGame() {
+        game.state = 'won';
+        document.getElementById('hud').classList.add('hidden');
+        document.getElementById('powerupBar').className = 'powerup-indicator';
+        document.getElementById('winStats').textContent =
+            'Distance: ' + Math.floor(game.distance) + 'm  |  Fish: ' + game.fishCollected + '  |  Lives: ' + game.lives + '/' + TOTAL_LIVES;
+        document.getElementById('winScreen').classList.remove('hidden');
+
+        if (window.parent !== window) {
+            window.parent.postMessage({ type: 'gameCompletion', completed: true }, '*');
+        }
+    }
+
+    /* ── Update ── */
+    function update() {
+        if (!game || game.state !== 'playing') return;
+        game.ticks++;
+
+        if (game.hitFlash > 0) game.hitFlash--;
+        if (game.invulnTimer > 0) game.invulnTimer--;
+        if (game.shieldTimer > 0) game.shieldTimer--;
+        if (game.boostTimer > 0) game.boostTimer--;
+
+        /* Scroll forward */
+        var speed = BOAT_SPEED + game.distance * 0.0003;
+        game.scrollY += speed;
+        game.distance += speed * 0.15;
+
+        /* Steer boat */
+        var steerSpeed = 3.5;
+        if (keys['ArrowLeft'] || keys['KeyA']) game.boat.vx -= steerSpeed * 0.3;
+        if (keys['ArrowRight'] || keys['KeyD']) game.boat.vx += steerSpeed * 0.3;
+        game.boat.vx *= 0.88;
+        game.boat.x += game.boat.vx;
+
+        /* Keep boat in bounds */
+        if (game.boat.x < 10) game.boat.x = 10;
+        if (game.boat.x > W - 10) game.boat.x = W - 10;
+
+        /* Check bank collision */
+        var seg = getRiverAt(boatWorldY());
+        if (seg && game.boostTimer <= 0) {
+            var boatLeft = game.boat.x - game.boat.w / 2;
+            var boatRight = game.boat.x + game.boat.w / 2;
+            if (boatLeft < seg.left + 4 || boatRight > seg.right - 4) {
+                hitBoat('Crashed into the river bank!');
+                /* Push back to river */
+                if (boatLeft < seg.left + 4) game.boat.x = seg.left + game.boat.w / 2 + 8;
+                if (boatRight > seg.right - 4) game.boat.x = seg.right - game.boat.w / 2 - 8;
+                game.boat.vx = 0;
+            }
+        }
+
+        /* Spawn rocks ahead */
+        if (game.scrollY + H > game.nextRockY) {
+            var r = spawnRock(game.nextRockY);
+            if (r) game.rocks.push(r);
+            game.nextRockY += 60 + Math.random() * 80;
+        }
+
+        /* Spawn fish */
+        if (game.scrollY + H > game.nextFishY) {
+            var fi = spawnFish(game.nextFishY);
+            if (fi) game.fish.push(fi);
+            game.nextFishY += 140 + Math.random() * 160;
+        }
+
+        /* Spawn arrows */
+        game.arrowTimer++;
+        var arrowInterval = Math.max(35, 80 - game.distance * 0.05);
+        if (game.arrowTimer >= arrowInterval) {
+            game.arrowTimer = 0;
+            game.arrows.push(spawnArrow(game.scrollY));
+        }
+
+        /* Update rocks — check collision */
+        var boatCX = game.boat.x;
+        var boatCY = game.boat.y;
+        for (var ri = game.rocks.length - 1; ri >= 0; ri--) {
+            var rock = game.rocks[ri];
+            var rScreenY = rock.y - game.scrollY;
+
+            if (!rock.hit && rectsOverlap(
+                boatCX - game.boat.w / 2, boatCY - game.boat.h / 2, game.boat.w, game.boat.h,
+                rock.x - rock.w / 2, rScreenY - rock.h / 2, rock.w, rock.h
+            )) {
+                rock.hit = true;
+                if (game.boostTimer <= 0) {
+                    hitBoat('Hit a rock!');
+                } else {
+                    spawnParticles(rock.x, rScreenY, '#9E9E9E', 6);
+                }
+            }
+
+            if (rScreenY < -60) {
+                game.rocks.splice(ri, 1);
+            }
+        }
+
+        /* Update fish */
+        for (var fi2 = game.fish.length - 1; fi2 >= 0; fi2--) {
+            var fish = game.fish[fi2];
+            fish.bobPhase += 0.06;
+            var fScreenY = fish.y - game.scrollY;
+            var fSize = fish.big ? 18 : 12;
+
+            if (!fish.collected && rectsOverlap(
+                boatCX - game.boat.w / 2 - 4, boatCY - game.boat.h / 2 - 4, game.boat.w + 8, game.boat.h + 8,
+                fish.x - fSize, fScreenY - fSize, fSize * 2, fSize * 2
+            )) {
+                fish.collected = true;
+                game.fishCollected++;
+                if (fish.big) {
+                    game.boostTimer = 300; /* 5 seconds */
+                    spawnParticles(fish.x, fScreenY, '#FFD700', 12);
+                } else {
+                    game.shieldTimer = 360; /* 6 seconds */
+                    spawnParticles(fish.x, fScreenY, '#4FC3F7', 8);
+                }
+                updateHUD();
+            }
+
+            if (fScreenY < -40) {
+                game.fish.splice(fi2, 1);
+            }
+        }
+
+        /* Update arrows */
+        for (var ai = game.arrows.length - 1; ai >= 0; ai--) {
+            var a = game.arrows[ai];
+            a.x += a.vx;
+            a.y += a.vy;
+
+            var aScreenY = a.y - game.scrollY;
+            if (a.alive && rectsOverlap(
+                boatCX - game.boat.w / 2, boatCY - game.boat.h / 2, game.boat.w, game.boat.h,
+                a.x - 12, aScreenY - 3, 24, 6
+            )) {
+                a.alive = false;
+                hitBoat('Hit by an arrow!');
+            }
+
+            if (a.x < -50 || a.x > W + 50 || aScreenY < -60 || aScreenY > H + 60) {
+                game.arrows.splice(ai, 1);
+            }
+        }
+
+        /* Update particles */
+        for (var pi = game.particles.length - 1; pi >= 0; pi--) {
+            var p = game.particles[pi];
+            p.x += p.vx;
+            p.y += p.vy;
+            p.vy += 0.1;
+            p.life--;
+            if (p.life <= 0) game.particles.splice(pi, 1);
+        }
+
+        /* Win check */
+        if (game.distance >= RIVER_LENGTH * 0.15) {
+            winGame();
+            return;
+        }
+
+        updateHUD();
+    }
+
+    /* ── Drawing ── */
+    function drawRiver() {
+        var startIdx = Math.max(0, Math.floor(game.scrollY / 4) - 2);
+        var endIdx = Math.min(game.river.length - 1, Math.floor((game.scrollY + H) / 4) + 2);
+
+        /* Draw forest background */
+        ctx.fillStyle = '#2E7D32';
+        ctx.fillRect(0, 0, W, H);
+
+        /* Draw river water */
+        for (var i = startIdx; i <= endIdx; i++) {
+            var seg = game.river[i];
+            var screenY = seg.y - game.scrollY;
+
+            /* Water */
+            var waterShade = (i % 60 < 30) ? '#42A5F5' : '#3D9BE0';
+            ctx.fillStyle = waterShade;
+            ctx.fillRect(seg.left, screenY, seg.w, 5);
+
+            /* Water shimmer */
+            if (i % 20 === 0) {
+                ctx.fillStyle = 'rgba(255,255,255,0.15)';
+                ctx.fillRect(seg.cx - 10 + Math.sin(i * 0.1 + game.ticks * 0.03) * 15, screenY, 20, 4);
+            }
+        }
+
+        /* Draw bank details (trees, bushes) */
+        for (var i2 = startIdx; i2 <= endIdx; i2 += 12) {
+            var seg2 = game.river[i2];
+            var sY = seg2.y - game.scrollY;
+
+            /* Left bank vegetation */
+            drawTree(seg2.left - 15 + Math.sin(i2 * 0.3) * 8, sY);
+            if (i2 % 24 === 0) drawTree(seg2.left - 35 + Math.sin(i2 * 0.5) * 5, sY + 6);
+
+            /* Right bank vegetation */
+            drawTree(seg2.right + 15 + Math.sin(i2 * 0.4) * 8, sY);
+            if (i2 % 24 === 0) drawTree(seg2.right + 35 + Math.sin(i2 * 0.6) * 5, sY + 6);
+        }
+
+        /* Bank edge highlights */
+        ctx.strokeStyle = '#1B5E20';
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        for (var j = startIdx; j <= endIdx; j += 2) {
+            var s = game.river[j];
+            var sy = s.y - game.scrollY;
+            if (j === startIdx) { ctx.moveTo(s.left, sy); } else { ctx.lineTo(s.left, sy); }
+        }
+        ctx.stroke();
+        ctx.beginPath();
+        for (var k = startIdx; k <= endIdx; k += 2) {
+            var s2 = game.river[k];
+            var sy2 = s2.y - game.scrollY;
+            if (k === startIdx) { ctx.moveTo(s2.right, sy2); } else { ctx.lineTo(s2.right, sy2); }
+        }
+        ctx.stroke();
+    }
+
+    function drawTree(x, y) {
+        if (y < -30 || y > H + 30) return;
+        /* Trunk */
+        ctx.fillStyle = '#5D4037';
+        ctx.fillRect(x - 2, y - 2, 4, 10);
+        /* Canopy */
+        ctx.fillStyle = '#1B5E20';
+        ctx.beginPath();
+        ctx.arc(x, y - 6, 10 + Math.random() * 3, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = '#388E3C';
+        ctx.beginPath();
+        ctx.arc(x + 2, y - 8, 7, 0, Math.PI * 2);
+        ctx.fill();
+    }
+
+    function drawBoat() {
+        var bx = game.boat.x;
+        var by = game.boat.y;
+
+        if (game.hitFlash > 0 && game.hitFlash % 4 < 2) return;
+        if (game.invulnTimer > 0 && game.invulnTimer % 3 === 0) return;
+
+        ctx.save();
+        ctx.translate(bx, by);
+
+        /* Boat shadow */
+        ctx.fillStyle = 'rgba(0,0,0,0.15)';
+        ctx.beginPath();
+        ctx.ellipse(2, 4, 14, 6, 0, 0, Math.PI * 2);
+        ctx.fill();
+
+        /* Boat hull */
+        ctx.beginPath();
+        ctx.moveTo(0, -24);
+        ctx.quadraticCurveTo(16, -10, 14, 18);
+        ctx.lineTo(6, 24);
+        ctx.lineTo(-6, 24);
+        ctx.lineTo(-14, 18);
+        ctx.quadraticCurveTo(-16, -10, 0, -24);
+        ctx.closePath();
+
+        var hullGrad = ctx.createLinearGradient(-14, 0, 14, 0);
+        hullGrad.addColorStop(0, '#6D4C41');
+        hullGrad.addColorStop(0.5, '#8D6E63');
+        hullGrad.addColorStop(1, '#6D4C41');
+        ctx.fillStyle = hullGrad;
+        ctx.fill();
+        ctx.strokeStyle = '#4E342E';
+        ctx.lineWidth = 1.5;
+        ctx.stroke();
+
+        /* Inner hull line */
+        ctx.beginPath();
+        ctx.moveTo(0, -18);
+        ctx.quadraticCurveTo(10, -6, 9, 14);
+        ctx.lineTo(-9, 14);
+        ctx.quadraticCurveTo(-10, -6, 0, -18);
+        ctx.closePath();
+        ctx.fillStyle = '#A1887F';
+        ctx.fill();
+
+        /* Boat seat/plank */
+        ctx.fillStyle = '#5D4037';
+        ctx.fillRect(-9, -2, 18, 3);
+        ctx.fillRect(-8, 8, 16, 3);
+
+        /* Wake ripples behind boat */
+        ctx.restore();
+
+        ctx.strokeStyle = 'rgba(255,255,255,0.3)';
+        ctx.lineWidth = 1;
+        for (var w = 1; w <= 3; w++) {
+            ctx.beginPath();
+            ctx.arc(bx, by + 24 + w * 10, 4 + w * 3, 0.3, Math.PI - 0.3);
+            ctx.stroke();
+        }
+
+        /* Shield effect */
+        if (game.shieldTimer > 0) {
+            ctx.strokeStyle = 'rgba(33,150,243,' + (0.4 + Math.sin(game.ticks * 0.1) * 0.2) + ')';
+            ctx.lineWidth = 2.5;
+            ctx.beginPath();
+            ctx.arc(bx, by, 28, 0, Math.PI * 2);
+            ctx.stroke();
+        }
+
+        /* Boost effect */
+        if (game.boostTimer > 0) {
+            ctx.fillStyle = 'rgba(255,215,0,' + (0.2 + Math.sin(game.ticks * 0.15) * 0.15) + ')';
+            ctx.beginPath();
+            ctx.arc(bx, by, 30, 0, Math.PI * 2);
+            ctx.fill();
+        }
+    }
+
+    function drawRock(rock) {
+        var screenY = rock.y - game.scrollY;
+        if (screenY < -40 || screenY > H + 40) return;
+        if (rock.hit) return;
+
+        ctx.save();
+        ctx.translate(rock.x, screenY);
+
+        /* Rock body */
+        ctx.fillStyle = '#757575';
+        ctx.beginPath();
+        ctx.ellipse(0, 0, rock.w / 2, rock.h / 2, 0.2, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.strokeStyle = '#616161';
+        ctx.lineWidth = 1.5;
+        ctx.stroke();
+
+        /* Rock highlight */
+        ctx.fillStyle = 'rgba(255,255,255,0.2)';
+        ctx.beginPath();
+        ctx.ellipse(-rock.w * 0.15, -rock.h * 0.15, rock.w * 0.2, rock.h * 0.15, -0.3, 0, Math.PI * 2);
+        ctx.fill();
+
+        ctx.restore();
+    }
+
+    function drawFishItem(fish) {
+        var screenY = fish.y - game.scrollY + Math.sin(fish.bobPhase) * 4;
+        if (screenY < -30 || screenY > H + 30) return;
+        if (fish.collected) return;
+
+        ctx.font = fish.big ? '26px serif' : '18px serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(fish.big ? '🐠' : '🐟', fish.x, screenY);
+
+        /* Glow for big fish */
+        if (fish.big) {
+            ctx.fillStyle = 'rgba(255,215,0,' + (0.15 + Math.sin(fish.bobPhase * 2) * 0.1) + ')';
+            ctx.beginPath();
+            ctx.arc(fish.x, screenY, 16, 0, Math.PI * 2);
+            ctx.fill();
+        }
+    }
+
+    function drawArrow(a) {
+        var screenY = a.y - game.scrollY;
+        if (screenY < -40 || screenY > H + 40) return;
+        if (!a.alive) return;
+
+        var angle = Math.atan2(a.vy, a.vx);
+
+        ctx.save();
+        ctx.translate(a.x, screenY);
+        ctx.rotate(angle);
+
+        /* Shaft */
+        ctx.fillStyle = '#5D4037';
+        ctx.fillRect(-18, -2, 30, 4);
+
+        /* Arrowhead */
+        ctx.fillStyle = '#888';
+        ctx.beginPath();
+        ctx.moveTo(14, -6);
+        ctx.lineTo(22, 0);
+        ctx.lineTo(14, 6);
+        ctx.closePath();
+        ctx.fill();
+
+        /* Fletching */
+        ctx.fillStyle = '#E53935';
+        ctx.beginPath();
+        ctx.moveTo(-18, -4);
+        ctx.lineTo(-14, 0);
+        ctx.lineTo(-18, 4);
+        ctx.lineTo(-22, 0);
+        ctx.closePath();
+        ctx.fill();
+
+        ctx.restore();
+    }
+
+    function drawParticles() {
+        for (var i = 0; i < game.particles.length; i++) {
+            var p = game.particles[i];
+            ctx.globalAlpha = Math.min(1, p.life / 15);
+            ctx.fillStyle = p.color;
+            ctx.beginPath();
+            ctx.arc(p.x, p.y, 3, 0, Math.PI * 2);
+            ctx.fill();
+        }
+        ctx.globalAlpha = 1;
+    }
+
+    function drawDistanceBar() {
+        var progress = game.distance / (RIVER_LENGTH * 0.15);
+        var barW = W - 40;
+        var barH = 6;
+        var barX = 20;
+        var barY = H - 20;
+
+        ctx.fillStyle = 'rgba(0,0,0,0.3)';
+        ctx.fillRect(barX, barY, barW, barH);
+
+        var barGrad = ctx.createLinearGradient(barX, 0, barX + barW * progress, 0);
+        barGrad.addColorStop(0, '#4FC3F7');
+        barGrad.addColorStop(1, '#81C784');
+        ctx.fillStyle = barGrad;
+        ctx.fillRect(barX, barY, barW * Math.min(1, progress), barH);
+
+        /* Boat icon on bar */
+        ctx.font = '12px serif';
+        ctx.fillText('🚣', barX + barW * Math.min(1, progress) - 6, barY - 4);
+    }
+
+    /* ── Main draw ── */
+    function draw() {
+        if (!game) return;
+        ctx.clearRect(0, 0, W, H);
+
+        drawRiver();
+
+        for (var ri = 0; ri < game.rocks.length; ri++) {
+            drawRock(game.rocks[ri]);
+        }
+
+        for (var fi = 0; fi < game.fish.length; fi++) {
+            drawFishItem(game.fish[fi]);
+        }
+
+        drawBoat();
+
+        for (var ai = 0; ai < game.arrows.length; ai++) {
+            drawArrow(game.arrows[ai]);
+        }
+
+        drawParticles();
+        drawDistanceBar();
+    }
+
+    function loop() {
+        update();
+        draw();
+        if (game && game.state === 'playing') {
+            animFrame = requestAnimationFrame(loop);
+        }
+    }
+
+    /* ── Input ── */
+    document.addEventListener('keydown', function(e) {
+        keys[e.code] = true;
+        if (e.code === 'ArrowLeft' || e.code === 'ArrowRight' || e.code === 'Space') {
+            e.preventDefault();
+        }
+    });
+
+    document.addEventListener('keyup', function(e) {
+        keys[e.code] = false;
+    });
+
+    canvas.addEventListener('touchstart', function(e) {
+        e.preventDefault();
+        touchStartX = e.touches[0].clientX;
+    });
+
+    canvas.addEventListener('touchmove', function(e) {
+        e.preventDefault();
+        if (touchStartX !== null && game && game.state === 'playing') {
+            var dx = e.touches[0].clientX - touchStartX;
+            game.boat.vx += dx * 0.04;
+            touchStartX = e.touches[0].clientX;
+        }
+    });
+
+    canvas.addEventListener('touchend', function(e) {
+        e.preventDefault();
+        touchStartX = null;
+    });
+
+    /* Mouse drag for desktop testing */
+    var mouseDown = false;
+    var lastMouseX = 0;
+    canvas.addEventListener('mousedown', function(e) {
+        mouseDown = true;
+        lastMouseX = e.clientX;
+    });
+
+    canvas.addEventListener('mousemove', function(e) {
+        if (mouseDown && game && game.state === 'playing') {
+            var dx = e.clientX - lastMouseX;
+            game.boat.vx += dx * 0.06;
+            lastMouseX = e.clientX;
+        }
+    });
+
+    canvas.addEventListener('mouseup', function() { mouseDown = false; });
+    canvas.addEventListener('mouseleave', function() { mouseDown = false; });
+    </script>
+</body>
+</html>

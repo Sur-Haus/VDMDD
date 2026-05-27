@@ -256,8 +256,10 @@
     }
 
     /* Convert world Y to screen Y: scenery scrolls top-to-bottom */
+    /* Camera anchor is fixed at baseScreenY so scene scrolls at constant rate.
+       Boat screenY can move independently without shifting the whole scene. */
     function toScreen(worldY) {
-        return game.boat.screenY + (worldY - game.boatWorldY);
+        return game.boat.baseScreenY + (worldY - game.boatWorldY);
     }
 
     /* ── Game init ── */

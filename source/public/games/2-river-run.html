@@ -653,8 +653,8 @@
         ctx.fillRect(0, 0, W, H);
 
         /* Draw river water band */
-        var visibleStart = game.boatWorldY - game.boat.screenY;
-        var visibleEnd = game.boatWorldY + (H - game.boat.screenY);
+        var visibleStart = game.boatWorldY - game.boat.baseScreenY;
+        var visibleEnd = game.boatWorldY + (H - game.boat.baseScreenY);
         var idxStart = Math.max(0, Math.floor(visibleStart / 4) - 2);
         var idxEnd = Math.min(game.river.length - 1, Math.floor(visibleEnd / 4) + 2);
 

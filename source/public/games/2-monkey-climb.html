@@ -98,9 +98,9 @@
     <div class="overlay" id="startScreen">
         <h1>🐒 Monkey Climb</h1>
         <h2>Reach the bananas at the top!</h2>
-        <p>Press <strong>SPACE</strong> or <strong>TAP</strong> to jump to the next branch.</p>
+        <p>Use <strong>← →</strong> to move and <strong>↑</strong> to jump up.</p>
         <p>Watch out for <strong>arrows</strong> flying at you!</p>
-        <p>If a <strong>jaguar 🐆</strong> is on the next branch, aim and hold <strong>SPACE</strong> to throw 💩 at it!</p>
+        <p>If a <strong>jaguar 🐆</strong> is ahead, hold <strong>SPACE</strong> and aim with arrows to throw 💩!</p>
         <p>You only get <strong>6 poops</strong> — aim carefully!</p>
         <button onclick="startGame()">🌿 Start Climbing!</button>
     </div>
@@ -130,11 +130,16 @@
     var canvas = document.getElementById('gameCanvas');
     var ctx = canvas.getContext('2d');
 
+    /* ══════════════════ CONSTANTS ══════════════════ */
     var W, H;
     var BRANCH_COUNT = 12;
     var TOTAL_POOPS = 6;
     var TOTAL_LIVES = 3;
     var JAGUAR_COUNT = 3;
+    var TRUNK_HALF = 38;
+    var LEAF_COLORS = ['#1B5E20','#2E7D32','#388E3C','#43A047','#4CAF50','#66BB6A','#81C784'];
+    var MONKEY_SIZE = 64;
+    var JAGUAR_SIZE = 140;
 
     var game = null;
     var keys = {};
@@ -151,6 +156,7 @@
     resize();
     window.addEventListener('resize', resize);
 
+    /* ══════════════════ GAME INIT ══════════════════ */
     function startGame() {
         document.getElementById('startScreen').classList.add('hidden');
         document.getElementById('winScreen').classList.add('hidden');
@@ -163,45 +169,97 @@
             if (jaguarBranches.indexOf(b) === -1) jaguarBranches.push(b);
         }
 
+        var branchSpacing = Math.floor(H / 2.8);
         var branches = [];
-        var branchSpacing = (H - 120) / (BRANCH_COUNT + 1);
         for (var i = 0; i <= BRANCH_COUNT; i++) {
-            var y = H - 60 - i * branchSpacing;
+            var y = H - 80 - i * branchSpacing;
             var side = (i % 2 === 0) ? 'left' : 'right';
-            var bw = 100 + Math.random() * 60;
+            var bw = 130 + Math.random() * 50;
             var bx = side === 'left' ? 0 : W - bw;
             branches.push({
-                x: bx, y: y, w: bw, h: 14, side: side,
+                x: bx, y: y, w: bw, h: 22, side: side,
                 hasJaguar: jaguarBranches.indexOf(i) !== -1,
                 jaguarAlive: jaguarBranches.indexOf(i) !== -1
             });
         }
 
+        /* ── Pre-generate dense foliage ── */
+        for (var fi = 0; fi <= BRANCH_COUNT; fi++) {
+            var fb = branches[fi];
+            var fTipX = fb.side === 'left' ? fb.x : fb.x + fb.w;
+            var fTrunkEdge = fb.side === 'left' ? W / 2 - TRUNK_HALF : W / 2 + TRUNK_HALF;
+
+            fb.leaves = [];
+            var fLeafCount = 55 + Math.floor(Math.random() * 30);
+            for (var fj = 0; fj < fLeafCount; fj++) {
+                var ft = Math.pow(Math.random(), 0.5);
+                var flx = fTrunkEdge + (fTipX - fTrunkEdge) * ft;
+                flx += (Math.random() - 0.5) * 55;
+                var fly = (Math.random() - 0.55) * 210;
+                var flr = 16 + Math.random() * 30;
+                fb.leaves.push({
+                    x: flx, y: fly, r: flr,
+                    ci: Math.floor(Math.random() * LEAF_COLORS.length),
+                    rot: (Math.random() - 0.5) * 1.2
+                });
+            }
+            fb.leaves.sort(function(a, b) { return b.r - a.r; });
+
+            fb.vines = [];
+            var vineCount = 2 + Math.floor(Math.random() * 4);
+            for (var fv = 0; fv < vineCount; fv++) {
+                var vProg = 0.12 + Math.random() * 0.75;
+                fb.vines.push({
+                    x: fTrunkEdge + (fTipX - fTrunkEdge) * vProg,
+                    len: 70 + Math.random() * 140,
+                    curve: (Math.random() - 0.5) * 30,
+                    thick: 1.5 + Math.random() * 1.5
+                });
+            }
+        }
+
+        /* ── Top canopy (large, centered — banana nest) ── */
+        var topCanopy = [];
+        for (var tci = 0; tci < 85; tci++) {
+            var tcA = (tci / 85) * Math.PI * 2 + Math.random() * 0.5;
+            var tcD = Math.random() * 145 + 10;
+            topCanopy.push({
+                xOff: Math.cos(tcA) * tcD,
+                yOff: Math.sin(tcA) * tcD * 0.5 - 70,
+                r: 22 + Math.random() * 40,
+                ci: Math.floor(Math.random() * LEAF_COLORS.length),
+                rot: Math.random() * Math.PI
+            });
+        }
+        topCanopy.sort(function(a, b) { return b.r - a.r; });
+
         var startBranch = branches[0];
-        var monkeyX = startBranch.side === 'left' ? startBranch.x + startBranch.w / 2 : startBranch.x + startBranch.w / 2;
+        var monkeyStartX = startBranch.side === 'left' ? W / 2 - 55 : W / 2 + 55;
 
         game = {
             state: 'climbing',
             branches: branches,
+            branchSpacing: branchSpacing,
             monkey: {
-                x: monkeyX, y: startBranch.y - 30,
-                w: 36, h: 36,
+                x: monkeyStartX,
+                y: startBranch.y - 70,
+                w: MONKEY_SIZE, h: MONKEY_SIZE,
+                vx: 0,
                 currentBranch: 0,
                 jumping: false,
                 jumpT: 0,
                 jumpFrom: { x: 0, y: 0 },
                 jumpTo: { x: 0, y: 0 },
-                facingRight: startBranch.side === 'left'
+                facingRight: startBranch.side === 'right'
             },
             arrows: [],
             arrowTimer: 0,
-            arrowInterval: 90,
+            arrowInterval: 110,
             poops: [],
             poopAmmo: TOTAL_POOPS,
             lives: TOTAL_LIVES,
             aiming: false,
-            aimAngle: 0,
-            aimPower: 0,
+            aimAngle: -Math.PI / 2,
             charging: false,
             chargeTime: 0,
             cameraY: 0,
@@ -210,7 +268,8 @@
             hitFlash: 0,
             jaguarsDefeated: 0,
             leafParticles: [],
-            bananaFloat: 0
+            bananaFloat: 0,
+            topCanopy: topCanopy
         };
 
         updateHUD();
@@ -218,12 +277,14 @@
         loop();
     }
 
+    /* ══════════════════ HUD ══════════════════ */
     function updateHUD() {
         document.getElementById('hudBranch').textContent = (game.monkey.currentBranch + 1) + '/' + (BRANCH_COUNT + 1);
         document.getElementById('hudAmmo').textContent = game.poopAmmo;
         document.getElementById('hudLives').textContent = game.lives;
     }
 
+    /* ══════════════════ HELPERS ══════════════════ */
     function getNextBranch() {
         var idx = game.monkey.currentBranch + 1;
         if (idx > BRANCH_COUNT) return null;
@@ -240,36 +301,49 @@
         return next.branch.jaguarAlive;
     }
 
+    /* ══════════════════ ACTIONS ══════════════════ */
     function tryJump() {
         if (game.monkey.jumping) return;
         if (game.state !== 'climbing') return;
-
-        if (needsAiming()) {
-            game.aiming = true;
-            game.charging = true;
-            game.chargeTime = 0;
-            game.aimPower = 0;
-            return;
-        }
+        if (game.aiming) return;
+        if (needsAiming()) return; // must poop the jaguar first
 
         var next = getNextBranch();
         if (!next) {
             winGame();
             return;
         }
-
         doJump(next.index);
     }
 
     function doJump(targetIdx) {
         var target = game.branches[targetIdx];
-        var landX = target.side === 'left' ? target.x + target.w * 0.6 : target.x + target.w * 0.4;
+        var landX = target.side === 'left' ? W / 2 - 55 : W / 2 + 55;
 
         game.monkey.jumping = true;
         game.monkey.jumpT = 0;
         game.monkey.jumpFrom = { x: game.monkey.x, y: game.monkey.y };
-        game.monkey.jumpTo = { x: landX, y: target.y - 30 };
-        game.monkey.facingRight = target.side === 'left';
+        game.monkey.jumpTo = { x: landX, y: target.y - 70 };
+        game.monkey.facingRight = target.side === 'right';
+    }
+
+    function enterAimMode() {
+        if (game.aiming || game.monkey.jumping) return;
+        if (!needsAiming()) return;
+
+        game.aiming = true;
+        game.charging = true;
+        game.chargeTime = 0;
+
+        var next = getNextBranch();
+        if (next) {
+            var mc = monkeyCenter();
+            var jx = next.branch.side === 'left'
+                ? next.branch.x + next.branch.w * 0.4
+                : next.branch.x + next.branch.w * 0.6;
+            var jy = next.branch.y - 80;
+            game.aimAngle = Math.atan2(jy - mc.y, jx - mc.x);
+        }
     }
 
     function throwPoop() {
@@ -284,25 +358,12 @@
         if (!next) return;
 
         var mc = monkeyCenter();
-        var jag = {
-            x: next.branch.side === 'left' ? next.branch.x + next.branch.w * 0.5 : next.branch.x + next.branch.w * 0.5,
-            y: next.branch.y - 20
-        };
-
-        var dx = jag.x - mc.x;
-        var dy = jag.y - mc.y;
-        var dist = Math.sqrt(dx * dx + dy * dy);
-        var power = Math.min(game.aimPower, 1.0);
-        var speed = 4 + power * 6;
-
-        var angle = Math.atan2(dy, dx);
-        var aimSpread = (1 - power) * 0.4;
-        angle += (Math.random() - 0.5) * aimSpread;
+        var speed = 10;
 
         game.poops.push({
             x: mc.x, y: mc.y,
-            vx: Math.cos(angle) * speed,
-            vy: Math.sin(angle) * speed,
+            vx: Math.cos(game.aimAngle) * speed,
+            vy: Math.sin(game.aimAngle) * speed,
             targetBranch: next.index,
             alive: true,
             trail: []
@@ -319,65 +380,62 @@
         }
     }
 
+    /* ══════════════════ SPAWNING ══════════════════ */
     function spawnArrow() {
         var side = Math.random() < 0.5 ? 'left' : 'right';
         var fromBottom = Math.random() < 0.7;
-
         var x, y, vx, vy;
+
         if (fromBottom) {
-            x = side === 'left' ? -20 : W + 20;
-            y = game.cameraY + H + 20;
+            x = side === 'left' ? -30 : W + 30;
+            y = game.cameraY + H + 30;
             vx = side === 'left' ? (1.5 + Math.random() * 2) : -(1.5 + Math.random() * 2);
-            vy = -(3 + Math.random() * 2);
+            vy = -(3.5 + Math.random() * 2.5);
         } else {
-            x = side === 'left' ? -20 : W + 20;
+            x = side === 'left' ? -30 : W + 30;
             y = game.cameraY + Math.random() * H;
-            vx = side === 'left' ? (2 + Math.random() * 2) : -(2 + Math.random() * 2);
-            vy = -(0.5 + Math.random() * 1.5);
+            vx = side === 'left' ? (2.5 + Math.random() * 2) : -(2.5 + Math.random() * 2);
+            vy = -(0.5 + Math.random() * 2);
         }
 
         game.arrows.push({ x: x, y: y, vx: vx, vy: vy, alive: true });
     }
 
+    /* ══════════════════ COLLISION ══════════════════ */
     function checkArrowHit(arrow) {
         var mx = game.monkey.x, my = game.monkey.y - game.cameraY;
         var mw = game.monkey.w, mh = game.monkey.h;
         var ax = arrow.x, ay = arrow.y - game.cameraY;
-
-        return ax > mx - mw/2 && ax < mx + mw/2 && ay > my - mh/2 && ay < my + mh/2;
+        return ax > mx - mw / 2 && ax < mx + mw / 2 && ay > my - mh / 2 && ay < my + mh / 2;
     }
 
     function checkPoopHitJaguar(poop) {
         var branch = game.branches[poop.targetBranch];
         if (!branch || !branch.jaguarAlive) return false;
-
-        var jx = branch.side === 'left' ? branch.x + branch.w * 0.5 : branch.x + branch.w * 0.5;
-        var jy = branch.y - 20;
+        var jx = branch.side === 'left' ? branch.x + branch.w * 0.4 : branch.x + branch.w * 0.6;
+        var jy = branch.y - 80;
         var dx = poop.x - jx;
         var dy = poop.y - jy;
-        return Math.sqrt(dx * dx + dy * dy) < 45;
+        return Math.sqrt(dx * dx + dy * dy) < 85;
     }
 
     function hitMonkey() {
         game.lives--;
         game.hitFlash = 20;
         updateHUD();
-
-        for (var i = 0; i < 8; i++) {
+        for (var i = 0; i < 10; i++) {
             game.leafParticles.push({
                 x: game.monkey.x, y: game.monkey.y,
-                vx: (Math.random() - 0.5) * 4,
-                vy: -Math.random() * 3,
+                vx: (Math.random() - 0.5) * 5,
+                vy: -Math.random() * 4,
                 life: 30 + Math.random() * 20,
                 color: ['#ff4444', '#ff6666', '#ff2222'][Math.floor(Math.random() * 3)]
             });
         }
-
-        if (game.lives <= 0) {
-            loseGame('The arrows got you!');
-        }
+        if (game.lives <= 0) loseGame('The arrows got you!');
     }
 
+    /* ══════════════════ END STATES ══════════════════ */
     function loseGame(reason) {
         game.state = 'lost';
         document.getElementById('hud').classList.add('hidden');
@@ -392,308 +450,151 @@
             'Poops used: ' + (TOTAL_POOPS - game.poopAmmo) + '/' + TOTAL_POOPS +
             '  |  Lives left: ' + game.lives + '/' + TOTAL_LIVES;
         document.getElementById('winScreen').classList.remove('hidden');
-
         if (window.parent !== window) {
             window.parent.postMessage({ type: 'gameCompletion', completed: true }, '*');
         }
     }
 
+    /* ══════════════════ UPDATE ══════════════════ */
     function update() {
         if (!game || game.state !== 'climbing') return;
         game.ticks++;
-        game.bananaFloat = Math.sin(game.ticks * 0.04) * 6;
-
+        game.bananaFloat = Math.sin(game.ticks * 0.04) * 8;
         if (game.hitFlash > 0) game.hitFlash--;
 
+        /* ── Monkey lateral movement (not while jumping or aiming) ── */
+        if (!game.monkey.jumping && !game.aiming) {
+            var moveSpeed = 3.2;
+            if (keys['ArrowLeft'] || keys['KeyA']) game.monkey.vx = -moveSpeed;
+            else if (keys['ArrowRight'] || keys['KeyD']) game.monkey.vx = moveSpeed;
+            else game.monkey.vx *= 0.78;
+            if (Math.abs(game.monkey.vx) < 0.25) game.monkey.vx = 0;
+            game.monkey.x += game.monkey.vx;
+
+            var cb = game.branches[game.monkey.currentBranch];
+            var minX, maxX;
+            if (cb.side === 'left') {
+                minX = cb.x + 20;
+                maxX = W / 2 - TRUNK_HALF - 5;
+            } else {
+                minX = W / 2 + TRUNK_HALF + 5;
+                maxX = cb.x + cb.w - 20;
+            }
+            if (game.monkey.x < minX) { game.monkey.x = minX; game.monkey.vx = 0; }
+            if (game.monkey.x > maxX) { game.monkey.x = maxX; game.monkey.vx = 0; }
+
+            game.monkey.facingRight = cb.side === 'right';
+        }
+
+        /* ── Aim adjustment ── */
+        if (game.aiming) {
+            var aimSpeed = 0.035;
+            if (keys['ArrowLeft']) game.aimAngle -= aimSpeed;
+            if (keys['ArrowRight']) game.aimAngle += aimSpeed;
+            if (keys['ArrowUp']) game.aimAngle -= aimSpeed;
+            if (keys['ArrowDown']) game.aimAngle += aimSpeed;
+            if (game.aimAngle < -Math.PI) game.aimAngle = -Math.PI;
+            if (game.aimAngle > 0) game.aimAngle = 0;
+            if (game.charging) game.chargeTime++;
+        }
+
+        /* ── Jump arc ── */
         if (game.monkey.jumping) {
-            game.monkey.jumpT += 0.035;
+            game.monkey.jumpT += 0.028;
             if (game.monkey.jumpT >= 1) {
                 game.monkey.jumpT = 1;
                 game.monkey.jumping = false;
                 game.monkey.currentBranch++;
                 game.monkey.x = game.monkey.jumpTo.x;
                 game.monkey.y = game.monkey.jumpTo.y;
+                game.monkey.vx = 0;
 
-                for (var lp = 0; lp < 5; lp++) {
+                for (var lp = 0; lp < 8; lp++) {
                     game.leafParticles.push({
-                        x: game.monkey.x, y: game.monkey.y + 20,
-                        vx: (Math.random() - 0.5) * 3,
-                        vy: Math.random() * 2,
-                        life: 20 + Math.random() * 15,
+                        x: game.monkey.x, y: game.monkey.y + 30,
+                        vx: (Math.random() - 0.5) * 4,
+                        vy: Math.random() * 3,
+                        life: 25 + Math.random() * 20,
                         color: ['#3a7d44', '#6abf6e', '#2d8b3a'][Math.floor(Math.random() * 3)]
                     });
                 }
 
-                if (game.monkey.currentBranch > BRANCH_COUNT) {
+                if (game.monkey.currentBranch >= BRANCH_COUNT) {
                     winGame();
                     return;
                 }
 
+                var landBranch = game.branches[game.monkey.currentBranch];
+                game.monkey.facingRight = landBranch.side === 'right';
                 updateHUD();
             } else {
                 var t = game.monkey.jumpT;
                 var ease = t < 0.5 ? 2 * t * t : -1 + (4 - 2 * t) * t;
                 game.monkey.x = game.monkey.jumpFrom.x + (game.monkey.jumpTo.x - game.monkey.jumpFrom.x) * ease;
-                var arcHeight = -120;
-                game.monkey.y = game.monkey.jumpFrom.y + (game.monkey.jumpTo.y - game.monkey.jumpFrom.y) * ease + arcHeight * Math.sin(Math.PI * t);
+                var arcH = -game.branchSpacing * 0.45;
+                game.monkey.y = game.monkey.jumpFrom.y + (game.monkey.jumpTo.y - game.monkey.jumpFrom.y) * ease + arcH * Math.sin(Math.PI * t);
             }
         }
 
-        var monkeyScreenY = game.monkey.y - game.cameraY;
-        game.targetCameraY = game.monkey.y - H * 0.6;
-        if (game.targetCameraY < -(H * 0.2)) game.targetCameraY = -(H * 0.2);
+        /* ── Camera ── */
+        game.targetCameraY = game.monkey.y - H * 0.62;
+        var maxCamY = game.branches[0].y - H * 0.4;
+        if (game.targetCameraY > maxCamY) game.targetCameraY = maxCamY;
         game.cameraY += (game.targetCameraY - game.cameraY) * 0.08;
 
-        if (game.charging) {
-            game.chargeTime++;
-            game.aimPower = Math.min(game.chargeTime / 60, 1.0);
-        }
-
+        /* ── Arrows ── */
         game.arrowTimer++;
-        var interval = Math.max(40, game.arrowInterval - game.monkey.currentBranch * 4);
+        var interval = Math.max(55, game.arrowInterval - game.monkey.currentBranch * 3);
         if (game.arrowTimer >= interval) {
             game.arrowTimer = 0;
             spawnArrow();
         }
-
         for (var ai = game.arrows.length - 1; ai >= 0; ai--) {
             var a = game.arrows[ai];
-            a.x += a.vx;
-            a.y += a.vy;
-            a.vy += 0.02;
-
+            a.x += a.vx; a.y += a.vy; a.vy += 0.02;
             if (!game.monkey.jumping && a.alive && checkArrowHit(a)) {
                 a.alive = false;
                 hitMonkey();
             }
-
-            if (a.y < game.cameraY - 100 || a.x < -60 || a.x > W + 60) {
+            if (a.y < game.cameraY - 100 || a.x < -80 || a.x > W + 80) {
                 game.arrows.splice(ai, 1);
             }
         }
 
+        /* ── Poops ── */
         for (var pi = game.poops.length - 1; pi >= 0; pi--) {
             var p = game.poops[pi];
             p.trail.push({ x: p.x, y: p.y });
-            if (p.trail.length > 8) p.trail.shift();
-            p.x += p.vx;
-            p.y += p.vy;
-            p.vy += 0.02;
-
+            if (p.trail.length > 10) p.trail.shift();
+            p.x += p.vx; p.y += p.vy; p.vy += 0.04;
             if (p.alive && checkPoopHitJaguar(p)) {
                 p.alive = false;
-                var branch = game.branches[p.targetBranch];
-                branch.jaguarAlive = false;
+                game.branches[p.targetBranch].jaguarAlive = false;
                 game.jaguarsDefeated++;
-
-                for (var sp = 0; sp < 10; sp++) {
+                for (var sp = 0; sp < 12; sp++) {
                     game.leafParticles.push({
                         x: p.x, y: p.y,
-                        vx: (Math.random() - 0.5) * 5,
-                        vy: (Math.random() - 0.5) * 5,
+                        vx: (Math.random() - 0.5) * 6,
+                        vy: (Math.random() - 0.5) * 6,
                         life: 25 + Math.random() * 15,
                         color: ['#8B6914', '#FFD700', '#FFA500'][Math.floor(Math.random() * 3)]
                     });
                 }
             }
-
-            if (p.y > game.cameraY + H + 50 || p.y < game.cameraY - 200 || p.x < -50 || p.x > W + 50) {
+            if (p.y > game.cameraY + H + 80 || p.y < game.cameraY - 400 || p.x < -80 || p.x > W + 80) {
                 game.poops.splice(pi, 1);
             }
         }
 
+        /* ── Particles ── */
         for (var li = game.leafParticles.length - 1; li >= 0; li--) {
             var lf = game.leafParticles[li];
-            lf.x += lf.vx;
-            lf.y += lf.vy;
-            lf.vy += 0.1;
-            lf.life--;
+            lf.x += lf.vx; lf.y += lf.vy; lf.vy += 0.1; lf.life--;
             if (lf.life <= 0) game.leafParticles.splice(li, 1);
         }
     }
 
-    function drawTrunk(cx) {
-        var trunkW = 50;
-        var grad = ctx.createLinearGradient(cx - trunkW/2, 0, cx + trunkW/2, 0);
-        grad.addColorStop(0, '#5D4037');
-        grad.addColorStop(0.3, '#795548');
-        grad.addColorStop(0.7, '#795548');
-        grad.addColorStop(1, '#5D4037');
-        ctx.fillStyle = grad;
-        ctx.fillRect(cx - trunkW/2, -500 - game.cameraY, trunkW, H + 1000);
-
-        ctx.strokeStyle = 'rgba(0,0,0,0.1)';
-        ctx.lineWidth = 1;
-        for (var ky = -500; ky < H + 500; ky += 25) {
-            var screenY = ky - game.cameraY;
-            ctx.beginPath();
-            ctx.moveTo(cx - trunkW/2 + 5, screenY);
-            ctx.quadraticCurveTo(cx, screenY + (Math.sin(ky * 0.1) * 3), cx + trunkW/2 - 5, screenY);
-            ctx.stroke();
-        }
-    }
-
-    function drawBranch(branch, idx) {
-        var screenY = branch.y - game.cameraY;
-        if (screenY < -60 || screenY > H + 60) return;
-
-        var cx = W / 2;
-        ctx.fillStyle = '#795548';
-        ctx.strokeStyle = '#5D4037';
-        ctx.lineWidth = 2;
-
-        ctx.beginPath();
-        if (branch.side === 'left') {
-            ctx.moveTo(cx - 20, screenY - branch.h/2);
-            ctx.lineTo(branch.x, screenY - branch.h/2 - 3);
-            ctx.lineTo(branch.x - 5, screenY);
-            ctx.lineTo(branch.x, screenY + branch.h/2 + 2);
-            ctx.lineTo(cx - 20, screenY + branch.h/2);
-        } else {
-            ctx.moveTo(cx + 20, screenY - branch.h/2);
-            ctx.lineTo(branch.x + branch.w, screenY - branch.h/2 - 3);
-            ctx.lineTo(branch.x + branch.w + 5, screenY);
-            ctx.lineTo(branch.x + branch.w, screenY + branch.h/2 + 2);
-            ctx.lineTo(cx + 20, screenY + branch.h/2);
-        }
-        ctx.closePath();
-        ctx.fill();
-        ctx.stroke();
-
-        var leafCount = 3 + Math.floor(Math.random() * 0.5);
-        ctx.fillStyle = '#4CAF50';
-        var tip = branch.side === 'left' ? branch.x : branch.x + branch.w;
-        for (var lci = 0; lci < leafCount; lci++) {
-            var lx = tip + (branch.side === 'left' ? -8 - lci * 10 : 8 + lci * 10);
-            var ly = screenY - 8 - Math.random() * 6;
-            ctx.beginPath();
-            ctx.ellipse(lx, ly, 8, 5, (branch.side === 'left' ? -0.3 : 0.3) + lci * 0.2, 0, Math.PI * 2);
-            ctx.fill();
-        }
-
-        if (branch.jaguarAlive) {
-            var jx = branch.side === 'left' ? branch.x + branch.w * 0.4 : branch.x + branch.w * 0.6;
-            ctx.font = '28px serif';
-            ctx.textAlign = 'center';
-            ctx.fillText('🐆', jx, screenY - 14);
-        }
-    }
-
-    function drawMonkey() {
-        var screenX = game.monkey.x;
-        var screenY = game.monkey.y - game.cameraY;
-
-        if (game.hitFlash > 0 && game.hitFlash % 4 < 2) return;
-
-        ctx.save();
-        ctx.translate(screenX, screenY);
-        if (!game.monkey.facingRight) ctx.scale(-1, 1);
-
-        ctx.font = '34px serif';
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
-        ctx.fillText('🐒', 0, 0);
-        ctx.restore();
-
-        if (game.aiming) {
-            ctx.font = '20px serif';
-            ctx.textAlign = 'center';
-            var poopOffX = game.monkey.facingRight ? 20 : -20;
-            ctx.fillText('💩', screenX + poopOffX, screenY - 10);
-
-            var next = getNextBranch();
-            if (next) {
-                var jx = next.branch.side === 'left' ? next.branch.x + next.branch.w * 0.5 : next.branch.x + next.branch.w * 0.5;
-                var jy = next.branch.y - game.cameraY - 20;
-
-                var dx = jx - screenX;
-                var dy = jy - screenY;
-                var dist = Math.sqrt(dx * dx + dy * dy);
-                var ndx = dx / dist;
-                var ndy = dy / dist;
-
-                var barLen = 40 + game.aimPower * 40;
-                ctx.strokeStyle = 'rgba(255,255,0,0.7)';
-                ctx.lineWidth = 3;
-                ctx.setLineDash([6, 4]);
-                ctx.beginPath();
-                ctx.moveTo(screenX, screenY);
-                ctx.lineTo(screenX + ndx * barLen, screenY + ndy * barLen);
-                ctx.stroke();
-                ctx.setLineDash([]);
-
-                var pw = 50;
-                var barX = screenX - pw/2;
-                var barY = screenY + 26;
-                ctx.fillStyle = 'rgba(0,0,0,0.4)';
-                ctx.fillRect(barX, barY, pw, 6);
-                ctx.fillStyle = game.aimPower > 0.7 ? '#4CAF50' : '#FFD700';
-                ctx.fillRect(barX, barY, pw * game.aimPower, 6);
-            }
-        }
-    }
-
-    function drawArrow(a) {
-        var sx = a.x;
-        var sy = a.y - game.cameraY;
-        if (sy < -40 || sy > H + 40) return;
-
-        var angle = Math.atan2(a.vy, a.vx);
-
-        ctx.save();
-        ctx.translate(sx, sy);
-        ctx.rotate(angle);
-
-        ctx.fillStyle = '#5c3d1e';
-        ctx.fillRect(-18, -2, 30, 4);
-
-        ctx.fillStyle = '#888';
-        ctx.beginPath();
-        ctx.moveTo(14, -6);
-        ctx.lineTo(22, 0);
-        ctx.lineTo(14, 6);
-        ctx.closePath();
-        ctx.fill();
-
-        ctx.fillStyle = '#cc3333';
-        ctx.beginPath();
-        ctx.moveTo(-18, -4);
-        ctx.lineTo(-14, 0);
-        ctx.lineTo(-18, 4);
-        ctx.lineTo(-22, 0);
-        ctx.closePath();
-        ctx.fill();
-
-        ctx.restore();
-    }
-
-    function drawPoop(p) {
-        for (var ti = 0; ti < p.trail.length; ti++) {
-            var tp = p.trail[ti];
-            var alpha = (ti / p.trail.length) * 0.3;
-            ctx.globalAlpha = alpha;
-            ctx.font = '10px serif';
-            ctx.fillText('💩', tp.x, tp.y - game.cameraY);
-        }
-        ctx.globalAlpha = 1;
-        ctx.font = '18px serif';
-        ctx.textAlign = 'center';
-        ctx.fillText('💩', p.x, p.y - game.cameraY);
-    }
-
-    function drawBananas() {
-        var topBranch = game.branches[BRANCH_COUNT];
-        var screenY = topBranch.y - game.cameraY - 30 + game.bananaFloat;
-        if (screenY < -60 || screenY > H + 60) return;
-
-        var bx = topBranch.side === 'left' ? topBranch.x + topBranch.w * 0.5 : topBranch.x + topBranch.w * 0.5;
-
-        ctx.font = '36px serif';
-        ctx.textAlign = 'center';
-        ctx.fillText('🍌', bx - 12, screenY);
-        ctx.fillText('🍌', bx + 12, screenY - 5);
-        ctx.fillText('🍌', bx, screenY + 10);
-    }
+    /* ══════════════════ DRAWING ══════════════════ */
 
     function drawBackground() {
         var skyGrad = ctx.createLinearGradient(0, 0, 0, H);
@@ -703,14 +604,346 @@
         skyGrad.addColorStop(1, '#6ABF6E');
         ctx.fillStyle = skyGrad;
         ctx.fillRect(0, 0, W, H);
-
         ctx.fillStyle = 'rgba(255,255,255,0.5)';
         for (var si = 0; si < 12; si++) {
             var sx = (si * 137.5 + 50) % W;
             var sy = ((si * 97.3 + 20) % (H + 400)) - game.cameraY * 0.05;
             sy = ((sy % H) + H) % H;
             ctx.beginPath();
-            ctx.ellipse(sx, sy, 20 + (si % 3) * 10, 8, 0, 0, Math.PI * 2);
+            ctx.ellipse(sx, sy, 22 + (si % 3) * 12, 9, 0, 0, Math.PI * 2);
+            ctx.fill();
+        }
+    }
+
+    function drawTrunk(cx) {
+        var topW = 70, botW = 100;
+        var trunkWorldTop = game.branches[game.branches.length - 1].y - 250;
+        var trunkWorldBot = game.branches[0].y + 300;
+        var topY = trunkWorldTop - game.cameraY;
+        var botY = trunkWorldBot - game.cameraY;
+
+        ctx.beginPath();
+        ctx.moveTo(cx - topW / 2, topY);
+        ctx.lineTo(cx + topW / 2, topY);
+        ctx.lineTo(cx + botW / 2, botY);
+        ctx.lineTo(cx - botW / 2, botY);
+        ctx.closePath();
+        var grad = ctx.createLinearGradient(cx - botW / 2, 0, cx + botW / 2, 0);
+        grad.addColorStop(0, '#4E342E');
+        grad.addColorStop(0.15, '#5D4037');
+        grad.addColorStop(0.4, '#6D4C41');
+        grad.addColorStop(0.6, '#795548');
+        grad.addColorStop(0.85, '#5D4037');
+        grad.addColorStop(1, '#4E342E');
+        ctx.fillStyle = grad;
+        ctx.fill();
+
+        ctx.strokeStyle = 'rgba(0,0,0,0.1)';
+        ctx.lineWidth = 1.2;
+        for (var ky = trunkWorldTop; ky < trunkWorldBot; ky += 16) {
+            var sy = ky - game.cameraY;
+            if (sy < -20 || sy > H + 20) continue;
+            var wAtY = topW + (botW - topW) * Math.max(0, Math.min(1, (sy - topY) / (botY - topY)));
+            ctx.beginPath();
+            ctx.moveTo(cx - wAtY / 2 + 6, sy);
+            ctx.bezierCurveTo(cx - wAtY / 4, sy + Math.sin(ky * 0.13) * 4,
+                              cx + wAtY / 4, sy - Math.sin(ky * 0.11) * 3,
+                              cx + wAtY / 2 - 6, sy);
+            ctx.stroke();
+        }
+
+        /* ── Knots & moss — evenly spaced along full trunk ── */
+        var trunkLen = trunkWorldBot - trunkWorldTop;
+        ctx.fillStyle = 'rgba(62,39,25,0.5)';
+        for (var ki = 0; ki < 14; ki++) {
+            var kwy = trunkWorldTop + trunkLen * (ki + 0.5) / 14;
+            var ksy = kwy - game.cameraY;
+            if (ksy < -20 || ksy > H + 20) continue;
+            ctx.beginPath();
+            ctx.ellipse(cx + (ki % 2 === 0 ? -10 : 11), ksy, 8, 12, 0.2, 0, Math.PI * 2);
+            ctx.fill();
+        }
+
+        ctx.fillStyle = 'rgba(76,175,80,0.22)';
+        for (var mi = 0; mi < 14; mi++) {
+            var mwy = trunkWorldTop + trunkLen * (mi + 0.3) / 14;
+            var msy = mwy - game.cameraY;
+            if (msy < -30 || msy > H + 30) continue;
+            var mSide = mi % 2 === 0 ? -1 : 1;
+            ctx.beginPath();
+            ctx.ellipse(cx + mSide * (topW / 2 - 2), msy, 10, 18, 0.3 * mSide, 0, Math.PI * 2);
+            ctx.fill();
+        }
+
+        var rootY = game.branches[0].y + 45 - game.cameraY;
+        if (rootY > -60 && rootY < H + 120) {
+            ctx.strokeStyle = '#5D4037';
+            ctx.lineCap = 'round';
+            ctx.lineWidth = 12;
+            ctx.beginPath(); ctx.moveTo(cx - 16, rootY);
+            ctx.quadraticCurveTo(cx - 65, rootY + 20, cx - 110, rootY + 40); ctx.stroke();
+            ctx.beginPath(); ctx.moveTo(cx + 16, rootY);
+            ctx.quadraticCurveTo(cx + 60, rootY + 18, cx + 105, rootY + 38); ctx.stroke();
+            ctx.lineWidth = 8;
+            ctx.beginPath(); ctx.moveTo(cx - 8, rootY + 8);
+            ctx.quadraticCurveTo(cx - 44, rootY + 32, cx - 72, rootY + 52); ctx.stroke();
+            ctx.beginPath(); ctx.moveTo(cx + 8, rootY + 8);
+            ctx.quadraticCurveTo(cx + 40, rootY + 30, cx + 68, rootY + 50); ctx.stroke();
+        }
+    }
+
+    function drawBranch(branch, idx) {
+        var screenY = branch.y - game.cameraY;
+        if (screenY < -300 || screenY > H + 300) return;
+
+        var cx = W / 2;
+        var tipX = branch.side === 'left' ? branch.x : branch.x + branch.w;
+        var trunkEdge = branch.side === 'left' ? cx - TRUNK_HALF : cx + TRUNK_HALF;
+
+        /* ── Thick organic branch ── */
+        var bThick = 22, tipThick = 8;
+        ctx.fillStyle = '#6D4C41';
+        ctx.strokeStyle = '#4E342E';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        if (branch.side === 'left') {
+            ctx.moveTo(trunkEdge, screenY - bThick);
+            ctx.quadraticCurveTo((trunkEdge + tipX) * 0.5, screenY - bThick - 7, tipX, screenY - tipThick);
+            ctx.lineTo(tipX - 5, screenY);
+            ctx.quadraticCurveTo((trunkEdge + tipX) * 0.5, screenY + bThick + 4, trunkEdge, screenY + bThick);
+        } else {
+            ctx.moveTo(trunkEdge, screenY - bThick);
+            ctx.quadraticCurveTo((trunkEdge + tipX) * 0.5, screenY - bThick - 7, tipX, screenY - tipThick);
+            ctx.lineTo(tipX + 5, screenY);
+            ctx.quadraticCurveTo((trunkEdge + tipX) * 0.5, screenY + bThick + 4, trunkEdge, screenY + bThick);
+        }
+        ctx.closePath();
+        ctx.fill();
+        ctx.stroke();
+
+        ctx.strokeStyle = 'rgba(0,0,0,0.07)';
+        ctx.lineWidth = 0.8;
+        for (var bg = 0; bg < 5; bg++) {
+            var bgy = screenY - bThick + 5 + bg * 8;
+            ctx.beginPath();
+            ctx.moveTo(trunkEdge + (branch.side === 'left' ? -5 : 5), bgy);
+            ctx.lineTo(tipX + (branch.side === 'left' ? 14 : -14), bgy + Math.sin(bg + 1) * 2);
+            ctx.stroke();
+        }
+
+        /* ── Hanging vines ── */
+        if (branch.vines) {
+            var vineSway = Math.sin(game.ticks * 0.016 + idx * 2.1) * 3;
+            ctx.lineCap = 'round';
+            for (var vi = 0; vi < branch.vines.length; vi++) {
+                var vine = branch.vines[vi];
+                var vsx = vine.x + vineSway;
+                ctx.strokeStyle = '#2E7D32';
+                ctx.lineWidth = vine.thick;
+                ctx.beginPath();
+                ctx.moveTo(vsx, screenY + 8);
+                ctx.quadraticCurveTo(vsx + vine.curve, screenY + vine.len * 0.55,
+                                     vsx + vine.curve * 0.3, screenY + vine.len);
+                ctx.stroke();
+                ctx.fillStyle = '#43A047';
+                ctx.beginPath();
+                ctx.ellipse(vsx + vine.curve * 0.3, screenY + vine.len, 6, 3.5, 0.5, 0, Math.PI * 2);
+                ctx.fill();
+                // extra tiny leaf midway
+                ctx.beginPath();
+                ctx.ellipse(vsx + vine.curve * 0.6, screenY + vine.len * 0.5, 4, 2.5, -0.3, 0, Math.PI * 2);
+                ctx.fill();
+            }
+        }
+
+        /* ── Dense foliage ── */
+        if (branch.leaves) {
+            var sway = Math.sin(game.ticks * 0.02 + idx * 1.3) * 3;
+            for (var li = 0; li < branch.leaves.length; li++) {
+                var leaf = branch.leaves[li];
+                var lsx = leaf.x + sway * (leaf.r / 18);
+                var lsy = screenY + leaf.y;
+                ctx.fillStyle = 'rgba(0,30,0,0.11)';
+                ctx.beginPath();
+                ctx.ellipse(lsx + 2, lsy + 2.5, leaf.r * 1.05, leaf.r * 0.72, leaf.rot, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.fillStyle = LEAF_COLORS[leaf.ci];
+                ctx.beginPath();
+                ctx.ellipse(lsx, lsy, leaf.r, leaf.r * 0.72, leaf.rot, 0, Math.PI * 2);
+                ctx.fill();
+            }
+            ctx.fillStyle = 'rgba(180,255,180,0.13)';
+            for (var di = 0; di < 6; di++) {
+                var dL = branch.leaves[di * 3 % branch.leaves.length];
+                ctx.beginPath();
+                ctx.arc(dL.x + sway * (dL.r / 18) - 2, screenY + dL.y - 2, dL.r * 0.35, 0, Math.PI * 2);
+                ctx.fill();
+            }
+        }
+
+        /* ── Jaguar (BIG) ── */
+        if (branch.jaguarAlive) {
+            var jx = branch.side === 'left' ? branch.x + branch.w * 0.4 : branch.x + branch.w * 0.6;
+            ctx.font = JAGUAR_SIZE + 'px serif';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'bottom';
+            ctx.fillText('🐆', jx, screenY - 12);
+        }
+    }
+
+    function drawMonkey() {
+        var screenX = game.monkey.x;
+        var screenY = game.monkey.y - game.cameraY;
+        if (game.hitFlash > 0 && game.hitFlash % 4 < 2) return;
+
+        ctx.save();
+        ctx.translate(screenX, screenY);
+        if (!game.monkey.facingRight) ctx.scale(-1, 1);
+        ctx.font = MONKEY_SIZE + 'px serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText('🐒', 0, 0);
+        ctx.restore();
+
+        /* ── Aim indicator ── */
+        if (game.aiming) {
+            ctx.font = '24px serif';
+            ctx.textAlign = 'center';
+            var poopOff = game.monkey.facingRight ? 24 : -24;
+            ctx.fillText('💩', screenX + poopOff, screenY - 14);
+
+            var aimLen = 60 + Math.min(game.chargeTime / 60, 1) * 50;
+            var ax2 = screenX + Math.cos(game.aimAngle) * aimLen;
+            var ay2 = screenY + Math.sin(game.aimAngle) * aimLen;
+
+            ctx.strokeStyle = 'rgba(255,255,0,0.8)';
+            ctx.lineWidth = 3;
+            ctx.setLineDash([8, 5]);
+            ctx.beginPath();
+            ctx.moveTo(screenX, screenY);
+            ctx.lineTo(ax2, ay2);
+            ctx.stroke();
+            ctx.setLineDash([]);
+
+            // arrowhead
+            var headLen = 10;
+            var ha1 = game.aimAngle + Math.PI * 0.82;
+            var ha2 = game.aimAngle - Math.PI * 0.82;
+            ctx.fillStyle = 'rgba(255,255,0,0.8)';
+            ctx.beginPath();
+            ctx.moveTo(ax2, ay2);
+            ctx.lineTo(ax2 + Math.cos(ha1) * headLen, ay2 + Math.sin(ha1) * headLen);
+            ctx.lineTo(ax2 + Math.cos(ha2) * headLen, ay2 + Math.sin(ha2) * headLen);
+            ctx.closePath();
+            ctx.fill();
+
+            // power bar
+            var pw = 60;
+            var power = Math.min(game.chargeTime / 60, 1);
+            ctx.fillStyle = 'rgba(0,0,0,0.4)';
+            ctx.fillRect(screenX - pw / 2, screenY + 32, pw, 7);
+            ctx.fillStyle = power > 0.7 ? '#4CAF50' : '#FFD700';
+            ctx.fillRect(screenX - pw / 2, screenY + 32, pw * power, 7);
+        }
+
+        /* ── Poop hint when jaguar ahead but not aiming ── */
+        if (!game.aiming && !game.monkey.jumping && needsAiming() && game.poopAmmo > 0) {
+            var hintBob = Math.sin(game.ticks * 0.08) * 6;
+            var hintX = screenX + (game.monkey.facingRight ? 30 : -30);
+            var hintY = screenY - 38 + hintBob;
+            ctx.font = '28px serif';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText('💩', hintX, hintY);
+            // "SPACE" label
+            ctx.font = 'bold 11px sans-serif';
+            ctx.fillStyle = 'rgba(255,255,255,0.9)';
+            ctx.strokeStyle = 'rgba(0,0,0,0.6)';
+            ctx.lineWidth = 2.5;
+            ctx.strokeText('SPACE', hintX, hintY + 22);
+            ctx.fillText('SPACE', hintX, hintY + 22);
+        }
+    }
+
+    function drawArrow(a) {
+        var sx = a.x;
+        var sy = a.y - game.cameraY;
+        if (sy < -50 || sy > H + 50) return;
+        var angle = Math.atan2(a.vy, a.vx);
+        ctx.save();
+        ctx.translate(sx, sy);
+        ctx.rotate(angle);
+        ctx.fillStyle = '#5c3d1e';
+        ctx.fillRect(-24, -2.5, 40, 5);
+        ctx.fillStyle = '#888';
+        ctx.beginPath();
+        ctx.moveTo(18, -8); ctx.lineTo(28, 0); ctx.lineTo(18, 8);
+        ctx.closePath(); ctx.fill();
+        ctx.fillStyle = '#cc3333';
+        ctx.beginPath();
+        ctx.moveTo(-24, -5); ctx.lineTo(-19, 0); ctx.lineTo(-24, 5); ctx.lineTo(-29, 0);
+        ctx.closePath(); ctx.fill();
+        ctx.restore();
+    }
+
+    function drawPoop(p) {
+        for (var ti = 0; ti < p.trail.length; ti++) {
+            var tp = p.trail[ti];
+            ctx.globalAlpha = (ti / p.trail.length) * 0.3;
+            ctx.font = '14px serif';
+            ctx.fillText('💩', tp.x, tp.y - game.cameraY);
+        }
+        ctx.globalAlpha = 1;
+        ctx.font = '28px serif';
+        ctx.textAlign = 'center';
+        ctx.fillText('💩', p.x, p.y - game.cameraY);
+    }
+
+    function drawBananas() {
+        var topBranch = game.branches[BRANCH_COUNT];
+        var bx = W / 2;
+        var by = topBranch.y - game.cameraY - 55 + game.bananaFloat;
+        if (by < -80 || by > H + 80) return;
+
+        ctx.font = '52px serif';
+        ctx.textAlign = 'center';
+        ctx.fillText('🍌', bx - 16, by);
+        ctx.fillText('🍌', bx + 16, by - 8);
+        ctx.fillText('🍌', bx, by + 14);
+    }
+
+    function drawGround() {
+        var groundY = game.branches[0].y + 50 - game.cameraY;
+        if (groundY < H) {
+            var gGrad = ctx.createLinearGradient(0, groundY, 0, H);
+            gGrad.addColorStop(0, '#4CAF50');
+            gGrad.addColorStop(0.5, '#388E3C');
+            gGrad.addColorStop(1, '#2E7D32');
+            ctx.fillStyle = gGrad;
+            ctx.fillRect(0, groundY, W, H - groundY);
+        }
+    }
+
+    function drawTopCanopy() {
+        if (!game.topCanopy) return;
+        var topBranch = game.branches[BRANCH_COUNT];
+        var screenY = topBranch.y - game.cameraY - 55;
+        if (screenY < -220 || screenY > H + 80) return;
+
+        var tcx = W / 2;
+        var sway = Math.sin(game.ticks * 0.014) * 3.5;
+
+        for (var ci = 0; ci < game.topCanopy.length; ci++) {
+            var c = game.topCanopy[ci];
+            var csx = tcx + c.xOff + sway * (c.r / 28);
+            var csy = screenY + c.yOff;
+            ctx.fillStyle = 'rgba(0,30,0,0.09)';
+            ctx.beginPath();
+            ctx.ellipse(csx + 2.5, csy + 3, c.r * 1.05, c.r * 0.72, c.rot, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.fillStyle = LEAF_COLORS[c.ci];
+            ctx.beginPath();
+            ctx.ellipse(csx, csy, c.r, c.r * 0.72, c.rot, 0, Math.PI * 2);
             ctx.fill();
         }
     }
@@ -722,47 +955,31 @@
             ctx.globalAlpha = Math.min(1, p.life / 15);
             ctx.fillStyle = p.color;
             ctx.beginPath();
-            ctx.arc(p.x, sy, 3, 0, Math.PI * 2);
+            ctx.arc(p.x, sy, 4, 0, Math.PI * 2);
             ctx.fill();
         }
         ctx.globalAlpha = 1;
     }
 
-    function drawGround() {
-        var groundY = game.branches[0].y + 40 - game.cameraY;
-        if (groundY < H) {
-            var gGrad = ctx.createLinearGradient(0, groundY, 0, H);
-            gGrad.addColorStop(0, '#4CAF50');
-            gGrad.addColorStop(0.5, '#388E3C');
-            gGrad.addColorStop(1, '#2E7D32');
-            ctx.fillStyle = gGrad;
-            ctx.fillRect(0, groundY, W, H - groundY);
-        }
-    }
-
+    /* ══════════════════ DRAW LOOP ══════════════════ */
     function draw() {
         if (!game) return;
         ctx.clearRect(0, 0, W, H);
-
         drawBackground();
         drawTrunk(W / 2);
         drawGround();
-
+        drawTopCanopy();
         for (var i = 0; i < game.branches.length; i++) {
             drawBranch(game.branches[i], i);
         }
-
         drawBananas();
         drawMonkey();
-
         for (var ai = 0; ai < game.arrows.length; ai++) {
             if (game.arrows[ai].alive) drawArrow(game.arrows[ai]);
         }
-
         for (var pi = 0; pi < game.poops.length; pi++) {
             drawPoop(game.poops[pi]);
         }
-
         drawParticles();
     }
 
@@ -774,68 +991,75 @@
         }
     }
 
+    /* ══════════════════ INPUT ══════════════════ */
     document.addEventListener('keydown', function(e) {
-        if (e.code === 'Space') {
+        keys[e.code] = true;
+        if (['ArrowUp','ArrowDown','ArrowLeft','ArrowRight','Space','KeyW','KeyA','KeyD'].indexOf(e.code) !== -1) {
             e.preventDefault();
-            if (!game || game.state !== 'climbing') return;
+        }
+        if (!game || game.state !== 'climbing') return;
 
-            if (!game.aiming && !game.monkey.jumping) {
-                tryJump();
-            }
+        // Space → enter aim mode (only if jaguar ahead)
+        if (e.code === 'Space' && !game.aiming && !game.monkey.jumping) {
+            enterAimMode();
+        }
+
+        // Up / W → jump (only if not aiming)
+        if ((e.code === 'ArrowUp' || e.code === 'KeyW') && !game.aiming && !game.monkey.jumping) {
+            tryJump();
         }
     });
 
     document.addEventListener('keyup', function(e) {
-        if (e.code === 'Space') {
-            e.preventDefault();
-            if (!game || game.state !== 'climbing') return;
+        keys[e.code] = false;
+        if (!game || game.state !== 'climbing') return;
 
-            if (game.aiming && game.charging) {
-                throwPoop();
-            }
+        if (e.code === 'Space' && game.aiming && game.charging) {
+            throwPoop();
         }
     });
 
-    var touchStartTime = 0;
+    /* ── Touch controls ── */
     canvas.addEventListener('touchstart', function(e) {
         e.preventDefault();
         if (!game || game.state !== 'climbing') return;
 
-        if (!game.aiming && !game.monkey.jumping) {
+        if (needsAiming() && !game.aiming) {
+            enterAimMode();
+            var touch = e.touches[0];
+            var rect = canvas.getBoundingClientRect();
+            var tx = touch.clientX - rect.left;
+            var ty = touch.clientY - rect.top;
+            var mc = monkeyCenter();
+            game.aimAngle = Math.atan2(ty - (mc.y - game.cameraY), tx - mc.x);
+            if (game.aimAngle > 0) game.aimAngle = 0;
+        } else if (!game.monkey.jumping && !game.aiming) {
             tryJump();
-            touchStartTime = Date.now();
         }
+    });
+
+    canvas.addEventListener('touchmove', function(e) {
+        e.preventDefault();
+        if (!game || !game.aiming) return;
+        var touch = e.touches[0];
+        var rect = canvas.getBoundingClientRect();
+        var tx = touch.clientX - rect.left;
+        var ty = touch.clientY - rect.top;
+        var mc = monkeyCenter();
+        game.aimAngle = Math.atan2(ty - (mc.y - game.cameraY), tx - mc.x);
+        if (game.aimAngle > 0) game.aimAngle = 0;
+        if (game.aimAngle < -Math.PI) game.aimAngle = -Math.PI;
     });
 
     canvas.addEventListener('touchend', function(e) {
         e.preventDefault();
         if (!game || game.state !== 'climbing') return;
-
-        if (game.aiming && game.charging) {
-            throwPoop();
-        }
+        if (game.aiming && game.charging) throwPoop();
     });
 
     canvas.addEventListener('click', function(e) {
         if (!game || game.state !== 'climbing') return;
-        if (!game.aiming && !game.monkey.jumping) {
-            tryJump();
-        }
-    });
-
-    canvas.addEventListener('mousedown', function(e) {
-        if (!game || game.state !== 'climbing') return;
-        if (game.aiming && !game.charging) {
-            game.charging = true;
-            game.chargeTime = 0;
-        }
-    });
-
-    canvas.addEventListener('mouseup', function(e) {
-        if (!game || game.state !== 'climbing') return;
-        if (game.aiming && game.charging) {
-            throwPoop();
-        }
+        if (!game.monkey.jumping && !game.aiming) tryJump();
     });
     </script>
 </body>

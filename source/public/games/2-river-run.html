@@ -120,7 +120,8 @@
 <body>
     <div class="overlay" id="startScreen">
         <h1>🚣 River Run</h1>
-        <h2>Help Declan 🤠 navigate the jungle river!</h2>
+        <h2>Help Declan 🤠 save his lost parrot! 🦜</h2>
+        <p>Declan's pet parrot flew deep into the jungle. Navigate the river to find her!</p>
         <p>Use <strong>← → ↑ ↓</strong> arrow keys or <strong>drag/tilt</strong> to steer your boat.</p>
         <p>Dodge <strong>rocks</strong> 🪨 and <strong>arrows</strong> 🏹 from the jungle!</p>
         <p>Catch <strong>small fish</strong> 🐟 for a shield, <strong>big fish</strong> 🐠 for an invincibility boost!</p>
@@ -131,8 +132,8 @@
     </div>
 
     <div class="overlay hidden" id="winScreen">
-        <h1>🎉 You Made It!</h1>
-        <h2>Safe passage through the jungle!</h2>
+        <h1>🦜 Parrot Rescued!</h1>
+        <h2>Declan 🤠 found his parrot!</h2>
         <p id="winStats"></p>
         <p class="creator">A game by Declan J from San Diego</p>
         <button onclick="startGame()">Play Again</button>
@@ -306,7 +307,8 @@
             nextRockDist: 200,
             nextFishDist: 120,
             nextPiranhaDist: 350,
-            invulnTimer: 0
+            invulnTimer: 0,
+            parrotWorldY: startWorldY - WIN_DISTANCE / 0.12 - 200
         };
 
         updateHUD();
@@ -891,6 +893,33 @@
         ctx.restore();
     }
 
+    function drawParrot() {
+        var psy = toScreen(game.parrotWorldY);
+        if (psy < -60 || psy > H + 60) return;
+
+        var seg = getRiverAt(game.parrotWorldY);
+        var px = seg ? seg.cx : W / 2;
+
+        /* Pulsing golden glow */
+        var pulse = Math.sin(game.ticks * 0.08) * 0.15 + 0.35;
+        ctx.fillStyle = 'rgba(255,215,0,' + pulse + ')';
+        ctx.beginPath();
+        ctx.arc(px, psy, 36 + Math.sin(game.ticks * 0.06) * 4, 0, Math.PI * 2);
+        ctx.fill();
+
+        /* Inner white glow */
+        ctx.fillStyle = 'rgba(255,255,255,' + (pulse * 0.6) + ')';
+        ctx.beginPath();
+        ctx.arc(px, psy, 22, 0, Math.PI * 2);
+        ctx.fill();
+
+        /* Parrot emoji */
+        ctx.font = '36px serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText('🦜', px, psy);
+    }
+
     function drawParticles() {
         for (var i = 0; i < game.particles.length; i++) {
             var p = game.particles[i];
@@ -921,6 +950,7 @@
 
         ctx.font = '12px serif';
         ctx.fillText('🚣', barX + barW * Math.min(1, progress) - 6, barY - 4);
+        ctx.fillText('🦜', barX + barW - 6, barY - 4);
     }
 
     /* ── Main draw ── */
@@ -934,6 +964,7 @@
         for (var fi = 0; fi < game.fish.length; fi++) drawFishItem(game.fish[fi]);
         for (var pi2 = 0; pi2 < game.piranhas.length; pi2++) drawPiranha(game.piranhas[pi2]);
 
+        drawParrot();
         drawBoat();
 
         for (var ai = 0; ai < game.arrows.length; ai++) drawArrow(game.arrows[ai]);

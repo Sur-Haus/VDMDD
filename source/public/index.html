@@ -1632,27 +1632,46 @@
             // Bottom-to-top: game[0] (easiest) at bottom, game[n-1] (hardest) at top
             // Seeded rand so the organic offsets are identical on every render
             var rand = makeRand(gameList.length * 31 + containerId.length * 17);
+            // Nodes sit in the center 40-65% of the container width (not extreme edges)
+            // so the squiggly path has room to swing out on both sides
             var positions = gameList.map(function(g, i) {
-                var baseX = i % 2 === 0 ? LEFT_X : RIGHT_X;
-                // Push nodes noticeably off the strict left/right columns
-                return { x: baseX + rand(-22, 22), y: topMargin + (n - 1 - i) * STEP_H + rand(-18, 18) + NODE_R };
+                var side = i % 2 === 0 ? 0.30 : 0.65;
+                var x = Math.max(30, Math.min(W - 30, W * side + rand(-W * 0.10, W * 0.10)));
+                return { x: x, y: topMargin + (n - 1 - i) * STEP_H + rand(-10, 10) + NODE_R };
             });
 
+            // Build list of ALL points: real node positions + 2 wiggle waypoints between each pair.
+            // The waypoints swing out left then right (or vice-versa) creating the S-squiggle.
+            var allPts = [positions[0]];
+            for (var i = 1; i < positions.length; i++) {
+                var p0 = positions[i - 1], p1 = positions[i];
+                var dy = p1.y - p0.y;
+                var wDir = (i % 2 === 0) ? 1 : -1;
+                var wMag = rand(28, 52);
+                var midX = (p0.x + p1.x) / 2;
+                allPts.push({ x: Math.max(16, Math.min(W - 16, midX + wDir * wMag)), y: p0.y + dy * 0.35 });
+                allPts.push({ x: Math.max(16, Math.min(W - 16, midX - wDir * wMag)), y: p0.y + dy * 0.65 });
+                allPts.push(positions[i]);
+            }
+
+            // Smooth Catmull-Rom spline through all waypoints → cubic beziers
             var svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
             svg.style.cssText = 'position:absolute;top:0;left:0;width:100%;height:100%;overflow:visible;pointer-events:none;';
 
             if (positions.length > 1) {
-                var pathD = 'M ' + positions[0].x + ' ' + positions[0].y;
-                for (var i = 1; i < positions.length; i++) {
-                    var p0 = positions[i - 1], p1 = positions[i];
-                    var midY = (p0.y + p1.y) / 2;
-                    // Both handles stay near the midpoint (preserving S-curves) but
-                    // vary independently in x and y for an organic, hand-drawn feel
-                    var cp1x = p0.x + rand(-40, 40);
-                    var cp1y = midY + rand(-50, 30);
-                    var cp2x = p1.x + rand(-40, 40);
-                    var cp2y = midY + rand(-30, 50);
-                    pathD += ' C ' + cp1x + ' ' + cp1y + ', ' + cp2x + ' ' + cp2y + ', ' + p1.x + ' ' + p1.y;
+                var pathD = 'M ' + allPts[0].x.toFixed(1) + ' ' + allPts[0].y.toFixed(1);
+                for (var i = 0; i < allPts.length - 1; i++) {
+                    var pa = allPts[Math.max(0, i - 1)];
+                    var pb = allPts[i];
+                    var pc = allPts[i + 1];
+                    var pd = allPts[Math.min(allPts.length - 1, i + 2)];
+                    var cp1x = pb.x + (pc.x - pa.x) / 6;
+                    var cp1y = pb.y + (pc.y - pa.y) / 6;
+                    var cp2x = pc.x - (pd.x - pb.x) / 6;
+                    var cp2y = pc.y - (pd.y - pb.y) / 6;
+                    pathD += ' C ' + cp1x.toFixed(1) + ' ' + cp1y.toFixed(1) + ',' +
+                                     cp2x.toFixed(1) + ' ' + cp2y.toFixed(1) + ',' +
+                                     pc.x.toFixed(1) + ' ' + pc.y.toFixed(1);
                 }
                 var pathBg = document.createElementNS('http://www.w3.org/2000/svg', 'path');
                 pathBg.setAttribute('d', pathD); pathBg.setAttribute('stroke', '#5c3d1e');

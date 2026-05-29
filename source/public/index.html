@@ -1632,25 +1632,32 @@
             // Bottom-to-top: game[0] (easiest) at bottom, game[n-1] (hardest) at top
             // Seeded rand so the organic offsets are identical on every render
             var rand = makeRand(gameList.length * 31 + containerId.length * 17);
-            // Nodes sit in the center 40-65% of the container width (not extreme edges)
-            // so the squiggly path has room to swing out on both sides
+            // Nodes lean left/right but with wider variance so placement feels irregular
             var positions = gameList.map(function(g, i) {
-                var side = i % 2 === 0 ? 0.30 : 0.65;
-                var x = Math.max(30, Math.min(W - 30, W * side + rand(-W * 0.10, W * 0.10)));
-                return { x: x, y: topMargin + (n - 1 - i) * STEP_H + rand(-10, 10) + NODE_R };
+                var base = i % 2 === 0 ? 0.28 : 0.68;
+                var x = Math.max(32, Math.min(W - 32, W * base + rand(-W * 0.18, W * 0.18)));
+                return { x: x, y: topMargin + (n - 1 - i) * STEP_H + rand(-18, 18) + NODE_R };
             });
 
-            // Build list of ALL points: real node positions + 2 wiggle waypoints between each pair.
-            // The waypoints swing out left then right (or vice-versa) creating the S-squiggle.
+            // Build waypoints: each segment gets 3 intermediate points placed on a
+            // perpendicular arc (sine profile) — so each segment bulges like a rounded
+            // hill rather than an angular S. Bulge direction is random per segment.
             var allPts = [positions[0]];
             for (var i = 1; i < positions.length; i++) {
                 var p0 = positions[i - 1], p1 = positions[i];
-                var dy = p1.y - p0.y;
-                var wDir = (i % 2 === 0) ? 1 : -1;
-                var wMag = rand(28, 52);
-                var midX = (p0.x + p1.x) / 2;
-                allPts.push({ x: Math.max(16, Math.min(W - 16, midX + wDir * wMag)), y: p0.y + dy * 0.35 });
-                allPts.push({ x: Math.max(16, Math.min(W - 16, midX - wDir * wMag)), y: p0.y + dy * 0.65 });
+                var dx = p1.x - p0.x, dy = p1.y - p0.y;
+                var segLen = Math.sqrt(dx * dx + dy * dy) || 1;
+                var perpX = -dy / segLen, perpY = dx / segLen; // unit perpendicular
+                var bulgeDir = rand(0, 1) < 0.5 ? 1 : -1;     // random per segment
+                var bulgeMag = rand(42, 92);                    // wider range = more irregular
+                for (var j = 1; j <= 3; j++) {
+                    var t = j / 4;                              // 0.25, 0.50, 0.75
+                    var bulge = Math.sin(t * Math.PI) * bulgeDir * bulgeMag; // peaks at midpoint
+                    allPts.push({
+                        x: Math.max(12, Math.min(W - 12, p0.x + dx * t + perpX * bulge)),
+                        y: p0.y + dy * t + perpY * bulge
+                    });
+                }
                 allPts.push(positions[i]);
             }
 
@@ -1665,10 +1672,10 @@
                     var pb = allPts[i];
                     var pc = allPts[i + 1];
                     var pd = allPts[Math.min(allPts.length - 1, i + 2)];
-                    var cp1x = pb.x + (pc.x - pa.x) / 6;
-                    var cp1y = pb.y + (pc.y - pa.y) / 6;
-                    var cp2x = pc.x - (pd.x - pb.x) / 6;
-                    var cp2y = pc.y - (pd.y - pb.y) / 6;
+                    var cp1x = pb.x + (pc.x - pa.x) / 5;
+                    var cp1y = pb.y + (pc.y - pa.y) / 5;
+                    var cp2x = pc.x - (pd.x - pb.x) / 5;
+                    var cp2y = pc.y - (pd.y - pb.y) / 5;
                     pathD += ' C ' + cp1x.toFixed(1) + ' ' + cp1y.toFixed(1) + ',' +
                                      cp2x.toFixed(1) + ' ' + cp2y.toFixed(1) + ',' +
                                      pc.x.toFixed(1) + ' ' + pc.y.toFixed(1);

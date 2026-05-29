@@ -1639,54 +1639,37 @@
                 return { x: x, y: topMargin + (n - 1 - i) * STEP_H + rand(-12, 12) + NODE_R };
             });
 
-            // ONE arc per segment: single waypoint at the perpendicular midpoint.
-            // Strictly alternating direction keeps the path C1-smooth at every node
-            // (no kinking). Large varying magnitude makes each arc a different size.
-            var allPts = [positions[0]];
-            for (var i = 1; i < positions.length; i++) {
-                var p0 = positions[i - 1], p1 = positions[i];
-                var dx = p1.x - p0.x, dy = p1.y - p0.y;
-                var segLen = Math.sqrt(dx * dx + dy * dy) || 1;
-                var perpX = -dy / segLen, perpY = dx / segLen;
-                var bulgeDir = i % 2 === 0 ? 1 : -1;  // alternates → smooth at nodes
-                var bulgeMag = rand(55, 120);           // big range → irregular arc sizes
-                allPts.push({
-                    x: Math.max(12, Math.min(W - 12, (p0.x + p1.x) / 2 + perpX * bulgeDir * bulgeMag)),
-                    y: (p0.y + p1.y) / 2 + perpY * bulgeDir * bulgeMag
-                });
-                allPts.push(positions[i]);
-            }
-
-            // Catmull-Rom spline — /4 tension gives fuller, rounder arcs
+            // Draw each segment as its own SVG circular arc (A command).
+            // A circular arc is always perfectly smooth — no kinks within the curve.
+            // Each arc has a randomly varying radius for an irregular, organic feel.
+            // Sweep alternates so consecutive arcs curve opposite directions.
+            // Node circles (36px radius) are DOM elements sitting on top of the SVG,
+            // completely hiding the junction between arcs at each node.
             var svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
             svg.style.cssText = 'position:absolute;top:0;left:0;width:100%;height:100%;overflow:visible;pointer-events:none;';
 
-            if (positions.length > 1) {
-                var pathD = 'M ' + allPts[0].x.toFixed(1) + ' ' + allPts[0].y.toFixed(1);
-                for (var i = 0; i < allPts.length - 1; i++) {
-                    var pa = allPts[Math.max(0, i - 1)];
-                    var pb = allPts[i];
-                    var pc = allPts[i + 1];
-                    var pd = allPts[Math.min(allPts.length - 1, i + 2)];
-                    var cp1x = pb.x + (pc.x - pa.x) / 4;
-                    var cp1y = pb.y + (pc.y - pa.y) / 4;
-                    var cp2x = pc.x - (pd.x - pb.x) / 4;
-                    var cp2y = pc.y - (pd.y - pb.y) / 4;
-                    pathD += ' C ' + cp1x.toFixed(1) + ' ' + cp1y.toFixed(1) + ',' +
-                                     cp2x.toFixed(1) + ' ' + cp2y.toFixed(1) + ',' +
-                                     pc.x.toFixed(1) + ' ' + pc.y.toFixed(1);
-                }
-                var pathBg = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-                pathBg.setAttribute('d', pathD); pathBg.setAttribute('stroke', '#5c3d1e');
-                pathBg.setAttribute('stroke-width', '14'); pathBg.setAttribute('fill', 'none');
-                pathBg.setAttribute('stroke-linecap', 'round');
-                svg.appendChild(pathBg);
+            for (var i = 1; i < positions.length; i++) {
+                var p0 = positions[i - 1], p1 = positions[i];
+                var dx = p1.x - p0.x, dy = p1.y - p0.y;
+                var chord = Math.sqrt(dx * dx + dy * dy);
+                var r = Math.max(chord / 2 + 2, rand(80, 200));  // vary radius widely
+                var sweep = i % 2 === 0 ? 1 : 0;                 // alternate bulge side
+                var arcD = 'M ' + p0.x.toFixed(1) + ' ' + p0.y.toFixed(1) +
+                           ' A ' + r.toFixed(0) + ' ' + r.toFixed(0) +
+                           ' 0 0 ' + sweep +
+                           ' ' + p1.x.toFixed(1) + ' ' + p1.y.toFixed(1);
 
-                var pathFg = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-                pathFg.setAttribute('d', pathD); pathFg.setAttribute('stroke', '#c8a060');
-                pathFg.setAttribute('stroke-width', '8'); pathFg.setAttribute('fill', 'none');
-                pathFg.setAttribute('stroke-dasharray', '14 8'); pathFg.setAttribute('stroke-linecap', 'round');
-                svg.appendChild(pathFg);
+                var arcBg = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+                arcBg.setAttribute('d', arcD); arcBg.setAttribute('stroke', '#5c3d1e');
+                arcBg.setAttribute('stroke-width', '14'); arcBg.setAttribute('fill', 'none');
+                arcBg.setAttribute('stroke-linecap', 'round');
+                svg.appendChild(arcBg);
+
+                var arcFg = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+                arcFg.setAttribute('d', arcD); arcFg.setAttribute('stroke', '#c8a060');
+                arcFg.setAttribute('stroke-width', '8'); arcFg.setAttribute('fill', 'none');
+                arcFg.setAttribute('stroke-dasharray', '14 8'); arcFg.setAttribute('stroke-linecap', 'round');
+                svg.appendChild(arcFg);
             }
             container.appendChild(svg);
 

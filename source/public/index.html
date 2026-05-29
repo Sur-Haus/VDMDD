@@ -1634,7 +1634,8 @@
             var rand = makeRand(gameList.length * 31 + containerId.length * 17);
             var positions = gameList.map(function(g, i) {
                 var baseX = i % 2 === 0 ? LEFT_X : RIGHT_X;
-                return { x: baseX + rand(-10, 10), y: topMargin + (n - 1 - i) * STEP_H + NODE_R };
+                // Push nodes noticeably off the strict left/right columns
+                return { x: baseX + rand(-22, 22), y: topMargin + (n - 1 - i) * STEP_H + rand(-18, 18) + NODE_R };
             });
 
             var svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
@@ -1647,10 +1648,10 @@
                     var midY = (p0.y + p1.y) / 2;
                     // Both handles stay near the midpoint (preserving S-curves) but
                     // vary independently in x and y for an organic, hand-drawn feel
-                    var cp1x = p0.x + rand(-18, 18);
-                    var cp1y = midY + rand(-28, 18);
-                    var cp2x = p1.x + rand(-18, 18);
-                    var cp2y = midY + rand(-18, 28);
+                    var cp1x = p0.x + rand(-40, 40);
+                    var cp1y = midY + rand(-50, 30);
+                    var cp2x = p1.x + rand(-40, 40);
+                    var cp2y = midY + rand(-30, 50);
                     pathD += ' C ' + cp1x + ' ' + cp1y + ', ' + cp2x + ' ' + cp2y + ', ' + p1.x + ' ' + p1.y;
                 }
                 var pathBg = document.createElementNS('http://www.w3.org/2000/svg', 'path');

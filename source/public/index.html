@@ -2059,11 +2059,18 @@
         // =============================================
         // Init
         // =============================================
-        loadGameCompletionStatus();
-        requestAnimationFrame(function() { generateTrail(); scrollToCurrentGame('auto'); });
-        initFundraisingFromFirestore();
-        window.addEventListener('message', handleGameMessage);
-        initStoryOverlay();
+        try {
+            loadGameCompletionStatus();
+            requestAnimationFrame(function() {
+                try { generateTrail(); scrollToCurrentGame('auto'); }
+                catch(e) { console.error('Trail init error:', e); }
+            });
+            initFundraisingFromFirestore();
+            window.addEventListener('message', handleGameMessage);
+            initStoryOverlay();
+        } catch(e) {
+            console.error('Init error:', e);
+        }
     </script>
 </body>
 </html>

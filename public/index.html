@@ -1228,13 +1228,15 @@
             var W = container.offsetWidth || Math.floor(window.innerWidth * 0.46);
             var LEFT_X = Math.min(70, Math.floor(W * 0.18));
             var RIGHT_X = W - LEFT_X;
-            var topMargin = 20;
-            var totalH = gameList.length * STEP_H + topMargin + 60;
+            var n = gameList.length;
+            var topMargin = 56;  // room above top node for flag
+            var totalH = n * STEP_H + topMargin + 60;
             container.style.height = totalH + 'px';
             container.innerHTML = '';
 
+            // Bottom-to-top: game[0] (easiest) at bottom, game[n-1] (hardest) at top
             var positions = gameList.map(function(g, i) {
-                return { x: i % 2 === 0 ? LEFT_X : RIGHT_X, y: topMargin + i * STEP_H + NODE_R };
+                return { x: i % 2 === 0 ? LEFT_X : RIGHT_X, y: topMargin + (n - 1 - i) * STEP_H + NODE_R };
             });
 
             var svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
@@ -1294,13 +1296,14 @@
                 container.appendChild(label);
             });
 
-            var lastPos = positions[positions.length - 1];
+            // Flag sits above the top node (hardest game, top of trail)
+            var topPos = positions[positions.length - 1];
             var allDone = gameList.every(function(g) { return gameCompletionStatus[g.id] && gameCompletionStatus[g.id].completed; });
             var flag = document.createElement('div');
             flag.className = 'trail-end-flag';
             flag.textContent = allDone ? '🏆' : '🏁';
-            flag.style.left = (lastPos.x - 16) + 'px';
-            flag.style.top = (lastPos.y + NODE_R + 34) + 'px';
+            flag.style.left = (topPos.x - 16) + 'px';
+            flag.style.top = (topPos.y - NODE_R - 38) + 'px';
             container.appendChild(flag);
         }
 
@@ -1309,6 +1312,42 @@
             if (HAS_DONATED) {
                 document.getElementById('secretPathSection').style.display = 'block';
                 buildTrail(donorTrailGames, 'secretTrailContainer');
+            }
+        }
+
+        function scrollToCurrentGame(behavior) {
+            var rightSection = document.querySelector('.right-section');
+            var container = document.getElementById('trailContainer');
+            if (!rightSection || !container) return;
+
+            var n = mainTrailGames.length;
+            var topMargin = 56;
+
+            // Find the current game: first that is unlocked but not yet beaten
+            var currentIdx = n - 1;
+            for (var i = 0; i < n; i++) {
+                var g = mainTrailGames[i];
+                var done = !!(gameCompletionStatus[g.id] && gameCompletionStatus[g.id].completed);
+                if (isUnlocked(mainTrailGames, i) && !done) { currentIdx = i; break; }
+            }
+
+            // Node's pixel position within the container (bottom-to-top layout)
+            var nodeY = topMargin + (n - 1 - currentIdx) * STEP_H + NODE_R;
+
+            // Position of that node within the scrollable right-section
+            var containerRect = container.getBoundingClientRect();
+            var sectionRect = rightSection.getBoundingClientRect();
+            var containerTopInSection = containerRect.top - sectionRect.top + rightSection.scrollTop;
+            var nodeInSection = containerTopInSection + nodeY;
+
+            // Show node roughly 60% down from the top of the panel
+            var targetScroll = nodeInSection - rightSection.clientHeight * 0.6;
+
+            // Only scroll if the node isn't already comfortably visible
+            var nodeScreenY = nodeInSection - rightSection.scrollTop;
+            var visible = nodeScreenY > 40 && nodeScreenY < rightSection.clientHeight - 40;
+            if (!visible) {
+                rightSection.scrollTo({ top: Math.max(0, targetScroll), behavior: behavior || 'auto' });
             }
         }
 
@@ -1365,6 +1404,7 @@
                     showGameCompletionFeedback(true, event.data.score, event.data.timeElapsed);
                     localStorage.setItem('gameCompletionStatus', JSON.stringify(gameCompletionStatus));
                     generateTrail();
+                    setTimeout(function() { scrollToCurrentGame('smooth'); }, 400);
                 } else {
                     showGameCompletionFeedback(false, event.data.score, event.data.timeElapsed);
                 }
@@ -1579,7 +1619,7 @@
         // Init
         // =============================================
         loadGameCompletionStatus();
-        requestAnimationFrame(function() { generateTrail(); });
+        requestAnimationFrame(function() { generateTrail(); scrollToCurrentGame('auto'); });
         initFundraisingTotal();
         window.addEventListener('message', handleGameMessage);
         initStoryOverlay();

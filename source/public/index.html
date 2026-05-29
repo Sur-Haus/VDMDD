@@ -1632,14 +1632,17 @@
             // Bottom-to-top: game[0] (easiest) at bottom, game[n-1] (hardest) at top
             // Seeded rand so the organic offsets are identical on every render
             var rand = makeRand(gameList.length * 31 + containerId.length * 17);
-            // Positions follow a multi-loop sine wave — 4 direction changes over 8 games
-            // gives ~4 visible bends like a winding road. Larger amplitude (±26% of width)
-            // makes each bend dramatic. Random offsets keep it from looking mechanical.
+            // Two stacked sines at different incommensurate frequencies — the primary
+            // gives ~4 loops, the secondary modulates each loop's width differently,
+            // so some bends are wide, some narrow, some shifted. Large rand variation
+            // makes every loop clearly irregular, like a real winding road.
             var positions = gameList.map(function(g, i) {
                 var t = (n <= 1) ? 0.5 : i / (n - 1);
-                var sineX = W * 0.47 + W * 0.26 * Math.sin(t * Math.PI * 4);
-                var x = Math.max(NODE_R + 8, Math.min(W - NODE_R - 8, sineX + rand(-14, 14)));
-                var y = topMargin + (n - 1 - i) * STEP_H + rand(-6, 6) + NODE_R;
+                var sineX = W * 0.47
+                    + W * 0.21 * Math.sin(t * Math.PI * 4)
+                    + W * 0.10 * Math.sin(t * Math.PI * 2.7 + 1.1);
+                var x = Math.max(NODE_R + 8, Math.min(W - NODE_R - 8, sineX + rand(-28, 28)));
+                var y = topMargin + (n - 1 - i) * STEP_H + rand(-8, 8) + NODE_R;
                 return { x: x, y: y };
             });
 

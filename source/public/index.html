@@ -1598,7 +1598,7 @@
         }
 
         var NODE_R = 36;
-        var STEP_H = 150;
+        var STEP_H = 190;
 
         // Seeded RNG so trail variance is identical every page load
         function makeRand(seed) {
@@ -1632,15 +1632,14 @@
             // Bottom-to-top: game[0] (easiest) at bottom, game[n-1] (hardest) at top
             // Seeded rand so the organic offsets are identical on every render
             var rand = makeRand(gameList.length * 31 + containerId.length * 17);
-            // Positions follow a sine S-curve so the path drifts gradually left→right→left
-            // rather than snapping hard between sides. This creates one continuous flowing
-            // ribbon (like a winding road), not a zigzag of separate arcs.
-            // Small random variation keeps it from looking perfectly mathematical.
+            // Positions follow a multi-loop sine wave — 4 direction changes over 8 games
+            // gives ~4 visible bends like a winding road. Larger amplitude (±26% of width)
+            // makes each bend dramatic. Random offsets keep it from looking mechanical.
             var positions = gameList.map(function(g, i) {
                 var t = (n <= 1) ? 0.5 : i / (n - 1);
-                var sineX = W * 0.47 + W * 0.22 * Math.sin(t * Math.PI * 2);
-                var x = Math.max(NODE_R + 8, Math.min(W - NODE_R - 8, sineX + rand(-16, 16)));
-                var y = topMargin + (n - 1 - i) * STEP_H + rand(-8, 8) + NODE_R;
+                var sineX = W * 0.47 + W * 0.26 * Math.sin(t * Math.PI * 4);
+                var x = Math.max(NODE_R + 8, Math.min(W - NODE_R - 8, sineX + rand(-14, 14)));
+                var y = topMargin + (n - 1 - i) * STEP_H + rand(-6, 6) + NODE_R;
                 return { x: x, y: y };
             });
 

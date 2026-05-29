@@ -1370,17 +1370,23 @@
         // =============================================
         // Firebase & Firestore
         // =============================================
-        firebase.initializeApp({
-            projectId: "vdmdd-c7404",
-            appId: "1:101589248820:web:18da52dbc69128f0eb1361",
-            storageBucket: "vdmdd-c7404.firebasestorage.app",
-            apiKey: "AIzaSyDR6l4Wz4KGQ5l0XRJO4D_6fgHQhxyzfi4",
-            authDomain: "vdmdd-c7404.firebaseapp.com",
-            messagingSenderId: "101589248820"
-        });
-        var db = firebase.firestore();
-        var campaignRef = db.collection('campaigns').doc('vdmdd-2026');
+        var db = null;
+        var campaignRef = null;
         var campaignData = null;
+        try {
+            firebase.initializeApp({
+                projectId: "vdmdd-c7404",
+                appId: "1:101589248820:web:18da52dbc69128f0eb1361",
+                storageBucket: "vdmdd-c7404.firebasestorage.app",
+                apiKey: "AIzaSyDR6l4Wz4KGQ5l0XRJO4D_6fgHQhxyzfi4",
+                authDomain: "vdmdd-c7404.firebaseapp.com",
+                messagingSenderId: "101589248820"
+            });
+            db = firebase.firestore();
+            campaignRef = db.collection('campaigns').doc('vdmdd-2026');
+        } catch(e) {
+            console.warn('Firebase unavailable (likely opening locally):', e.message);
+        }
 
         // =============================================
         // Donation state (temp boolean — hook up later)
@@ -1913,6 +1919,7 @@
         var treeColors = ['#3a7d44','#6abf6e','#4a9955','#2d8b3a','#8fd48f','#5cb86b','#3fbb89','#7ecf6e'];
 
         function initFundraisingFromFirestore() {
+            if (!campaignRef) return; // Firebase unavailable (e.g. opened locally)
             campaignRef.onSnapshot(function(doc) {
                 if (!doc.exists) return;
                 campaignData = doc.data();

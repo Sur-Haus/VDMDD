@@ -1594,6 +1594,15 @@
         var NODE_R = 36;
         var STEP_H = 150;
 
+        // Seeded RNG so trail variance is identical every page load
+        function makeRand(seed) {
+            var s = seed >>> 0;
+            return function(min, max) {
+                s = (Math.imul(s, 1664525) + 1013904223) >>> 0;
+                return min + (s / 4294967296) * (max - min);
+            };
+        }
+
         function isUnlocked(gameList, index) {
             if (index === 0) return true;
             if (gameList[index].placeholder) return false;
@@ -1615,8 +1624,11 @@
             container.innerHTML = '';
 
             // Bottom-to-top: game[0] (easiest) at bottom, game[n-1] (hardest) at top
+            // Seeded rand so the organic offsets are identical on every render
+            var rand = makeRand(gameList.length * 31 + containerId.length * 17);
             var positions = gameList.map(function(g, i) {
-                return { x: i % 2 === 0 ? LEFT_X : RIGHT_X, y: topMargin + (n - 1 - i) * STEP_H + NODE_R };
+                var baseX = i % 2 === 0 ? LEFT_X : RIGHT_X;
+                return { x: baseX + rand(-10, 10), y: topMargin + (n - 1 - i) * STEP_H + NODE_R };
             });
 
             var svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
@@ -1627,7 +1639,13 @@
                 for (var i = 1; i < positions.length; i++) {
                     var p0 = positions[i - 1], p1 = positions[i];
                     var midY = (p0.y + p1.y) / 2;
-                    pathD += ' C ' + p0.x + ' ' + midY + ', ' + p1.x + ' ' + midY + ', ' + p1.x + ' ' + p1.y;
+                    // Both handles stay near the midpoint (preserving S-curves) but
+                    // vary independently in x and y for an organic, hand-drawn feel
+                    var cp1x = p0.x + rand(-18, 18);
+                    var cp1y = midY + rand(-28, 18);
+                    var cp2x = p1.x + rand(-18, 18);
+                    var cp2y = midY + rand(-18, 28);
+                    pathD += ' C ' + cp1x + ' ' + cp1y + ', ' + cp2x + ' ' + cp2y + ', ' + p1.x + ' ' + p1.y;
                 }
                 var pathBg = document.createElementNS('http://www.w3.org/2000/svg', 'path');
                 pathBg.setAttribute('d', pathD); pathBg.setAttribute('stroke', '#5c3d1e');

@@ -354,7 +354,29 @@
             
             e.preventDefault(); // Prevent page scrolling
         });
-        
+
+        // Mobile touch controls
+        (function() {
+            var sx, sy;
+            document.addEventListener('touchstart', function(e) {
+                if (e.target.closest('button, a, input, select')) return;
+                sx = e.touches[0].clientX; sy = e.touches[0].clientY;
+                e.preventDefault();
+            }, {passive: false});
+            document.addEventListener('touchend', function(e) {
+                if (sx === undefined || !gameRunning) return;
+                var dx = e.changedTouches[0].clientX - sx;
+                var dy = e.changedTouches[0].clientY - sy;
+                if (Math.abs(dx) < 20 && Math.abs(dy) < 20) return;
+                if (Math.abs(dx) > Math.abs(dy)) {
+                    snakeDirection = dx > 0 ? 'right' : 'left';
+                } else {
+                    snakeDirection = dy > 0 ? 'down' : 'up';
+                }
+                sx = undefined;
+            });
+        })();
+
         // Initialize game
         function initializeGame() {
             // Reset snake position and direction

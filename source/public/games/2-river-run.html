@@ -1,0 +1,1032 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>River Run</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            overflow: hidden;
+            height: 100vh;
+            background: #1b5e20;
+        }
+
+        canvas {
+            display: block;
+            margin: 0 auto;
+            background: #2196F3;
+        }
+
+        .overlay {
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 100;
+            background: rgba(0,0,0,0.8);
+        }
+
+        .overlay.hidden { display: none; }
+
+        .overlay h1 {
+            font-size: 44px;
+            color: #4FC3F7;
+            text-shadow: 2px 2px 8px rgba(0,0,0,0.5);
+            margin-bottom: 8px;
+        }
+
+        .overlay h2 {
+            font-size: 24px;
+            color: white;
+            margin-bottom: 16px;
+        }
+
+        .overlay p {
+            color: #ccc;
+            font-size: 15px;
+            max-width: 420px;
+            text-align: center;
+            line-height: 1.5;
+            margin-bottom: 6px;
+        }
+
+        .overlay .creator {
+            color: #81C784;
+            font-size: 13px;
+            margin-top: 14px;
+            font-style: italic;
+        }
+
+        .overlay button {
+            margin-top: 18px;
+            padding: 14px 40px;
+            font-size: 20px;
+            font-weight: bold;
+            border: none;
+            border-radius: 50px;
+            cursor: pointer;
+            background: linear-gradient(135deg, #1565C0, #1E88E5);
+            color: white;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+
+        .overlay button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 16px rgba(21,101,192,0.5);
+        }
+
+        .hud {
+            position: fixed;
+            top: 10px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            gap: 20px;
+            z-index: 50;
+            background: rgba(0,0,0,0.55);
+            padding: 8px 18px;
+            border-radius: 20px;
+            color: white;
+            font-size: 15px;
+            font-weight: bold;
+        }
+
+        .hud.hidden { display: none; }
+        .hud span { display: flex; align-items: center; gap: 4px; }
+
+        .powerup-indicator {
+            position: fixed;
+            bottom: 14px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 50;
+            padding: 6px 16px;
+            border-radius: 16px;
+            font-size: 14px;
+            font-weight: bold;
+            color: white;
+            display: none;
+        }
+
+        .powerup-indicator.shield { background: rgba(33,150,243,0.8); display: block; }
+        .powerup-indicator.boost { background: rgba(255,193,7,0.8); display: block; }
+    </style>
+</head>
+<body>
+    <div class="overlay" id="startScreen">
+        <h1>🚣 River Run</h1>
+        <h2>Help Declan 🤠 save his lost parrot! 🦜</h2>
+        <p>Declan's pet parrot flew deep into the jungle. Navigate the river to find her!</p>
+        <p>Use <strong>← → ↑ ↓</strong> arrow keys or <strong>drag/tilt</strong> to steer your boat.</p>
+        <p>Dodge <strong>rocks</strong> 🪨 and <strong>arrows</strong> 🏹 from the jungle!</p>
+        <p>Catch <strong>small fish</strong> 🐟 for a shield, <strong>big fish</strong> 🐠 for an invincibility boost!</p>
+        <p>Watch out for the <strong>piranha</strong> 🐡 — one bite and you're done!</p>
+        <p>You can survive <strong>3 hits</strong> — after that, you're sunk!</p>
+        <p class="creator">Built by Declan J from San Diego 🌴</p>
+        <button onclick="startGame()">🌊 Set Sail!</button>
+    </div>
+
+    <div class="overlay hidden" id="winScreen">
+        <h1>🦜 Parrot Rescued!</h1>
+        <h2>Declan 🤠 found his parrot!</h2>
+        <p id="winStats"></p>
+        <p class="creator">A game by Declan J from San Diego</p>
+        <button onclick="startGame()">Play Again</button>
+    </div>
+
+    <div class="overlay hidden" id="loseScreen">
+        <h1 id="loseTitle">💀 Capsized!</h1>
+        <h2 id="loseReason"></h2>
+        <p class="creator">A game by Declan J from San Diego</p>
+        <button onclick="startGame()">Try Again</button>
+    </div>
+
+    <div class="hud hidden" id="hud">
+        <span>📏 <b id="hudDist">0</b>m</span>
+        <span>❤️ <b id="hudLives">3</b></span>
+        <span>🐟 <b id="hudFish">0</b></span>
+    </div>
+
+    <div class="powerup-indicator" id="powerupBar"></div>
+
+    <canvas id="gameCanvas"></canvas>
+
+    <script>
+    var canvas = document.getElementById('gameCanvas');
+    var ctx = canvas.getContext('2d');
+
+    var W, H;
+    var TOTAL_LIVES = 3;
+    var BOAT_SPEED = 2.2;
+    var WIN_DISTANCE = 500;
+
+    var game = null;
+    var keys = {};
+    var animFrame = null;
+    var touchStartX = null;
+
+    function resize() {
+        W = Math.min(document.documentElement.clientWidth || window.innerWidth || 500, 500);
+        if (W < 100) W = 500;
+        H = document.documentElement.clientHeight || window.innerHeight || 800;
+        if (H < 200) H = 800;
+        canvas.width = W;
+        canvas.height = H;
+    }
+    resize();
+    window.addEventListener('resize', resize);
+
+    /* ── Seeded random for deterministic generation ── */
+    var seed = 1;
+    function seededRandom() {
+        seed = (seed * 16807 + 0) % 2147483647;
+        return (seed - 1) / 2147483646;
+    }
+
+    /* ── River generation ── */
+    function generateRiver() {
+        seed = 42;
+        var segments = [];
+        var centerX = W / 2;
+        var riverW = W * 0.6;
+        var minRiverW = W * 0.45;
+        var totalLen = 7000;
+
+        for (var y = 0; y < totalLen; y += 4) {
+            centerX += (Math.sin(y * 0.004) * 0.8 + Math.sin(y * 0.0015) * 0.5);
+            var halfRiver = riverW / 2 + 10;
+            centerX = Math.max(halfRiver, Math.min(W - halfRiver, centerX));
+
+            var widthWobble = Math.sin(y * 0.006) * 20;
+            var curW = Math.max(minRiverW, riverW + widthWobble);
+
+            segments.push({
+                cx: centerX,
+                w: curW,
+                left: centerX - curW / 2,
+                right: centerX + curW / 2
+            });
+        }
+        return segments;
+    }
+
+    /* ── Pre-generate trees (fixed positions, no randomness at draw time) ── */
+    function generateTrees(river) {
+        seed = 999;
+        var trees = [];
+        for (var y = 0; y < river.length; y += 3) {
+            var seg = river[y];
+            var worldY = y * 4;
+
+            /* Left bank: pack trees from x=0 to river left edge */
+            var leftEdge = seg.left;
+            for (var tx = 6; tx < leftEdge - 2; tx += 14 + seededRandom() * 6) {
+                trees.push({
+                    x: tx,
+                    worldY: worldY + seededRandom() * 12,
+                    r: 8 + seededRandom() * 5,
+                    shade: seededRandom() < 0.5 ? 0 : 1
+                });
+            }
+
+            /* Right bank: pack trees from river right edge to W */
+            var rightEdge = seg.right;
+            for (var tx2 = rightEdge + 6; tx2 < W - 2; tx2 += 14 + seededRandom() * 6) {
+                trees.push({
+                    x: tx2,
+                    worldY: worldY + seededRandom() * 12,
+                    r: 8 + seededRandom() * 5,
+                    shade: seededRandom() < 0.5 ? 0 : 1
+                });
+            }
+        }
+        return trees;
+    }
+
+    function getRiverAt(worldY) {
+        if (!game) return null;
+        var idx = Math.floor(worldY / 4);
+        if (idx < 0) idx = 0;
+        if (idx >= game.river.length) idx = game.river.length - 1;
+        return game.river[idx];
+    }
+
+    /* Convert world Y to screen Y: scenery scrolls top-to-bottom */
+    /* Camera anchor is fixed at baseScreenY so scene scrolls at constant rate.
+       Boat screenY can move independently without shifting the whole scene. */
+    function toScreen(worldY) {
+        return game.boat.baseScreenY + (worldY - game.boatWorldY);
+    }
+
+    /* ── Game init ── */
+    function startGame() {
+        document.getElementById('startScreen').classList.add('hidden');
+        document.getElementById('winScreen').classList.add('hidden');
+        document.getElementById('loseScreen').classList.add('hidden');
+        document.getElementById('hud').classList.remove('hidden');
+        document.getElementById('powerupBar').className = 'powerup-indicator';
+
+        var river = generateRiver();
+        var trees = generateTrees(river);
+        var startWorldY = (river.length - 1) * 4 - 200;
+        var startIdx = Math.floor(startWorldY / 4);
+        var startSeg = river[Math.min(startIdx, river.length - 1)] || river[0];
+
+        game = {
+            state: 'playing',
+            river: river,
+            trees: trees,
+            boatWorldY: startWorldY,
+            boat: {
+                x: startSeg ? startSeg.cx : W / 2,
+                screenY: H * 0.65,
+                baseScreenY: H * 0.65,
+                w: 28,
+                h: 48,
+                vx: 0,
+                vy: 0
+            },
+            rocks: [],
+            fish: [],
+            piranhas: [],
+            arrows: [],
+            particles: [],
+            lives: TOTAL_LIVES,
+            fishCollected: 0,
+            distance: 0,
+            hitFlash: 0,
+            shieldTimer: 0,
+            boostTimer: 0,
+            arrowTimer: 0,
+            ticks: 0,
+            nextRockDist: 200,
+            nextFishDist: 120,
+            nextPiranhaDist: 350,
+            invulnTimer: 0,
+            parrotWorldY: startWorldY - WIN_DISTANCE / 0.12 - 200
+        };
+
+        updateHUD();
+        if (animFrame) cancelAnimationFrame(animFrame);
+        loop();
+    }
+
+    function updateHUD() {
+        document.getElementById('hudDist').textContent = Math.floor(game.distance);
+        document.getElementById('hudLives').textContent = game.lives;
+        document.getElementById('hudFish').textContent = game.fishCollected;
+
+        var bar = document.getElementById('powerupBar');
+        if (game.boostTimer > 0) {
+            bar.className = 'powerup-indicator boost';
+            bar.textContent = '⚡ INVINCIBLE ' + Math.ceil(game.boostTimer / 60) + 's';
+        } else if (game.shieldTimer > 0) {
+            bar.className = 'powerup-indicator shield';
+            bar.textContent = '🛡️ SHIELD ' + Math.ceil(game.shieldTimer / 60) + 's';
+        } else {
+            bar.className = 'powerup-indicator';
+        }
+    }
+
+    /* ── Collision ── */
+    function rectsOverlap(ax, ay, aw, ah, bx, by, bw, bh) {
+        return ax < bx + bw && ax + aw > bx && ay < by + bh && ay + ah > by;
+    }
+
+    /* ── Hit handling ── */
+    function hitBoat(reason) {
+        if (game.invulnTimer > 0) return;
+        if (game.boostTimer > 0) return;
+
+        if (game.shieldTimer > 0) {
+            game.shieldTimer = 0;
+            game.invulnTimer = 30;
+            spawnParticles(game.boat.x, game.boat.screenY, '#2196F3', 8);
+            updateHUD();
+            return;
+        }
+
+        game.lives--;
+        game.hitFlash = 20;
+        game.invulnTimer = 60;
+        spawnParticles(game.boat.x, game.boat.screenY, '#ff4444', 10);
+        updateHUD();
+
+        if (game.lives <= 0) {
+            loseGame(reason);
+        }
+    }
+
+    function instantKill(reason) {
+        game.lives = 0;
+        game.hitFlash = 30;
+        spawnParticles(game.boat.x, game.boat.screenY, '#ff0000', 15);
+        updateHUD();
+        document.getElementById('loseTitle').textContent = '🐡 Piranha Attack!';
+        loseGame(reason);
+    }
+
+    function spawnParticles(x, y, color, count) {
+        for (var i = 0; i < count; i++) {
+            game.particles.push({
+                x: x, y: y,
+                vx: (Math.random() - 0.5) * 5,
+                vy: (Math.random() - 0.5) * 5,
+                life: 20 + Math.random() * 15,
+                color: color
+            });
+        }
+    }
+
+    function loseGame(reason) {
+        game.state = 'lost';
+        document.getElementById('hud').classList.add('hidden');
+        document.getElementById('powerupBar').className = 'powerup-indicator';
+        document.getElementById('loseReason').textContent = reason || 'Too much damage!';
+        document.getElementById('loseScreen').classList.remove('hidden');
+    }
+
+    function winGame() {
+        game.state = 'won';
+        document.getElementById('hud').classList.add('hidden');
+        document.getElementById('powerupBar').className = 'powerup-indicator';
+        document.getElementById('winStats').textContent =
+            'Distance: ' + Math.floor(game.distance) + 'm  |  Fish: ' + game.fishCollected + '  |  Lives: ' + game.lives + '/' + TOTAL_LIVES;
+        document.getElementById('winScreen').classList.remove('hidden');
+
+        if (window.parent !== window) {
+            window.parent.postMessage({ type: 'gameCompletion', completed: true }, '*');
+        }
+    }
+
+    /* ── Spawners ── */
+    function spawnRock() {
+        var wy = game.boatWorldY - H * 0.8;
+        var seg = getRiverAt(wy);
+        if (!seg) return;
+        var margin = 24;
+        var rx = seg.left + margin + Math.random() * (seg.w - margin * 2);
+        game.rocks.push({ x: rx, worldY: wy, w: 22 + Math.random() * 16, h: 18 + Math.random() * 12, hit: false });
+    }
+
+    function spawnFish() {
+        var wy = game.boatWorldY - H * 0.8;
+        var seg = getRiverAt(wy);
+        if (!seg) return;
+        var margin = 20;
+        var fx = seg.left + margin + Math.random() * (seg.w - margin * 2);
+        var big = Math.random() < 0.25;
+        game.fish.push({ x: fx, worldY: wy, big: big, collected: false, bobPhase: Math.random() * Math.PI * 2 });
+    }
+
+    function spawnPiranha() {
+        var wy = game.boatWorldY - H * 0.8;
+        var seg = getRiverAt(wy);
+        if (!seg) return;
+        var margin = 30;
+        var px = seg.left + margin + Math.random() * (seg.w - margin * 2);
+        game.piranhas.push({ x: px, worldY: wy, hit: false, bobPhase: Math.random() * Math.PI * 2 });
+    }
+
+    function spawnArrow() {
+        var screenY = Math.random() * H * 0.5 + H * 0.1;
+        var worldY = game.boatWorldY + (screenY - game.boat.screenY);
+        var fromLeft = Math.random() < 0.5;
+        game.arrows.push({
+            x: fromLeft ? -20 : W + 20,
+            worldY: worldY,
+            vx: fromLeft ? (3 + Math.random() * 2) : -(3 + Math.random() * 2),
+            vy: (Math.random() - 0.5) * 1,
+            alive: true
+        });
+    }
+
+    /* ── Update ── */
+    function update() {
+        if (!game || game.state !== 'playing') return;
+        game.ticks++;
+
+        if (game.hitFlash > 0) game.hitFlash--;
+        if (game.invulnTimer > 0) game.invulnTimer--;
+        if (game.shieldTimer > 0) game.shieldTimer--;
+        if (game.boostTimer > 0) game.boostTimer--;
+
+        /* Move boat forward (world Y decreases = boat moves up in world) */
+        var speed = BOAT_SPEED + game.distance * 0.0004;
+        game.boatWorldY -= speed;
+        game.distance += speed * 0.12;
+
+        /* Steer boat left/right */
+        var steerSpeed = 3.5;
+        if (keys['ArrowLeft'] || keys['KeyA']) game.boat.vx -= steerSpeed * 0.3;
+        if (keys['ArrowRight'] || keys['KeyD']) game.boat.vx += steerSpeed * 0.3;
+        game.boat.vx *= 0.88;
+        game.boat.x += game.boat.vx;
+
+        /* Steer boat up/down (limited to ±10% of screen height) */
+        if (keys['ArrowUp'] || keys['KeyW']) game.boat.vy -= steerSpeed * 0.25;
+        if (keys['ArrowDown'] || keys['KeyS']) game.boat.vy += steerSpeed * 0.25;
+        game.boat.vy *= 0.88;
+        game.boat.screenY += game.boat.vy;
+        var minSY = game.boat.baseScreenY - H * 0.10;
+        var maxSY = game.boat.baseScreenY + H * 0.10;
+        if (game.boat.screenY < minSY) { game.boat.screenY = minSY; game.boat.vy = 0; }
+        if (game.boat.screenY > maxSY) { game.boat.screenY = maxSY; game.boat.vy = 0; }
+
+        /* Keep boat in canvas bounds */
+        if (game.boat.x < 14) game.boat.x = 14;
+        if (game.boat.x > W - 14) game.boat.x = W - 14;
+
+        /* Check bank collision */
+        var seg = getRiverAt(game.boatWorldY);
+        if (seg && game.boostTimer <= 0) {
+            var boatLeft = game.boat.x - game.boat.w / 2;
+            var boatRight = game.boat.x + game.boat.w / 2;
+            if (boatLeft < seg.left + 4 || boatRight > seg.right - 4) {
+                hitBoat('Crashed into the river bank!');
+                if (boatLeft < seg.left + 4) game.boat.x = seg.left + game.boat.w / 2 + 8;
+                if (boatRight > seg.right - 4) game.boat.x = seg.right - game.boat.w / 2 - 8;
+                game.boat.vx = 0;
+            }
+        }
+
+        /* Spawn rocks — fewer early, more later */
+        if (game.distance >= game.nextRockDist) {
+            spawnRock();
+            var rockGap = game.distance < 100 ? (120 + Math.random() * 80) :
+                          game.distance < 250 ? (70 + Math.random() * 50) :
+                          (40 + Math.random() * 35);
+            game.nextRockDist = game.distance + rockGap;
+        }
+
+        /* Spawn fish */
+        if (game.distance >= game.nextFishDist) {
+            spawnFish();
+            game.nextFishDist = game.distance + 80 + Math.random() * 100;
+        }
+
+        /* Spawn piranha (one at a time, rare) */
+        if (game.distance >= game.nextPiranhaDist) {
+            spawnPiranha();
+            game.nextPiranhaDist = game.distance + 200 + Math.random() * 150;
+        }
+
+        /* Spawn arrows */
+        game.arrowTimer++;
+        var arrowInterval = Math.max(40, 90 - game.distance * 0.06);
+        if (game.arrowTimer >= arrowInterval) {
+            game.arrowTimer = 0;
+            spawnArrow();
+        }
+
+        /* Update rocks — check collision */
+        var bx = game.boat.x;
+        var bsy = game.boat.screenY;
+        for (var ri = game.rocks.length - 1; ri >= 0; ri--) {
+            var rock = game.rocks[ri];
+            var rsy = toScreen(rock.worldY);
+
+            if (!rock.hit && rectsOverlap(
+                bx - game.boat.w / 2, bsy - game.boat.h / 2, game.boat.w, game.boat.h,
+                rock.x - rock.w / 2, rsy - rock.h / 2, rock.w, rock.h
+            )) {
+                rock.hit = true;
+                if (game.boostTimer <= 0) {
+                    hitBoat('Hit a rock!');
+                } else {
+                    spawnParticles(rock.x, rsy, '#9E9E9E', 6);
+                }
+            }
+
+            if (rsy > H + 80) {
+                game.rocks.splice(ri, 1);
+            }
+        }
+
+        /* Update fish */
+        for (var fi = game.fish.length - 1; fi >= 0; fi--) {
+            var fish = game.fish[fi];
+            fish.bobPhase += 0.06;
+            var fsy = toScreen(fish.worldY);
+            var fSize = fish.big ? 24 : 12;
+
+            if (!fish.collected && rectsOverlap(
+                bx - game.boat.w / 2 - 6, bsy - game.boat.h / 2 - 6, game.boat.w + 12, game.boat.h + 12,
+                fish.x - fSize, fsy - fSize, fSize * 2, fSize * 2
+            )) {
+                fish.collected = true;
+                game.fishCollected++;
+                if (fish.big) {
+                    game.boostTimer = 300;
+                    spawnParticles(fish.x, fsy, '#FFD700', 12);
+                } else {
+                    game.shieldTimer = 360;
+                    spawnParticles(fish.x, fsy, '#4FC3F7', 8);
+                }
+                updateHUD();
+            }
+
+            if (fsy > H + 60) {
+                game.fish.splice(fi, 1);
+            }
+        }
+
+        /* Update piranhas */
+        for (var pi2 = game.piranhas.length - 1; pi2 >= 0; pi2--) {
+            var pir = game.piranhas[pi2];
+            pir.bobPhase += 0.08;
+            var psy = toScreen(pir.worldY);
+
+            if (!pir.hit && rectsOverlap(
+                bx - game.boat.w / 2, bsy - game.boat.h / 2, game.boat.w, game.boat.h,
+                pir.x - 14, psy - 14, 28, 28
+            )) {
+                pir.hit = true;
+                if (game.boostTimer > 0) {
+                    spawnParticles(pir.x, psy, '#ff0000', 8);
+                } else if (game.shieldTimer > 0) {
+                    game.shieldTimer = 0;
+                    game.invulnTimer = 30;
+                    spawnParticles(pir.x, psy, '#ff0000', 8);
+                    updateHUD();
+                } else {
+                    instantKill('Eaten by a piranha!');
+                }
+            }
+
+            if (psy > H + 60) {
+                game.piranhas.splice(pi2, 1);
+            }
+        }
+
+        /* Update arrows (world-space Y so they scroll with the scene) */
+        for (var ai = game.arrows.length - 1; ai >= 0; ai--) {
+            var a = game.arrows[ai];
+            a.x += a.vx;
+            a.worldY += a.vy;
+            var asy = toScreen(a.worldY);
+
+            if (a.alive && rectsOverlap(
+                bx - game.boat.w / 2, bsy - game.boat.h / 2, game.boat.w, game.boat.h,
+                a.x - 12, asy - 3, 24, 6
+            )) {
+                a.alive = false;
+                hitBoat('Hit by an arrow!');
+            }
+
+            if (a.x < -50 || a.x > W + 50 || asy < -60 || asy > H + 60) {
+                game.arrows.splice(ai, 1);
+            }
+        }
+
+        /* Update particles */
+        for (var pi = game.particles.length - 1; pi >= 0; pi--) {
+            var p = game.particles[pi];
+            p.x += p.vx;
+            p.y += p.vy;
+            p.vy += 0.1;
+            p.life--;
+            if (p.life <= 0) game.particles.splice(pi, 1);
+        }
+
+        /* Win check */
+        if (game.distance >= WIN_DISTANCE) {
+            winGame();
+            return;
+        }
+
+        updateHUD();
+    }
+
+    /* ── Drawing ── */
+    var treeColors = [
+        ['#1B5E20', '#2E7D32'],
+        ['#1a6b1a', '#388E3C']
+    ];
+
+    function drawScene() {
+        /* Green background (forest floor) */
+        ctx.fillStyle = '#2E7D32';
+        ctx.fillRect(0, 0, W, H);
+
+        /* Draw river water band */
+        var visibleStart = game.boatWorldY - game.boat.baseScreenY;
+        var visibleEnd = game.boatWorldY + (H - game.boat.baseScreenY);
+        var idxStart = Math.max(0, Math.floor(visibleStart / 4) - 2);
+        var idxEnd = Math.min(game.river.length - 1, Math.floor(visibleEnd / 4) + 2);
+
+        for (var i = idxStart; i <= idxEnd; i++) {
+            var seg2 = game.river[i];
+            var wy = i * 4;
+            var sy = toScreen(wy);
+            if (sy < -10 || sy > H + 10) continue;
+
+            var shade = (i % 50 < 25) ? '#42A5F5' : '#3B96D8';
+            ctx.fillStyle = shade;
+            ctx.fillRect(seg2.left, sy, seg2.w, 5);
+
+            /* Shimmer */
+            if (i % 18 === 0) {
+                ctx.fillStyle = 'rgba(255,255,255,0.12)';
+                var shimX = seg2.cx + Math.sin(i * 0.1 + game.ticks * 0.04) * (seg2.w * 0.2);
+                ctx.fillRect(shimX - 12, sy, 24, 4);
+            }
+        }
+
+        /* Bank edge lines */
+        ctx.strokeStyle = '#1B5E20';
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        var started = false;
+        for (var j = idxStart; j <= idxEnd; j += 2) {
+            var segJ = game.river[j];
+            var syJ = toScreen(j * 4);
+            if (!started) { ctx.moveTo(segJ.left, syJ); started = true; } else { ctx.lineTo(segJ.left, syJ); }
+        }
+        ctx.stroke();
+
+        ctx.beginPath();
+        started = false;
+        for (var k = idxStart; k <= idxEnd; k += 2) {
+            var segK = game.river[k];
+            var syK = toScreen(k * 4);
+            if (!started) { ctx.moveTo(segK.right, syK); started = true; } else { ctx.lineTo(segK.right, syK); }
+        }
+        ctx.stroke();
+
+        /* Draw trees (pre-generated, deterministic) */
+        for (var ti = 0; ti < game.trees.length; ti++) {
+            var t = game.trees[ti];
+            var tsy = toScreen(t.worldY);
+            if (tsy < -20 || tsy > H + 20) continue;
+
+            var cols = treeColors[t.shade];
+            ctx.fillStyle = cols[0];
+            ctx.beginPath();
+            ctx.arc(t.x, tsy, t.r, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.fillStyle = cols[1];
+            ctx.beginPath();
+            ctx.arc(t.x + 2, tsy - 2, t.r * 0.6, 0, Math.PI * 2);
+            ctx.fill();
+        }
+    }
+
+    function drawBoat() {
+        var bx = game.boat.x;
+        var by = game.boat.screenY;
+
+        if (game.hitFlash > 0 && game.hitFlash % 4 < 2) return;
+        if (game.invulnTimer > 0 && game.invulnTimer % 3 === 0) return;
+
+        /* Wake ripples behind boat (below = further down screen) */
+        ctx.strokeStyle = 'rgba(255,255,255,0.3)';
+        ctx.lineWidth = 1;
+        for (var w = 1; w <= 3; w++) {
+            ctx.beginPath();
+            ctx.arc(bx, by + 24 + w * 10, 4 + w * 3, 0.3, Math.PI - 0.3);
+            ctx.stroke();
+        }
+
+        ctx.save();
+        ctx.translate(bx, by);
+
+        /* Boat shadow */
+        ctx.fillStyle = 'rgba(0,0,0,0.15)';
+        ctx.beginPath();
+        ctx.ellipse(2, 4, 14, 6, 0, 0, Math.PI * 2);
+        ctx.fill();
+
+        /* Boat hull — bow points UP (negative Y) */
+        ctx.beginPath();
+        ctx.moveTo(0, -24);
+        ctx.quadraticCurveTo(16, -10, 14, 18);
+        ctx.lineTo(6, 24);
+        ctx.lineTo(-6, 24);
+        ctx.lineTo(-14, 18);
+        ctx.quadraticCurveTo(-16, -10, 0, -24);
+        ctx.closePath();
+
+        var hullGrad = ctx.createLinearGradient(-14, 0, 14, 0);
+        hullGrad.addColorStop(0, '#6D4C41');
+        hullGrad.addColorStop(0.5, '#8D6E63');
+        hullGrad.addColorStop(1, '#6D4C41');
+        ctx.fillStyle = hullGrad;
+        ctx.fill();
+        ctx.strokeStyle = '#4E342E';
+        ctx.lineWidth = 1.5;
+        ctx.stroke();
+
+        /* Inner hull */
+        ctx.beginPath();
+        ctx.moveTo(0, -18);
+        ctx.quadraticCurveTo(10, -6, 9, 14);
+        ctx.lineTo(-9, 14);
+        ctx.quadraticCurveTo(-10, -6, 0, -18);
+        ctx.closePath();
+        ctx.fillStyle = '#A1887F';
+        ctx.fill();
+
+        /* Seat planks */
+        ctx.fillStyle = '#5D4037';
+        ctx.fillRect(-9, -2, 18, 3);
+        ctx.fillRect(-8, 8, 16, 3);
+
+        /* Cowboy Declan */
+        ctx.font = '16px serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText('🤠', 0, 2);
+
+        ctx.restore();
+
+        /* Shield effect */
+        if (game.shieldTimer > 0) {
+            ctx.strokeStyle = 'rgba(33,150,243,' + (0.4 + Math.sin(game.ticks * 0.1) * 0.2) + ')';
+            ctx.lineWidth = 2.5;
+            ctx.beginPath();
+            ctx.arc(bx, by, 28, 0, Math.PI * 2);
+            ctx.stroke();
+        }
+
+        /* Boost effect */
+        if (game.boostTimer > 0) {
+            ctx.fillStyle = 'rgba(255,215,0,' + (0.2 + Math.sin(game.ticks * 0.15) * 0.15) + ')';
+            ctx.beginPath();
+            ctx.arc(bx, by, 30, 0, Math.PI * 2);
+            ctx.fill();
+        }
+    }
+
+    function drawRock(rock) {
+        var sy = toScreen(rock.worldY);
+        if (sy < -40 || sy > H + 40 || rock.hit) return;
+
+        ctx.save();
+        ctx.translate(rock.x, sy);
+        ctx.fillStyle = '#757575';
+        ctx.beginPath();
+        ctx.ellipse(0, 0, rock.w / 2, rock.h / 2, 0.2, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.strokeStyle = '#616161';
+        ctx.lineWidth = 1.5;
+        ctx.stroke();
+        ctx.fillStyle = 'rgba(255,255,255,0.2)';
+        ctx.beginPath();
+        ctx.ellipse(-rock.w * 0.15, -rock.h * 0.15, rock.w * 0.2, rock.h * 0.15, -0.3, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+    }
+
+    function drawFishItem(fish) {
+        var sy = toScreen(fish.worldY) + Math.sin(fish.bobPhase) * 4;
+        if (sy < -40 || sy > H + 40 || fish.collected) return;
+
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+
+        if (fish.big) {
+            /* Big fish: golden glow + larger emoji */
+            ctx.fillStyle = 'rgba(255,215,0,' + (0.2 + Math.sin(fish.bobPhase * 2) * 0.12) + ')';
+            ctx.beginPath();
+            ctx.arc(fish.x, sy, 24, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.font = '38px serif';
+            ctx.fillText('🐠', fish.x, sy);
+        } else {
+            ctx.font = '20px serif';
+            ctx.fillText('🐟', fish.x, sy);
+        }
+    }
+
+    function drawPiranha(pir) {
+        var sy = toScreen(pir.worldY) + Math.sin(pir.bobPhase) * 3;
+        if (sy < -40 || sy > H + 40 || pir.hit) return;
+
+        /* Red halo */
+        var pulse = 0.25 + Math.sin(pir.bobPhase * 1.5) * 0.1;
+        ctx.fillStyle = 'rgba(220,20,20,' + pulse + ')';
+        ctx.beginPath();
+        ctx.arc(pir.x, sy, 22, 0, Math.PI * 2);
+        ctx.fill();
+
+        /* Red ring */
+        ctx.strokeStyle = 'rgba(255,0,0,' + (0.5 + Math.sin(pir.bobPhase * 2) * 0.2) + ')';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.arc(pir.x, sy, 18, 0, Math.PI * 2);
+        ctx.stroke();
+
+        ctx.font = '24px serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText('🐡', pir.x, sy);
+    }
+
+    function drawArrow(a) {
+        if (!a.alive) return;
+        var asy = toScreen(a.worldY);
+        if (asy < -40 || asy > H + 40) return;
+
+        var angle = Math.atan2(a.vy, a.vx);
+        ctx.save();
+        ctx.translate(a.x, asy);
+        ctx.rotate(angle);
+
+        ctx.fillStyle = '#5D4037';
+        ctx.fillRect(-18, -2, 30, 4);
+        ctx.fillStyle = '#888';
+        ctx.beginPath();
+        ctx.moveTo(14, -6); ctx.lineTo(22, 0); ctx.lineTo(14, 6);
+        ctx.closePath();
+        ctx.fill();
+        ctx.fillStyle = '#E53935';
+        ctx.beginPath();
+        ctx.moveTo(-18, -4); ctx.lineTo(-14, 0); ctx.lineTo(-18, 4); ctx.lineTo(-22, 0);
+        ctx.closePath();
+        ctx.fill();
+        ctx.restore();
+    }
+
+    function drawParrot() {
+        var psy = toScreen(game.parrotWorldY);
+        if (psy < -60 || psy > H + 60) return;
+
+        var seg = getRiverAt(game.parrotWorldY);
+        var px = seg ? seg.cx : W / 2;
+
+        /* Pulsing golden glow */
+        var pulse = Math.sin(game.ticks * 0.08) * 0.15 + 0.35;
+        ctx.fillStyle = 'rgba(255,215,0,' + pulse + ')';
+        ctx.beginPath();
+        ctx.arc(px, psy, 36 + Math.sin(game.ticks * 0.06) * 4, 0, Math.PI * 2);
+        ctx.fill();
+
+        /* Inner white glow */
+        ctx.fillStyle = 'rgba(255,255,255,' + (pulse * 0.6) + ')';
+        ctx.beginPath();
+        ctx.arc(px, psy, 22, 0, Math.PI * 2);
+        ctx.fill();
+
+        /* Parrot emoji */
+        ctx.font = '36px serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText('🦜', px, psy);
+    }
+
+    function drawParticles() {
+        for (var i = 0; i < game.particles.length; i++) {
+            var p = game.particles[i];
+            ctx.globalAlpha = Math.min(1, p.life / 15);
+            ctx.fillStyle = p.color;
+            ctx.beginPath();
+            ctx.arc(p.x, p.y, 3, 0, Math.PI * 2);
+            ctx.fill();
+        }
+        ctx.globalAlpha = 1;
+    }
+
+    function drawDistanceBar() {
+        var progress = game.distance / WIN_DISTANCE;
+        var barW = W - 40;
+        var barH = 6;
+        var barX = 20;
+        var barY = H - 20;
+
+        ctx.fillStyle = 'rgba(0,0,0,0.3)';
+        ctx.fillRect(barX, barY, barW, barH);
+
+        var barGrad = ctx.createLinearGradient(barX, 0, barX + barW * progress, 0);
+        barGrad.addColorStop(0, '#4FC3F7');
+        barGrad.addColorStop(1, '#81C784');
+        ctx.fillStyle = barGrad;
+        ctx.fillRect(barX, barY, barW * Math.min(1, progress), barH);
+
+        ctx.font = '12px serif';
+        ctx.fillText('🚣', barX + barW * Math.min(1, progress) - 6, barY - 4);
+        ctx.fillText('🦜', barX + barW - 6, barY - 4);
+    }
+
+    /* ── Main draw ── */
+    function draw() {
+        if (!game) return;
+        ctx.clearRect(0, 0, W, H);
+
+        drawScene();
+
+        for (var ri = 0; ri < game.rocks.length; ri++) drawRock(game.rocks[ri]);
+        for (var fi = 0; fi < game.fish.length; fi++) drawFishItem(game.fish[fi]);
+        for (var pi2 = 0; pi2 < game.piranhas.length; pi2++) drawPiranha(game.piranhas[pi2]);
+
+        drawParrot();
+        drawBoat();
+
+        for (var ai = 0; ai < game.arrows.length; ai++) drawArrow(game.arrows[ai]);
+
+        drawParticles();
+        drawDistanceBar();
+    }
+
+    function loop() {
+        update();
+        draw();
+        if (game && game.state === 'playing') {
+            animFrame = requestAnimationFrame(loop);
+        }
+    }
+
+    /* ── Input ── */
+    document.addEventListener('keydown', function(e) {
+        keys[e.code] = true;
+        if (e.code === 'ArrowLeft' || e.code === 'ArrowRight' || e.code === 'ArrowUp' || e.code === 'ArrowDown' || e.code === 'Space') {
+            e.preventDefault();
+        }
+    });
+
+    document.addEventListener('keyup', function(e) {
+        keys[e.code] = false;
+    });
+
+    canvas.addEventListener('touchstart', function(e) {
+        e.preventDefault();
+        touchStartX = e.touches[0].clientX;
+    });
+
+    canvas.addEventListener('touchmove', function(e) {
+        e.preventDefault();
+        if (touchStartX !== null && game && game.state === 'playing') {
+            var dx = e.touches[0].clientX - touchStartX;
+            game.boat.vx += dx * 0.04;
+            touchStartX = e.touches[0].clientX;
+        }
+    });
+
+    canvas.addEventListener('touchend', function(e) {
+        e.preventDefault();
+        touchStartX = null;
+    });
+
+    var mouseDown = false;
+    var lastMouseX = 0;
+    canvas.addEventListener('mousedown', function(e) {
+        mouseDown = true;
+        lastMouseX = e.clientX;
+    });
+    canvas.addEventListener('mousemove', function(e) {
+        if (mouseDown && game && game.state === 'playing') {
+            var dx = e.clientX - lastMouseX;
+            game.boat.vx += dx * 0.06;
+            lastMouseX = e.clientX;
+        }
+    });
+    canvas.addEventListener('mouseup', function() { mouseDown = false; });
+    canvas.addEventListener('mouseleave', function() { mouseDown = false; });
+    </script>
+</body>
+</html>

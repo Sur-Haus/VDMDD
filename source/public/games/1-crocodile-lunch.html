@@ -507,7 +507,47 @@
         document.addEventListener('keyup', (e) => {
             keys[e.key] = false;
         });
-        
+
+        // Mobile touch controls
+        (function() {
+            var tid = null, sx, sy;
+            document.addEventListener('touchstart', function(e) {
+                if (e.target.closest('button, a, input, select')) return;
+                if (tid !== null) return;
+                var t = e.touches[0]; tid = t.identifier; sx = t.clientX; sy = t.clientY;
+                e.preventDefault();
+            }, {passive: false});
+            document.addEventListener('touchmove', function(e) {
+                for (var i = 0; i < e.touches.length; i++) {
+                    if (e.touches[i].identifier === tid) {
+                        var dx = e.touches[i].clientX - sx;
+                        var dy = e.touches[i].clientY - sy;
+                        keys['ArrowLeft'] = false; keys['ArrowRight'] = false;
+                        keys['ArrowUp'] = false; keys['ArrowDown'] = false;
+                        if (Math.abs(dx) > Math.abs(dy)) {
+                            if (dx > 10) keys['ArrowRight'] = true;
+                            else if (dx < -10) keys['ArrowLeft'] = true;
+                        } else {
+                            if (dy < -10) keys['ArrowUp'] = true;
+                            else if (dy > 10) keys['ArrowDown'] = true;
+                        }
+                        break;
+                    }
+                }
+                e.preventDefault();
+            }, {passive: false});
+            document.addEventListener('touchend', function(e) {
+                for (var i = 0; i < e.changedTouches.length; i++) {
+                    if (e.changedTouches[i].identifier === tid) {
+                        tid = null;
+                        keys['ArrowLeft'] = false; keys['ArrowRight'] = false;
+                        keys['ArrowUp'] = false; keys['ArrowDown'] = false;
+                        break;
+                    }
+                }
+            });
+        })();
+
         // Initialize game
         function initializeGame() {
             crocodileX = 20;

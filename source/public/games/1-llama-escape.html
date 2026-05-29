@@ -456,7 +456,44 @@
         document.addEventListener('keyup', (e) => {
             keys[e.key] = false;
         });
-        
+
+        // Mobile touch controls
+        (function() {
+            var tid = null, sx, sy, st;
+            document.addEventListener('touchstart', function(e) {
+                if (e.target.closest('button, a, input, select')) return;
+                if (tid !== null) return;
+                var t = e.touches[0]; tid = t.identifier;
+                sx = t.clientX; sy = t.clientY; st = Date.now();
+                e.preventDefault();
+            }, {passive: false});
+            document.addEventListener('touchmove', function(e) {
+                for (var i = 0; i < e.touches.length; i++) {
+                    if (e.touches[i].identifier === tid) {
+                        var dx = e.touches[i].clientX - sx;
+                        keys['ArrowLeft'] = false; keys['ArrowRight'] = false;
+                        if (dx > 15) keys['ArrowRight'] = true;
+                        else if (dx < -15) keys['ArrowLeft'] = true;
+                        break;
+                    }
+                }
+                e.preventDefault();
+            }, {passive: false});
+            document.addEventListener('touchend', function(e) {
+                for (var i = 0; i < e.changedTouches.length; i++) {
+                    if (e.changedTouches[i].identifier === tid) {
+                        var dx = e.changedTouches[i].clientX - sx;
+                        if (Date.now() - st < 300 && Math.abs(dx) < 20) {
+                            if (!isJumping && gameRunning) jump();
+                        }
+                        tid = null;
+                        keys['ArrowLeft'] = false; keys['ArrowRight'] = false;
+                        break;
+                    }
+                }
+            });
+        })();
+
         // Jump function
         function jump() {
             if (isJumping) return;

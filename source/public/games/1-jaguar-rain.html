@@ -435,7 +435,39 @@
         document.addEventListener('keyup', (e) => {
             keys[e.key] = false;
         });
-        
+
+        // Mobile touch controls
+        (function() {
+            var tid = null, sx;
+            document.addEventListener('touchstart', function(e) {
+                if (e.target.closest('button, a, input, select')) return;
+                if (tid !== null) return;
+                var t = e.touches[0]; tid = t.identifier; sx = t.clientX;
+                e.preventDefault();
+            }, {passive: false});
+            document.addEventListener('touchmove', function(e) {
+                for (var i = 0; i < e.touches.length; i++) {
+                    if (e.touches[i].identifier === tid) {
+                        var dx = e.touches[i].clientX - sx;
+                        keys['ArrowLeft'] = false; keys['ArrowRight'] = false;
+                        if (dx > 10) keys['ArrowRight'] = true;
+                        else if (dx < -10) keys['ArrowLeft'] = true;
+                        break;
+                    }
+                }
+                e.preventDefault();
+            }, {passive: false});
+            document.addEventListener('touchend', function(e) {
+                for (var i = 0; i < e.changedTouches.length; i++) {
+                    if (e.changedTouches[i].identifier === tid) {
+                        tid = null;
+                        keys['ArrowLeft'] = false; keys['ArrowRight'] = false;
+                        break;
+                    }
+                }
+            });
+        })();
+
         // Initialize bucket position
         function initializeBucket() {
             bucketX = 50;

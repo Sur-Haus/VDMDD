@@ -71,12 +71,22 @@
             margin-bottom: 20px;
         }
 
+        .trail-level-badge {
+            font-size: 10px;
+            font-weight: 800;
+            letter-spacing: 3px;
+            text-transform: uppercase;
+            color: #7aac52;
+            text-align: center;
+            padding: 8px 0 0;
+        }
+
         .trail-title {
             font-size: 13px;
             font-weight: bold;
             color: #2e5931;
             text-align: center;
-            padding: 8px 0 0;
+            padding: 2px 0 0;
             letter-spacing: 1.5px;
             text-transform: uppercase;
         }
@@ -866,6 +876,20 @@
         .level-arrow-right {
             right: 0;
             border-radius: 6px 0 0 6px;
+            flex-direction: column;
+            gap: 4px;
+            width: auto;
+            padding: 10px 8px;
+            height: auto;
+            min-height: 72px;
+        }
+
+        .level-arrow-right .arrow-label {
+            font-size: 9px;
+            font-weight: 700;
+            letter-spacing: 0.5px;
+            line-height: 1.3;
+            text-align: center;
         }
 
         .trail-node.placeholder {
@@ -1161,6 +1185,7 @@
                     <div class="divider"></div>
                     <div class="right-section">
                         <div class="trail-section">
+                            <div class="trail-level-badge">Level 1</div>
                             <div class="trail-title">🌿 Jungle Trail</div>
                             <div class="trail-container" id="trailContainer"></div>
                             <div class="secret-path-section" id="secretPathSection" style="display:none">
@@ -1224,7 +1249,10 @@
         </div>
 
         <button class="level-arrow level-arrow-left" id="levelArrowLeft" onclick="goToLevel(0)">&#8249;</button>
-        <button class="level-arrow level-arrow-right" id="levelArrowRight" onclick="goToLevel(1)">&#8250;</button>
+        <button class="level-arrow level-arrow-right" id="levelArrowRight" onclick="goToLevel(1)">
+            <span class="arrow-label">To<br>Level 2</span>
+            <span style="font-size:28px;line-height:1;">&#8250;</span>
+        </button>
 
     </div>
 

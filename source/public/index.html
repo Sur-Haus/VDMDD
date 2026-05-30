@@ -1665,17 +1665,44 @@
                                      cp2x.toFixed(1) + ' ' + cp2y.toFixed(1) + ',' +
                                      pc.x.toFixed(1) + ' ' + pc.y.toFixed(1);
                 }
-                var pathBg = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-                pathBg.setAttribute('d', pathD); pathBg.setAttribute('stroke', '#5c3d1e');
-                pathBg.setAttribute('stroke-width', '14'); pathBg.setAttribute('fill', 'none');
-                pathBg.setAttribute('stroke-linecap', 'round');
-                svg.appendChild(pathBg);
+                // Fractal-noise filter — displaces all path layers together so edges
+                // look soft, irregular, and worn rather than geometrically clean.
+                var defs = document.createElementNS('http://www.w3.org/2000/svg', 'defs');
+                var filt = document.createElementNS('http://www.w3.org/2000/svg', 'filter');
+                var filtId = 'dirtPath_' + containerId;
+                filt.setAttribute('id', filtId);
+                filt.setAttribute('x', '-8%'); filt.setAttribute('y', '-3%');
+                filt.setAttribute('width', '116%'); filt.setAttribute('height', '106%');
+                var turb = document.createElementNS('http://www.w3.org/2000/svg', 'feTurbulence');
+                turb.setAttribute('type', 'fractalNoise');
+                turb.setAttribute('baseFrequency', '0.022');
+                turb.setAttribute('numOctaves', '4');
+                turb.setAttribute('seed', '13');
+                turb.setAttribute('result', 'noise');
+                var disp = document.createElementNS('http://www.w3.org/2000/svg', 'feDisplacementMap');
+                disp.setAttribute('in', 'SourceGraphic'); disp.setAttribute('in2', 'noise');
+                disp.setAttribute('scale', '5');
+                disp.setAttribute('xChannelSelector', 'R'); disp.setAttribute('yChannelSelector', 'G');
+                filt.appendChild(turb); filt.appendChild(disp);
+                defs.appendChild(filt);
+                svg.appendChild(defs);
 
-                var pathFg = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-                pathFg.setAttribute('d', pathD); pathFg.setAttribute('stroke', '#c8a060');
-                pathFg.setAttribute('stroke-width', '8'); pathFg.setAttribute('fill', 'none');
-                pathFg.setAttribute('stroke-dasharray', '14 8'); pathFg.setAttribute('stroke-linecap', 'round');
-                svg.appendChild(pathFg);
+                // Three layers in one group — filter is applied to the group so all
+                // layers distort identically and stay perfectly aligned.
+                var pathGroup = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+                pathGroup.setAttribute('filter', 'url(#' + filtId + ')');
+                function mkPath(d, stroke, sw, opacity) {
+                    var p = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+                    p.setAttribute('d', d); p.setAttribute('stroke', stroke);
+                    p.setAttribute('stroke-width', sw); p.setAttribute('fill', 'none');
+                    p.setAttribute('stroke-linecap', 'round');
+                    if (opacity != null) p.setAttribute('opacity', String(opacity));
+                    return p;
+                }
+                pathGroup.appendChild(mkPath(pathD, '#2a1505', '24', 0.5));  // dark shadow/edge
+                pathGroup.appendChild(mkPath(pathD, '#7a5230', '16', null)); // earthy dirt body
+                pathGroup.appendChild(mkPath(pathD, '#c4a26a',  '7', 0.8)); // worn lighter center
+                svg.appendChild(pathGroup);
             }
             container.appendChild(svg);
 

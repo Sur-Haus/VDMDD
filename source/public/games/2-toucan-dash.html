@@ -1,0 +1,966 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<title>Toucan Sky Dash</title>
+<style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    html, body {
+        height: 100%;
+        overflow: hidden;
+        background: #0d2b12;
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+        -webkit-user-select: none;
+        user-select: none;
+        -webkit-tap-highlight-color: transparent;
+    }
+
+    #scene {
+        position: fixed;
+        top: 0; left: 0;
+        width: 100%; height: 100%;
+        display: block;
+        touch-action: none;
+        z-index: 1;
+    }
+
+    /* ── Overlays ── */
+    .overlay {
+        position: fixed;
+        top: 0; left: 0; width: 100%; height: 100%;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        z-index: 100;
+        background: rgba(0,0,0,0.82);
+        padding: 20px;
+        overflow-y: auto;
+        text-align: center;
+    }
+
+    .overlay.hidden { display: none !important; }
+
+    .panel {
+        background: rgba(12, 30, 16, 0.75);
+        border: 2px solid rgba(255,213,79,0.35);
+        border-radius: 22px;
+        padding: 22px 24px;
+        max-width: 460px;
+        width: 100%;
+        box-shadow: 0 10px 40px rgba(0,0,0,0.5);
+    }
+
+    .overlay h1 {
+        font-size: 38px;
+        color: #FFD54F;
+        text-shadow: 2px 2px 8px rgba(0,0,0,0.6);
+        margin-bottom: 6px;
+        line-height: 1.15;
+    }
+
+    .overlay h2 {
+        font-size: 20px;
+        color: #A5D6A7;
+        margin-bottom: 14px;
+    }
+
+    .overlay p {
+        color: #dfe9df;
+        font-size: 15px;
+        line-height: 1.5;
+        margin-bottom: 7px;
+    }
+
+    .overlay p strong { color: #FFD54F; }
+
+    .fact {
+        margin-top: 14px;
+        background: rgba(76,175,80,0.18);
+        border-left: 4px solid #66BB6A;
+        border-radius: 10px;
+        padding: 12px 14px;
+        text-align: left;
+        font-size: 14px !important;
+        color: #C8E6C9 !important;
+    }
+
+    .creator {
+        color: #81C784;
+        font-size: 13px;
+        margin-top: 14px;
+        font-style: italic;
+    }
+
+    .overlay button {
+        margin-top: 18px;
+        padding: 15px 42px;
+        font-size: 20px;
+        font-weight: bold;
+        border: none;
+        border-radius: 50px;
+        cursor: pointer;
+        background: linear-gradient(135deg, #F57C00, #FFB300);
+        color: #23160a;
+        transition: transform 0.15s, box-shadow 0.15s;
+    }
+
+    .overlay button:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 18px rgba(255,179,0,0.45);
+    }
+
+    .overlay button:active { transform: translateY(1px); }
+
+    /* ── HUD ── */
+    .hud {
+        position: fixed;
+        top: 10px;
+        left: 50%;
+        transform: translateX(-50%);
+        display: flex;
+        gap: 14px;
+        align-items: center;
+        z-index: 50;
+        background: rgba(0,0,0,0.55);
+        padding: 8px 16px;
+        border-radius: 20px;
+        color: white;
+        font-size: 15px;
+        font-weight: bold;
+        white-space: nowrap;
+        pointer-events: none;
+    }
+
+    .hud.hidden { display: none !important; }
+    #hudHearts { letter-spacing: 1px; font-size: 17px; }
+
+    .warnflash {
+        position: fixed;
+        top: 0; left: 0; width: 100%; height: 100%;
+        z-index: 40;
+        pointer-events: none;
+        box-shadow: inset 0 0 90px 20px rgba(255,60,60,0.75);
+        opacity: 0;
+        transition: opacity 0.18s;
+    }
+    .warnflash.on { opacity: 1; }
+
+    .hint {
+        position: fixed;
+        bottom: 14px;
+        left: 50%;
+        transform: translateX(-50%);
+        z-index: 45;
+        color: rgba(255,255,255,0.6);
+        font-size: 13px;
+        background: rgba(0,0,0,0.4);
+        padding: 6px 14px;
+        border-radius: 14px;
+        pointer-events: none;
+        transition: opacity 0.6s;
+    }
+    .hint.hidden { opacity: 0; }
+
+    @media (max-width: 430px) {
+        .overlay h1 { font-size: 30px; }
+        .overlay h2 { font-size: 17px; }
+        .overlay p { font-size: 14px; }
+        .panel { padding: 18px 16px; }
+        .hud { font-size: 13px; gap: 10px; padding: 7px 12px; }
+        #hudHearts { font-size: 15px; }
+    }
+</style>
+</head>
+<body>
+
+<canvas id="scene"></canvas>
+
+<div class="warnflash" id="warnFlash"></div>
+
+<div class="hud hidden" id="hud">
+    <span id="hudHearts">❤️❤️❤️❤️❤️❤️</span>
+    <span>📏 <b id="hudDist">0</b> / 1000m</span>
+</div>
+
+<div class="hint hidden" id="hint">Steer with arrows / WASD — or drag anywhere</div>
+
+<div class="overlay" id="startScreen">
+    <div class="panel">
+        <h1>🦜 Toucan Sky Dash</h1>
+        <h2>Fly the canopy tunnel! 🌴</h2>
+        <p>You are a toucan racing <strong>1000m</strong> down a jungle canyon.</p>
+        <p>Hunters 🏹 are hiding ahead. When you see a <strong>⚠️ warning flash</strong>, you have a moment to <strong>MOVE</strong> before the arrows fly!</p>
+        <p>Steer <strong>up, down, left and right</strong> — you can't slow down.</p>
+        <p>💻 <strong>Arrow keys</strong> or <strong>WASD</strong> &nbsp;·&nbsp; 📱 <strong>Drag anywhere</strong></p>
+        <p>You have <strong>6 hearts</strong> ❤️ — make it to the nesting tree!</p>
+        <p class="creator">A Jungle Keepers game — an idea by Declan J 🌴</p>
+        <button id="btnStart">🦜 Take Off!</button>
+    </div>
+</div>
+
+<div class="overlay hidden" id="winScreen">
+    <div class="panel">
+        <h1>🎉 You Made It! 🎉</h1>
+        <h2>1000m flown — the toucan is safe! 🦜</h2>
+        <p id="winStats"></p>
+        <p class="fact" id="winFact"></p>
+        <p class="creator">A Jungle Keepers game — an idea by Declan J 🌴</p>
+        <button id="btnWinAgain">Fly Again</button>
+    </div>
+</div>
+
+<div class="overlay hidden" id="loseScreen">
+    <div class="panel">
+        <h1>💔 Down in the Canopy</h1>
+        <h2 id="loseSub">The toucan needs a rest.</h2>
+        <p id="loseStats"></p>
+        <p>Tip: watch for the <strong>⚠️ glint</strong> above each hunter — that's your cue to dodge!</p>
+        <p class="creator">A Jungle Keepers game — an idea by Declan J 🌴</p>
+        <button id="btnRetry">Try Again</button>
+    </div>
+</div>
+
+<script type="module">
+import * as THREE from '../vendor/three.module.js';
+
+/* ══════════════════════════════════════════════════════════
+   Toucan Sky Dash — 3D rail flyer
+   Forward axis is +Z. Camera sits behind (smaller z).
+   ══════════════════════════════════════════════════════════ */
+
+/* ── Tunables ── */
+const COURSE_LENGTH   = 1000;   // meters to win
+const MAX_HEARTS      = 6;
+const CAM_BACK        = 10;     // camera trails this far behind the toucan
+const CAM_UP          = 2.0;
+const TELEGRAPH_TIME  = 0.7;    // seconds of warning before every volley
+const TELEGRAPH_DIST  = 52;     // meters ahead when the warning starts
+const IFRAME_TIME     = 1.5;    // invincibility after a hit
+const HIT_RADIUS      = 1.15;   // forgiving hitbox
+const SCENERY_SPAN    = 220;    // recycle length of the scenery belt
+const TREE_COUNT      = 72;
+const CRITTER_COUNT   = 14;
+const ARROW_POOL      = 48;
+const HUNTER_POOL     = 20;
+const SPAWN_LOOKAHEAD = 130;    // place hunters this far ahead
+
+const FACTS = [
+    "🌎 Rainforests cover only about 6% of Earth's land, but more than half of all plant and animal species live in them. Protecting one patch of forest protects thousands of species at once.",
+    "🦜 Toucans use their huge, lightweight bills to reach fruit on branches too thin to stand on — and the seeds they drop grow into new rainforest trees.",
+    "🌳 A single big rainforest tree can be home to more than 1,000 kinds of insects, frogs, birds and plants. That's why keeping old trees standing matters so much."
+];
+
+/* ── DOM ── */
+const canvas      = document.getElementById('scene');
+const hudEl       = document.getElementById('hud');
+const heartsEl    = document.getElementById('hudHearts');
+const distEl      = document.getElementById('hudDist');
+const hintEl      = document.getElementById('hint');
+const warnFlashEl = document.getElementById('warnFlash');
+const startScreen = document.getElementById('startScreen');
+const winScreen   = document.getElementById('winScreen');
+const loseScreen  = document.getElementById('loseScreen');
+const winStatsEl  = document.getElementById('winStats');
+const winFactEl   = document.getElementById('winFact');
+const loseStatsEl = document.getElementById('loseStats');
+
+/* ══════════ Renderer / scene / camera ══════════ */
+const renderer = new THREE.WebGLRenderer({ canvas: canvas, antialias: true });
+renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+renderer.setSize(window.innerWidth, window.innerHeight, false);
+
+const scene = new THREE.Scene();
+const SKY = 0x8ed2ee;
+scene.background = new THREE.Color(SKY);
+scene.fog = new THREE.Fog(SKY, 45, 150);
+
+const camera = new THREE.PerspectiveCamera(60, 1, 0.1, 400);
+camera.position.set(0, CAM_UP, -CAM_BACK);
+
+scene.add(new THREE.AmbientLight(0xffffff, 1.0));
+const sun = new THREE.DirectionalLight(0xfff3c4, 1.5);
+sun.position.set(12, 24, -8);
+scene.add(sun);
+
+/* Playfield bounds — recomputed on resize so the corridor always fits on screen */
+let BOUND_X = 6.5, BOUND_UP = 5, BOUND_DOWN = -4;
+
+function computeBounds() {
+    const vHalf = THREE.MathUtils.degToRad(camera.fov / 2);
+    const tanV  = Math.tan(vHalf);
+    const hExt  = tanV * camera.aspect * CAM_BACK;
+    const vExt  = tanV * CAM_BACK;
+    BOUND_X    = Math.max(2.6, Math.min(6.5, hExt * 0.74));
+    BOUND_UP   = Math.max(2.4, Math.min(5.0, vExt * 0.50));
+    BOUND_DOWN = -Math.max(2.2, Math.min(4.0, vExt * 0.42));
+}
+
+function onResize() {
+    const w = window.innerWidth  || document.documentElement.clientWidth  || 375;
+    const h = window.innerHeight || document.documentElement.clientHeight || 640;
+    const aspect = w / Math.max(h, 1);
+    camera.aspect = aspect;
+    // Portrait screens widen the vertical FOV so the corridor stays readable.
+    if (aspect < 1) {
+        const wide = THREE.MathUtils.radToDeg(2 * Math.atan(Math.tan(THREE.MathUtils.degToRad(30)) / Math.max(aspect, 0.4)));
+        camera.fov = Math.min(85, wide);
+    } else {
+        camera.fov = 60;
+    }
+    camera.updateProjectionMatrix();
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+    renderer.setSize(w, h, false);
+    computeBounds();
+    relayoutScenery();
+}
+window.addEventListener('resize', onResize);
+window.addEventListener('orientationchange', function () { setTimeout(onResize, 220); });
+
+/* ══════════ Emoji sprite helper (all art generated at runtime) ══════════ */
+const texCache = {};
+const matCache = {};
+
+function emojiTexture(char, px) {
+    const key = char + '|' + px;
+    if (texCache[key]) return texCache[key];
+    const c = document.createElement('canvas');
+    c.width = px; c.height = px;
+    const g = c.getContext('2d');
+    g.clearRect(0, 0, px, px);
+    g.font = Math.floor(px * 0.76) + 'px "Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif';
+    g.textAlign = 'center';
+    g.textBaseline = 'middle';
+    g.fillText(char, px / 2, px * 0.55);
+    const t = new THREE.CanvasTexture(c);
+    t.colorSpace = THREE.SRGBColorSpace;
+    t.minFilter = THREE.LinearFilter;
+    t.magFilter = THREE.LinearFilter;
+    t.generateMipmaps = false;
+    texCache[key] = t;
+    return t;
+}
+
+/** Shared-material emoji sprite (pooled scenery, hunters, warnings). */
+function emojiSprite(char, size, px) {
+    px = px || 128;
+    const key = char + '|' + px;
+    let mat = matCache[key];
+    if (!mat) {
+        mat = new THREE.SpriteMaterial({ map: emojiTexture(char, px), transparent: true, depthWrite: false });
+        matCache[key] = mat;
+    }
+    const s = new THREE.Sprite(mat);
+    s.scale.set(size, size, 1);
+    return s;
+}
+
+/** Emoji sprite with its OWN material (needed when we animate rotation/opacity). */
+function emojiSpriteUnique(char, size, px) {
+    px = px || 256;
+    const mat = new THREE.SpriteMaterial({ map: emojiTexture(char, px), transparent: true, depthWrite: false });
+    const s = new THREE.Sprite(mat);
+    s.scale.set(size, size, 1);
+    return s;
+}
+
+/* ══════════ Static world: ground + river ══════════ */
+const groundGeo = new THREE.PlaneGeometry(120, 2600);
+const groundMat = new THREE.MeshLambertMaterial({ color: 0x1B5E20 });
+const ground = new THREE.Mesh(groundGeo, groundMat);
+ground.rotation.x = -Math.PI / 2;
+ground.position.set(0, -7.5, 1150);
+scene.add(ground);
+
+const riverGeo = new THREE.PlaneGeometry(15, 2600);
+const riverMat = new THREE.MeshLambertMaterial({ color: 0x1976D2 });
+const river = new THREE.Mesh(riverGeo, riverMat);
+river.rotation.x = -Math.PI / 2;
+river.position.set(0, -7.35, 1150);
+scene.add(river);
+
+/* ══════════ Toucan ══════════ */
+const toucan = emojiSpriteUnique('🦜', 2.5, 256);
+scene.add(toucan);
+const toucanMat = toucan.material;
+
+/* ══════════ Pools ══════════ */
+
+/* -- Scenery: canopy trees along both walls -- */
+const TREE_CHARS = ['🌴', '🌳', '🌲', '🌿'];
+const trees = [];
+for (let i = 0; i < TREE_COUNT; i++) {
+    const char = TREE_CHARS[i % TREE_CHARS.length];
+    const spr = emojiSprite(char, 1, 128);
+    const t = {
+        spr: spr,
+        side: (i % 2 === 0) ? -1 : 1,
+        off: Math.random() * 7,          // extra distance out from the corridor edge
+        size: 5 + Math.random() * 5,
+        y: -5.5 + Math.random() * 5
+    };
+    spr.scale.set(t.size, t.size, 1);
+    spr.position.set(0, t.y, 0);
+    scene.add(spr);
+    trees.push(t);
+}
+
+/* -- Scenery: drifting critters -- */
+const CRITTER_CHARS = ['🦋', '🐒', '🐛', '🌺'];
+const critters = [];
+for (let i = 0; i < CRITTER_COUNT; i++) {
+    const spr = emojiSprite(CRITTER_CHARS[i % CRITTER_CHARS.length], 1.1, 128);
+    const c = { spr: spr, side: (i % 2 === 0) ? -1 : 1, off: Math.random() * 4, y: -3 + Math.random() * 7, phase: Math.random() * 6.28 };
+    scene.add(spr);
+    critters.push(c);
+}
+
+function relayoutScenery() {
+    // Re-derive x from the (possibly changed) corridor width, keeping z untouched.
+    for (let i = 0; i < trees.length; i++) {
+        const t = trees[i];
+        t.spr.position.x = t.side * (BOUND_X + 2.0 + t.off);
+    }
+    for (let i = 0; i < critters.length; i++) {
+        const c = critters[i];
+        c.spr.position.x = c.side * (BOUND_X + 0.8 + c.off);
+    }
+}
+
+function seedScenery(startZ) {
+    for (let i = 0; i < trees.length; i++) {
+        trees[i].spr.position.z = startZ - 25 + (i / trees.length) * SCENERY_SPAN;
+    }
+    for (let i = 0; i < critters.length; i++) {
+        critters[i].spr.position.z = startZ + (i / critters.length) * SCENERY_SPAN;
+    }
+    relayoutScenery();
+}
+
+/* -- Arrows: shared cone geometry + material, oriented along velocity -- */
+const ARROW_UP  = new THREE.Vector3(0, 1, 0);
+const arrowGeo  = new THREE.ConeGeometry(0.24, 1.9, 6);
+const arrowMat  = new THREE.MeshLambertMaterial({ color: 0xFFC107, emissive: 0x8a5a00 });
+const arrows = [];
+for (let i = 0; i < ARROW_POOL; i++) {
+    const mesh = new THREE.Mesh(arrowGeo, arrowMat);
+    mesh.visible = false;
+    scene.add(mesh);
+    arrows.push({ mesh: mesh, active: false, vel: new THREE.Vector3(), life: 0 });
+}
+
+function spawnArrow(from, dir, speed) {
+    for (let i = 0; i < arrows.length; i++) {
+        const a = arrows[i];
+        if (a.active) continue;
+        a.active = true;
+        a.life = 0;
+        a.mesh.position.copy(from);
+        a.vel.copy(dir).multiplyScalar(speed);
+        a.mesh.quaternion.setFromUnitVectors(ARROW_UP, dir);
+        a.mesh.visible = true;
+        return a;
+    }
+    return null;
+}
+
+function clearArrows() {
+    for (let i = 0; i < arrows.length; i++) {
+        arrows[i].active = false;
+        arrows[i].mesh.visible = false;
+    }
+}
+
+/* -- Hunters: pooled bow sprite + its own warning sprite -- */
+const hunters = [];
+for (let i = 0; i < HUNTER_POOL; i++) {
+    const spr  = emojiSprite('🏹', 2.6, 128);
+    const warn = emojiSprite('⚠️', 2.2, 128);
+    spr.visible = false;
+    warn.visible = false;
+    scene.add(spr);
+    scene.add(warn);
+    hunters.push({ spr: spr, warn: warn, active: false, state: 'idle', t: 0 });
+}
+
+function clearHunters() {
+    for (let i = 0; i < hunters.length; i++) {
+        const h = hunters[i];
+        h.active = false;
+        h.state = 'idle';
+        h.spr.visible = false;
+        h.warn.visible = false;
+    }
+}
+
+function placeHunter(z) {
+    for (let i = 0; i < hunters.length; i++) {
+        const h = hunters[i];
+        if (h.active) continue;
+        const x = (Math.random() * 2 - 1) * BOUND_X * 0.85;
+        const y = BOUND_DOWN + Math.random() * (BOUND_UP - BOUND_DOWN);
+        h.active = true;
+        h.state = 'idle';
+        h.t = 0;
+        h.spr.position.set(x, y, z);
+        h.spr.scale.set(2.6, 2.6, 1);
+        h.spr.visible = true;
+        h.warn.position.set(x, y + 2.0, z);
+        h.warn.visible = false;
+        return h;
+    }
+    return null;
+}
+
+/* ══════════ Sound (generated, no assets) ══════════ */
+let actx = null;
+function initAudio() {
+    if (actx) { if (actx.state === 'suspended') actx.resume(); return; }
+    try {
+        const AC = window.AudioContext || window.webkitAudioContext;
+        if (AC) actx = new AC();
+    } catch (e) { actx = null; }
+}
+function beep(freq, dur, type, vol) {
+    if (!actx) return;
+    try {
+        const o = actx.createOscillator();
+        const g = actx.createGain();
+        o.type = type || 'square';
+        o.frequency.value = freq;
+        g.gain.value = vol == null ? 0.05 : vol;
+        o.connect(g); g.connect(actx.destination);
+        o.start();
+        g.gain.exponentialRampToValueAtTime(0.0001, actx.currentTime + dur);
+        o.stop(actx.currentTime + dur + 0.02);
+    } catch (e) { /* audio is optional */ }
+}
+
+/* ══════════ Input ══════════ */
+const keys = {};
+window.addEventListener('keydown', function (e) {
+    const k = e.key.toLowerCase();
+    keys[k] = true;
+    if (k === 'arrowup' || k === 'arrowdown' || k === 'arrowleft' || k === 'arrowright' || k === ' ') e.preventDefault();
+    if ((k === ' ' || k === 'enter') && state !== 'playing') {
+        const vis = !startScreen.classList.contains('hidden') ? 'start'
+                  : (!winScreen.classList.contains('hidden') || !loseScreen.classList.contains('hidden')) ? 'end' : null;
+        if (vis) startGame();
+    }
+});
+window.addEventListener('keyup', function (e) { keys[e.key.toLowerCase()] = false; });
+window.addEventListener('blur', function () { for (const k in keys) keys[k] = false; });
+
+let dragging = false, lastTX = 0, lastTY = 0;
+
+function dragScale() {
+    const w = window.innerWidth || 375;
+    const h = window.innerHeight || 640;
+    // A drag across ~55% of the screen crosses the whole corridor.
+    return { sx: (BOUND_X * 2) / (w * 0.55), sy: (BOUND_UP - BOUND_DOWN) / (h * 0.55) };
+}
+
+canvas.addEventListener('touchstart', function (e) {
+    if (state !== 'playing') return;
+    e.preventDefault();
+    const t = e.touches[0];
+    dragging = true; lastTX = t.clientX; lastTY = t.clientY;
+}, { passive: false });
+
+canvas.addEventListener('touchmove', function (e) {
+    if (state !== 'playing' || !dragging) return;
+    e.preventDefault();
+    const t = e.touches[0];
+    const s = dragScale();
+    targetX += (t.clientX - lastTX) * s.sx;
+    targetY -= (t.clientY - lastTY) * s.sy;   // drag up => fly up
+    lastTX = t.clientX; lastTY = t.clientY;
+    clampTarget();
+}, { passive: false });
+
+function endTouch(e) { dragging = false; }
+canvas.addEventListener('touchend', endTouch, { passive: true });
+canvas.addEventListener('touchcancel', endTouch, { passive: true });
+
+// Mouse-drag steering as a desktop bonus
+canvas.addEventListener('mousedown', function (e) {
+    if (state !== 'playing') return;
+    dragging = true; lastTX = e.clientX; lastTY = e.clientY;
+});
+window.addEventListener('mousemove', function (e) {
+    if (state !== 'playing' || !dragging) return;
+    const s = dragScale();
+    targetX += (e.clientX - lastTX) * s.sx;
+    targetY -= (e.clientY - lastTY) * s.sy;
+    lastTX = e.clientX; lastTY = e.clientY;
+    clampTarget();
+});
+window.addEventListener('mouseup', function () { dragging = false; });
+
+/* ══════════ Game state ══════════ */
+let state = 'menu';          // 'menu' | 'playing' | 'won' | 'lost'
+let hearts = MAX_HEARTS;
+let dist = 0;                // meters travelled (== toucan.position.z)
+let invuln = 0;
+let elapsed = 0;
+let dodged = 0;
+let targetX = 0, targetY = 0;
+let nextHunterZ = 70;        // 70m grace period before the first volley
+let flashTimer = 0;
+let hintTimer = 0;
+const camTarget = new THREE.Vector3();
+const lookTarget = new THREE.Vector3();
+const tmpDir = new THREE.Vector3();
+const tmpAim = new THREE.Vector3();
+
+function clampTarget() {
+    if (targetX < -BOUND_X) targetX = -BOUND_X;
+    if (targetX >  BOUND_X) targetX =  BOUND_X;
+    if (targetY < BOUND_DOWN) targetY = BOUND_DOWN;
+    if (targetY > BOUND_UP)   targetY = BOUND_UP;
+}
+
+function progress() { return Math.min(dist / COURSE_LENGTH, 1); }
+function forwardSpeed() { return 5.0 + 3.2 * progress(); }          // 5.0 → 8.2 m/s
+function arrowSpeed()   { return 20 + 13 * progress(); }            // 20 → 33 m/s
+function hunterGap()    { const p = progress(); return (34 - 12 * p) * (0.82 + Math.random() * 0.36); }
+function volleySize()   { const p = progress(); return p < 0.35 ? 1 : (p < 0.72 ? 2 : 3); }
+
+function updateHearts() {
+    let s = '';
+    for (let i = 0; i < MAX_HEARTS; i++) s += (i < hearts ? '❤️' : '💔');
+    heartsEl.textContent = s;
+}
+
+function show(el) { el.classList.remove('hidden'); }
+function hide(el) { el.classList.add('hidden'); }
+
+function startGame() {
+    initAudio();
+
+    hearts   = MAX_HEARTS;
+    dist     = 0;
+    invuln   = 0;
+    elapsed  = 0;
+    dodged   = 0;
+    targetX  = 0;
+    targetY  = 0;
+    nextHunterZ = 70;
+    flashTimer = 0;
+    hintTimer = 4.5;
+    dragging = false;
+
+    computeBounds();
+    clearArrows();
+    clearHunters();
+
+    toucan.position.set(0, 0, 0);
+    toucan.visible = true;
+    toucanMat.rotation = 0;
+
+    camera.position.set(0, CAM_UP, -CAM_BACK);
+    camera.lookAt(0, 0, 14);
+
+    seedScenery(0);
+    updateHearts();
+    distEl.textContent = '0';
+
+    hide(startScreen); hide(winScreen); hide(loseScreen);
+    show(hudEl); show(hintEl);
+    hintEl.classList.remove('hidden');
+    warnFlashEl.classList.remove('on');
+
+    state = 'playing';
+    last = performance.now();
+}
+
+function endGame(won) {
+    state = won ? 'won' : 'lost';
+    hide(hudEl); hide(hintEl);
+    warnFlashEl.classList.remove('on');
+    toucan.visible = true;
+    toucan.position.x = 0;
+    toucanMat.rotation = 0;
+    dragging = false;
+    const secs = Math.round(elapsed);
+    if (won) {
+        winStatsEl.innerHTML = 'Time: <strong>' + secs + 's</strong> &nbsp;·&nbsp; Hearts left: <strong>' +
+            hearts + '/' + MAX_HEARTS + '</strong> &nbsp;·&nbsp; Arrows dodged: <strong>' + dodged + '</strong>';
+        winFactEl.textContent = FACTS[Math.floor(Math.random() * FACTS.length)];
+        show(winScreen);
+        beep(660, 0.12, 'triangle', 0.07);
+        setTimeout(function () { beep(880, 0.14, 'triangle', 0.07); }, 130);
+        setTimeout(function () { beep(1180, 0.22, 'triangle', 0.07); }, 280);
+    } else {
+        loseStatsEl.innerHTML = 'You flew <strong>' + Math.floor(dist) + 'm</strong> of 1000m. So close!';
+        show(loseScreen);
+        beep(180, 0.35, 'sawtooth', 0.06);
+    }
+}
+
+function takeHit() {
+    if (invuln > 0) return;
+    hearts--;
+    invuln = IFRAME_TIME;
+    flashTimer = 0.28;
+    updateHearts();
+    beep(140, 0.22, 'square', 0.07);
+    if (hearts <= 0) {
+        hearts = 0;
+        updateHearts();
+        endGame(false);
+    }
+}
+
+/* ══════════ Per-frame update ══════════ */
+function update(dt) {
+    elapsed += dt;
+
+    /* — Steering — */
+    const steer = 11 * dt;
+    if (keys['arrowleft']  || keys['a']) targetX -= steer;
+    if (keys['arrowright'] || keys['d']) targetX += steer;
+    if (keys['arrowup']    || keys['w']) targetY += steer;
+    if (keys['arrowdown']  || keys['s']) targetY -= steer;
+    clampTarget();
+
+    const prevX = toucan.position.x;
+    const ease = 1 - Math.pow(0.0005, dt);         // frame-rate independent lerp
+    toucan.position.x += (targetX - toucan.position.x) * ease;
+    toucan.position.y += (targetY - toucan.position.y) * ease;
+
+    /* — Forward motion — */
+    const spd = forwardSpeed();
+    dist += spd * dt;
+    toucan.position.z = dist;
+
+    /* — Bank into the turn — */
+    const lateral = (toucan.position.x - prevX) / Math.max(dt, 0.0001);
+    const bank = THREE.MathUtils.clamp(-lateral * 0.045, -0.5, 0.5);
+    toucanMat.rotation += (bank - toucanMat.rotation) * (1 - Math.pow(0.002, dt));
+
+    /* — Invincibility flash — */
+    if (invuln > 0) {
+        invuln -= dt;
+        toucan.visible = (Math.floor(elapsed * 10) % 2) === 0;
+        if (invuln <= 0) { invuln = 0; toucan.visible = true; }
+    }
+
+    /* — Camera trails behind — */
+    camTarget.set(toucan.position.x * 0.55, toucan.position.y * 0.5 + CAM_UP, toucan.position.z - CAM_BACK);
+    camera.position.lerp(camTarget, 1 - Math.pow(0.0025, dt));
+    lookTarget.set(toucan.position.x * 0.75, toucan.position.y * 0.7 + 0.4, toucan.position.z + 16);
+    camera.lookAt(lookTarget);
+
+    /* — Scenery recycling (endless-runner belt) — */
+    const behind = dist - 28;
+    for (let i = 0; i < trees.length; i++) {
+        const t = trees[i];
+        if (t.spr.position.z < behind) {
+            t.spr.position.z += SCENERY_SPAN;
+            t.off  = Math.random() * 7;
+            t.size = 5 + Math.random() * 5;
+            t.y    = -5.5 + Math.random() * 5;
+            t.spr.position.x = t.side * (BOUND_X + 2.0 + t.off);
+            t.spr.position.y = t.y;
+            t.spr.scale.set(t.size, t.size, 1);
+        }
+    }
+    for (let i = 0; i < critters.length; i++) {
+        const c = critters[i];
+        if (c.spr.position.z < behind) {
+            c.spr.position.z += SCENERY_SPAN;
+            c.off = Math.random() * 4;
+            c.y = -3 + Math.random() * 7;
+            c.spr.position.x = c.side * (BOUND_X + 0.8 + c.off);
+        }
+        c.spr.position.y = c.y + Math.sin(elapsed * 1.6 + c.phase) * 0.5;
+    }
+
+    /* — Hunter spawning — */
+    while (nextHunterZ < dist + SPAWN_LOOKAHEAD && nextHunterZ < COURSE_LENGTH - 12) {
+        placeHunter(nextHunterZ);
+        nextHunterZ += hunterGap();
+    }
+
+    /* — Hunter state machine: idle → TELEGRAPH (0.7s) → fire — */
+    for (let i = 0; i < hunters.length; i++) {
+        const h = hunters[i];
+        if (!h.active) continue;
+        const ahead = h.spr.position.z - dist;
+
+        if (ahead < -18) {                       // passed us — recycle
+            h.active = false;
+            h.state = 'idle';
+            h.spr.visible = false;
+            h.warn.visible = false;
+            continue;
+        }
+
+        if (h.state === 'idle' && ahead < TELEGRAPH_DIST) {
+            h.state = 'warn';
+            h.t = 0;
+            h.warn.visible = true;
+            beep(920, 0.09, 'sine', 0.035);
+        }
+
+        if (h.state === 'warn') {
+            h.t += dt;
+            // pulse the warning + the bow so the tell is unmissable
+            // Smooth scale pulse rather than a hard on/off strobe — just as
+            // eye-catching for kids, without the flicker.
+            const pulse = 1 + Math.sin(h.t * 20) * 0.35;
+            h.warn.scale.set(2.2 * pulse, 2.2 * pulse, 1);
+            h.warn.position.set(h.spr.position.x, h.spr.position.y + 2.0, h.spr.position.z);
+            h.warn.visible = true;
+            const bp = 1 + Math.sin(h.t * 18) * 0.12;
+            h.spr.scale.set(2.6 * bp, 2.6 * bp, 1);
+
+            if (h.t >= TELEGRAPH_TIME) {
+                fireVolley(h);
+                h.state = 'fired';
+                h.warn.visible = false;
+                h.spr.scale.set(2.6, 2.6, 1);
+            }
+        }
+    }
+
+    /* — Arrows — */
+    for (let i = 0; i < arrows.length; i++) {
+        const a = arrows[i];
+        if (!a.active) continue;
+        a.life += dt;
+        a.mesh.position.x += a.vel.x * dt;
+        a.mesh.position.y += a.vel.y * dt;
+        a.mesh.position.z += a.vel.z * dt;
+
+        if (invuln <= 0) {
+            const dx = a.mesh.position.x - toucan.position.x;
+            const dy = a.mesh.position.y - toucan.position.y;
+            const dz = a.mesh.position.z - toucan.position.z;
+            if (dx * dx + dy * dy + dz * dz < HIT_RADIUS * HIT_RADIUS) {
+                a.active = false;
+                a.mesh.visible = false;
+                takeHit();
+                if (state !== 'playing') return;
+                continue;
+            }
+        }
+
+        if (a.mesh.position.z < dist - 14 || a.life > 7) {
+            a.active = false;
+            a.mesh.visible = false;
+            dodged++;
+        }
+    }
+
+    /* — Red vignette on hit — */
+    if (flashTimer > 0) {
+        flashTimer -= dt;
+        warnFlashEl.classList.add('on');
+        if (flashTimer <= 0) warnFlashEl.classList.remove('on');
+    }
+
+    /* — Hint fade — */
+    if (hintTimer > 0) {
+        hintTimer -= dt;
+        if (hintTimer <= 0) hintEl.classList.add('hidden');
+    }
+
+    /* — HUD — */
+    distEl.textContent = String(Math.min(Math.floor(dist), COURSE_LENGTH));
+
+    /* — Win — */
+    if (dist >= COURSE_LENGTH) {
+        dist = COURSE_LENGTH;
+        endGame(true);
+    }
+}
+
+function fireVolley(h) {
+    const n = volleySize();
+    const spd = arrowSpeed();
+    const vFwd = forwardSpeed();
+    const origin = h.spr.position;
+
+    // Arrows spread along a random line through the toucan's CURRENT x/y, so
+    // there is always an escape route perpendicular to that line. The z of the
+    // aim point LEADS the toucan: it keeps flying forward while the arrow is in
+    // the air, so a shot at its current z would sail harmlessly behind it.
+    const ang = Math.random() * Math.PI * 2;
+    const ux = Math.cos(ang), uy = Math.sin(ang);
+    const spread = Math.max(1.6, BOUND_X * 0.62);
+    const dz = origin.z - toucan.position.z;
+
+    for (let i = 0; i < n; i++) {
+        const k = i - (n - 1) / 2;
+        const ax = toucan.position.x + ux * k * spread;
+        const ay = toucan.position.y + uy * k * spread;
+
+        // Two-step solve for the intercept time: first ignoring lateral travel,
+        // then correcting for the true 3D path length.
+        let tHit = dz / (spd + vFwd);
+        for (let it = 0; it < 2; it++) {
+            const az = toucan.position.z + vFwd * tHit;
+            const lx = ax - origin.x, ly = ay - origin.y, lz = az - origin.z;
+            const len = Math.sqrt(lx * lx + ly * ly + lz * lz);
+            tHit = len / spd;
+        }
+        tmpAim.set(ax, ay, toucan.position.z + vFwd * tHit);
+
+        tmpDir.subVectors(tmpAim, origin);
+        if (tmpDir.lengthSq() < 0.0001) tmpDir.set(0, 0, -1);
+        tmpDir.normalize();
+        spawnArrow(origin, tmpDir, spd);
+    }
+    beep(300, 0.07, 'sawtooth', 0.05);
+}
+
+/* ══════════ Main loop ══════════ */
+let last = performance.now();
+
+function animate() {
+    requestAnimationFrame(animate);
+    const now = performance.now();
+    let dt = (now - last) / 1000;
+    last = now;
+    if (dt > 0.05) dt = 0.05;      // clamp so a hitch can't tunnel arrows through us
+    if (dt < 0) dt = 0;
+
+    if (state === 'playing') {
+        update(dt);
+    } else {
+        // Gentle idle drift so the menu shows off the corridor.
+        camera.position.z += 2.2 * dt;
+        toucan.position.z = camera.position.z + CAM_BACK;
+        toucan.position.y = Math.sin(now / 900) * 0.6;
+        camera.position.y = CAM_UP + Math.sin(now / 1400) * 0.3;
+        lookTarget.set(0, 0.4, camera.position.z + 26);
+        camera.lookAt(lookTarget);
+        const behind = camera.position.z - 10;
+        for (let i = 0; i < trees.length; i++) {
+            if (trees[i].spr.position.z < behind) trees[i].spr.position.z += SCENERY_SPAN;
+        }
+        for (let i = 0; i < critters.length; i++) {
+            if (critters[i].spr.position.z < behind) critters[i].spr.position.z += SCENERY_SPAN;
+        }
+    }
+
+    renderer.render(scene, camera);
+}
+
+/* ══════════ Boot ══════════ */
+document.getElementById('btnStart').addEventListener('click', startGame);
+document.getElementById('btnRetry').addEventListener('click', startGame);
+document.getElementById('btnWinAgain').addEventListener('click', startGame);
+
+onResize();
+seedScenery(0);
+toucan.position.set(0, 0, CAM_BACK);
+updateHearts();
+animate();
+</script>
+</body>
+</html>

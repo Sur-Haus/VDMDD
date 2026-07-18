@@ -29,7 +29,7 @@
         /* Game world - scrollable */
         .game-world {
             position: absolute;
-            width: 22000px; /* Reduced to ~20,000m */
+            width: 12000px; /* ~10,000m course + margin */
             height: 100%;
             transition: none;
         }
@@ -410,7 +410,7 @@
                 <span>❤️</span>
             </div>
             <div class="distance-meter">
-                Distance: <span id="distance">0</span>m / 20000m
+                Distance: <span id="distance">0</span>m / 10000m
             </div>
         </div>
         
@@ -427,7 +427,9 @@
         let llamaY = 43; // Track llama's actual Y position (starts at 43%)
         let isJumping = false;
         let jumpStartTime = 0; // Track when jump started
-        let health = 3;
+        const GOAL_DISTANCE = 10000;
+        const MAX_HEALTH = 5;
+        let health = MAX_HEALTH;
         let distance = 0;
         let invulnerable = false;
         let acorns = [];
@@ -536,7 +538,7 @@
             
             // River positions - adjusted for shorter world
             const riverPositions = [];
-            for (let i = 3000; i < 19000; i += 4000 + Math.random() * 2000) {
+            for (let i = 2500; i < GOAL_DISTANCE - 500; i += 2500 + Math.random() * 1500) {
                 riverPositions.push(i);
             }
             
@@ -546,7 +548,7 @@
             const leafTypes = ['🍃', '🍂', '🌿', '🍀'];
             
             // Generate LOTS of trees and plants for dense forest
-            for (let x = 200; x < 19500; x += 100 + Math.random() * 100) {
+            for (let x = 200; x < GOAL_DISTANCE + 1500; x += 100 + Math.random() * 100) {
                 // Check if we're in a river zone (wider now)
                 let inRiverZone = false;
                 for (let riverX of riverPositions) {
@@ -558,7 +560,7 @@
                 
                 if (!inRiverZone) {
                     // Tree density decreases as we go further
-                    const treeDensity = Math.max(0.3, 1 - (x / 20000) * 0.8);
+                    const treeDensity = Math.max(0.3, 1 - (x / GOAL_DISTANCE) * 0.8);
                     
                     if (Math.random() < treeDensity) {
                         // Create tree
@@ -640,7 +642,7 @@
             goalFruit.className = 'goal-fruit';
             goalFruit.textContent = '🥭';
             // Check if goal position would be in a river
-            let goalPosition = 20000;
+            let goalPosition = GOAL_DISTANCE;
             let inRiver = false;
             for (let riverX of riverPositions) {
                 if (goalPosition >= riverX && goalPosition <= riverX + 1500) {
@@ -662,7 +664,7 @@
             gameRunning = true;
             worldX = 0;
             llamaY = 43; // Reset llama Y position
-            health = 3;
+            health = MAX_HEALTH;
             distance = 0;
             invulnerable = false;
             acorns = [];
@@ -702,7 +704,7 @@
             for (let i = 0; i < health; i++) {
                 healthDisplay.innerHTML += '<span>❤️</span>';
             }
-            for (let i = health; i < 3; i++) {
+            for (let i = health; i < MAX_HEALTH; i++) {
                 healthDisplay.innerHTML += '<span style="opacity: 0.3">💔</span>';
             }
         }
@@ -928,10 +930,10 @@
                 if (Math.abs(crocScreenX - 100) < 50) {
                     // Crocodiles are at ground level (43%), only hit if llama is near ground
                     // Llama is safe if jumped high enough (more than 5% above ground)
-                    if (llamaY < 48) { // Within 5% of ground level
-                        health = 0;
-                        showOuch(); // Show OUCH even for crocodile instant death
-                        setTimeout(() => gameOver(), 500);
+                    if (llamaY < 48 && !invulnerable) { // Within 5% of ground level
+                        takeDamage();
+                        // Hop clear so the llama isn't still on the croc when i-frames end
+                        if (!isJumping && gameRunning) jump();
                     }
                 }
             });
@@ -1000,7 +1002,7 @@
         
         // Update background based on distance
         function updateBackground() {
-            const progress = distance / 20000;
+            const progress = distance / GOAL_DISTANCE;
             const sky = document.getElementById('sky');
             const ground = document.getElementById('ground');
             const forestBg = document.getElementById('forestBg');

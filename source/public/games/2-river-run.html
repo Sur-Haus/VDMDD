@@ -170,6 +170,50 @@
     var animFrame = null;
     var touchStartX = null;
 
+    /* ── Pseudo-3D projection constants (presentation only) ──
+       The flat "logic Y" space the game logic already uses is mapped onto a
+       perspective view. Fractions are of canvas height H.
+         HORIZON_FRAC  : where the horizon sits
+         Y_NEAR_FRAC   : logic Y that projects to the very bottom of screen (depth 0)
+         Y_FAR_FRAC    : logic Y that projects to the horizon (depth 1)
+         BOAT_BASE_FRAC: must match game.boat.baseScreenY (H * 0.65)
+       PROJ_BOOST is derived so projected scale === 1 at the boat's rest depth,
+       keeping on-screen sizes/offsets there identical to the old flat render. */
+    var HORIZON_FRAC = 0.35;
+    var Y_NEAR_FRAC = 0.80;
+    var Y_FAR_FRAC = -0.30;
+    var BOAT_BASE_FRAC = 0.65;
+    var PROJ_K = 5;
+    var PROJ_SPAN_FRAC = Y_NEAR_FRAC - Y_FAR_FRAC;
+    var PROJ_SMIN = 1 / (1 + PROJ_K);
+    var PROJ_BOOST = 1 + PROJ_K * (Y_NEAR_FRAC - BOAT_BASE_FRAC) / PROJ_SPAN_FRAC;
+
+    var horizonY, groundH, yNear, yFar, ySpan;
+    var skyGrad = null, groundGrad = null, mistGrad = null, hullGrad = null;
+
+    /* Bounded scanline band buffers — allocated once, reused every frame */
+    var BANDS = 96;
+    var bandL = new Float32Array(BANDS + 1);
+    var bandR = new Float32Array(BANDS + 1);
+    var bandY = new Float32Array(BANDS + 1);
+    var bandW = new Float32Array(BANDS + 1);
+
+    function buildGradients() {
+        skyGrad = ctx.createLinearGradient(0, 0, 0, horizonY);
+        skyGrad.addColorStop(0, '#2E86C8');
+        skyGrad.addColorStop(0.55, '#7FC6EC');
+        skyGrad.addColorStop(1, '#D8F0FA');
+
+        groundGrad = ctx.createLinearGradient(0, horizonY, 0, H);
+        groundGrad.addColorStop(0, '#123c17');
+        groundGrad.addColorStop(0.35, '#1B5E20');
+        groundGrad.addColorStop(1, '#2E7D32');
+
+        mistGrad = ctx.createLinearGradient(0, horizonY, 0, horizonY + groundH * 0.22);
+        mistGrad.addColorStop(0, 'rgba(216,240,250,0.55)');
+        mistGrad.addColorStop(1, 'rgba(216,240,250,0)');
+    }
+
     function resize() {
         W = Math.min(document.documentElement.clientWidth || window.innerWidth || 500, 500);
         if (W < 100) W = 500;
@@ -177,6 +221,13 @@
         if (H < 200) H = 800;
         canvas.width = W;
         canvas.height = H;
+
+        horizonY = H * HORIZON_FRAC;
+        groundH = H - horizonY;
+        yNear = H * Y_NEAR_FRAC;
+        yFar = H * Y_FAR_FRAC;
+        ySpan = yNear - yFar;
+        buildGradients();
     }
     resize();
     window.addEventListener('resize', resize);
@@ -308,6 +359,7 @@
             nextFishDist: 120,
             nextPiranhaDist: 350,
             invulnTimer: 0,
+            curveAmt: 0,
             parrotWorldY: startWorldY - WIN_DISTANCE / 0.12 - 200
         };
 
@@ -411,7 +463,7 @@
         if (!seg) return;
         var margin = 24;
         var rx = seg.left + margin + Math.random() * (seg.w - margin * 2);
-        game.rocks.push({ x: rx, worldY: wy, w: 22 + Math.random() * 16, h: 18 + Math.random() * 12, hit: false });
+        game.rocks.push({ kind: 'rock', _sy: 0, x: rx, worldY: wy, w: 22 + Math.random() * 16, h: 18 + Math.random() * 12, hit: false });
     }
 
     function spawnFish() {
@@ -421,7 +473,7 @@
         var margin = 20;
         var fx = seg.left + margin + Math.random() * (seg.w - margin * 2);
         var big = Math.random() < 0.25;
-        game.fish.push({ x: fx, worldY: wy, big: big, collected: false, bobPhase: Math.random() * Math.PI * 2 });
+        game.fish.push({ kind: 'fish', _sy: 0, x: fx, worldY: wy, big: big, collected: false, bobPhase: Math.random() * Math.PI * 2 });
     }
 
     function spawnPiranha() {
@@ -430,7 +482,7 @@
         if (!seg) return;
         var margin = 30;
         var px = seg.left + margin + Math.random() * (seg.w - margin * 2);
-        game.piranhas.push({ x: px, worldY: wy, hit: false, bobPhase: Math.random() * Math.PI * 2 });
+        game.piranhas.push({ kind: 'piranha', _sy: 0, x: px, worldY: wy, hit: false, bobPhase: Math.random() * Math.PI * 2 });
     }
 
     function spawnArrow() {
@@ -438,6 +490,8 @@
         var worldY = game.boatWorldY + (screenY - game.boat.screenY);
         var fromLeft = Math.random() < 0.5;
         game.arrows.push({
+            kind: 'arrow',
+            _sy: 0,
             x: fromLeft ? -20 : W + 20,
             worldY: worldY,
             vx: fromLeft ? (3 + Math.random() * 2) : -(3 + Math.random() * 2),
@@ -644,239 +698,291 @@
     }
 
     /* ── Drawing ── */
-    var treeColors = [
-        ['#1B5E20', '#2E7D32'],
-        ['#1a6b1a', '#388E3C']
+    /* ══════════════════════════════════════════════════════════════════════
+       PSEUDO-3D PRESENTATION LAYER  (rendering only — zero gameplay impact)
+
+       All game logic (spawning, movement, collision, scoring) continues to
+       run in the original flat coordinate space:
+           logic X  = entity.x            (0 .. W)
+           logic Y  = toScreen(worldY)    (flat scrolling screen Y)
+
+       project(logicX, logicY) maps that flat space onto a perspective view.
+       It is called ONLY from draw functions. update() never touches it.
+
+           depth d = (yNear - logicY) / ySpan      0 = at camera, 1 = horizon
+           scale s = 1 / (1 + d * PROJ_K)          classic 1/z falloff
+           screenY = horizon + groundH * (s - sMin) / (1 - sMin)
+           screenX = W/2 + (logicX - W/2) * s * BOOST + curve(d)
+
+       PROJ_BOOST is chosen so that s * BOOST === 1 exactly at the boat's
+       resting depth. That means at the depth where collisions actually
+       happen, on-screen sizes and lateral offsets are identical to the old
+       flat renderer — so hitboxes still visually match what the player sees.
+       ══════════════════════════════════════════════════════════════════════ */
+
+    var PROJ = { x: 0, y: 0, s: 0, d: 0, ok: false };
+    var drawList = [];
+    var BOAT_ITEM = { kind: 'boat', _sy: 0 };
+    var PARROT_ITEM = { kind: 'parrot', _sy: 0 };
+
+    function bySy(a, b) { return a._sy - b._sy; }
+
+    function project(lx, ly) {
+        var d = (yNear - ly) / ySpan;
+        if (d > 1 || d < -0.12) { PROJ.ok = false; return PROJ; }
+        var s = 1 / (1 + PROJ_K * d);
+        PROJ.d = d;
+        PROJ.s = s * PROJ_BOOST;
+        PROJ.y = horizonY + groundH * (s - PROJ_SMIN) / (1 - PROJ_SMIN);
+        PROJ.x = W * 0.5 + (lx - W * 0.5) * PROJ.s +
+                 (d > 0 ? game.curveAmt * d * d : 0);
+        PROJ.ok = true;
+        return PROJ;
+    }
+
+    /* ── Sky + distant canopy (everything above the horizon) ── */
+    function drawCanopyBand(yBase, amp, color, phase, step) {
+        ctx.fillStyle = color;
+        ctx.beginPath();
+        ctx.moveTo(-12, yBase + 60);
+        ctx.lineTo(-12, yBase);
+        for (var x = -12; x <= W + 12; x += step) {
+            var h = amp * (0.5 +
+                    0.30 * Math.sin(x * 0.021 + phase) +
+                    0.20 * Math.sin(x * 0.055 + phase * 1.7));
+            ctx.lineTo(x, yBase - h);
+        }
+        ctx.lineTo(W + 12, yBase + 60);
+        ctx.closePath();
+        ctx.fill();
+    }
+
+    function drawSky() {
+        ctx.fillStyle = skyGrad;
+        ctx.fillRect(0, 0, W, horizonY + 1);
+
+        /* Soft sun haze */
+        ctx.fillStyle = 'rgba(255,248,214,0.35)';
+        ctx.beginPath();
+        ctx.arc(W * 0.72, horizonY * 0.34, horizonY * 0.30, 0, Math.PI * 2);
+        ctx.fill();
+
+        /* Parallax drifts gently with the river curve */
+        var ph = game.curveAmt * 0.010;
+        drawCanopyBand(horizonY + 1, horizonY * 0.20, '#2f6b34', ph * 0.5, 13);
+        drawCanopyBand(horizonY + 2, horizonY * 0.13, '#1d4f23', ph, 11);
+        drawCanopyBand(horizonY + 3, horizonY * 0.07, '#123a17', ph * 1.6, 9);
+    }
+
+    /* ── River: horizontal scanline bands receding to the vanishing point ── */
+    function drawRiver() {
+        /* Jungle floor / banks fill everything below the horizon */
+        ctx.fillStyle = groundGrad;
+        ctx.fillRect(0, horizonY, W, groundH + 1);
+
+        var i, f, s, d, ly, wy, seg, p, cxs, halfw;
+
+        for (i = 0; i <= BANDS; i++) {
+            f = i / BANDS;
+            s = PROJ_SMIN + f * (1 - PROJ_SMIN);
+            d = (1 / s - 1) / PROJ_K;
+            ly = yNear - d * ySpan;
+            wy = game.boatWorldY + (ly - game.boat.baseScreenY);
+            seg = getRiverAt(wy);
+            p = s * PROJ_BOOST;
+            cxs = W * 0.5 + (seg.cx - W * 0.5) * p + game.curveAmt * d * d;
+            halfw = seg.w * 0.5 * p;
+            bandL[i] = cxs - halfw;
+            bandR[i] = cxs + halfw;
+            bandY[i] = horizonY + groundH * f;
+            bandW[i] = wy;
+        }
+
+        /* Water quads, far (i=0, horizon) to near (i=BANDS, bottom) */
+        for (i = 1; i <= BANDS; i++) {
+            var stripe = Math.floor(bandW[i] / 46) & 1;
+            ctx.fillStyle = stripe ? '#3585C4' : '#48A3E4';
+            ctx.beginPath();
+            ctx.moveTo(bandL[i - 1], bandY[i - 1]);
+            ctx.lineTo(bandR[i - 1], bandY[i - 1]);
+            ctx.lineTo(bandR[i], bandY[i] + 1);
+            ctx.lineTo(bandL[i], bandY[i] + 1);
+            ctx.closePath();
+            ctx.fill();
+        }
+
+        /* Moving highlight sheen down the centre of the river */
+        ctx.fillStyle = 'rgba(255,255,255,0.10)';
+        for (i = 1; i <= BANDS; i++) {
+            if ((Math.floor(bandW[i] / 46) & 1) !== 0) continue;
+            var midA = (bandL[i - 1] + bandR[i - 1]) * 0.5;
+            var midB = (bandL[i] + bandR[i]) * 0.5;
+            var wA = (bandR[i - 1] - bandL[i - 1]) * 0.16;
+            var wB = (bandR[i] - bandL[i]) * 0.16;
+            var sway = Math.sin(bandW[i] * 0.01 + game.ticks * 0.03);
+            midA += sway * wA * 2.2;
+            midB += sway * wB * 2.2;
+            ctx.beginPath();
+            ctx.moveTo(midA - wA, bandY[i - 1]);
+            ctx.lineTo(midA + wA, bandY[i - 1]);
+            ctx.lineTo(midB + wB, bandY[i] + 1);
+            ctx.lineTo(midB - wB, bandY[i] + 1);
+            ctx.closePath();
+            ctx.fill();
+        }
+
+        /* Foamy bank edges — converge toward the vanishing point */
+        ctx.lineJoin = 'round';
+        ctx.strokeStyle = 'rgba(232,255,238,0.55)';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(bandL[0], bandY[0]);
+        for (i = 1; i <= BANDS; i++) ctx.lineTo(bandL[i], bandY[i]);
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.moveTo(bandR[0], bandY[0]);
+        for (i = 1; i <= BANDS; i++) ctx.lineTo(bandR[i], bandY[i]);
+        ctx.stroke();
+
+        ctx.strokeStyle = '#14401a';
+        ctx.lineWidth = 2.5;
+        ctx.beginPath();
+        ctx.moveTo(bandL[0], bandY[0]);
+        for (i = 1; i <= BANDS; i++) ctx.lineTo(bandL[i] - 2, bandY[i]);
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.moveTo(bandR[0], bandY[0]);
+        for (i = 1; i <= BANDS; i++) ctx.lineTo(bandR[i] + 2, bandY[i]);
+        ctx.stroke();
+
+        /* Distance mist so far objects fade in instead of popping */
+        ctx.fillStyle = mistGrad;
+        ctx.fillRect(0, horizonY, W, groundH * 0.22);
+    }
+
+    /* ── Jungle trees on the banks, depth-scaled ── */
+    /* game.trees is generated in ascending worldY order, which is ascending
+       logic Y, which is far-to-near — so painter order is already correct. */
+    var treePalette = [
+        [['#1B5E20', '#2E7D32'], ['#1a6b1a', '#388E3C']],
+        [['#1a5220', '#276e2c'], ['#175c19', '#2f7a33']],
+        [['#194a20', '#215c27'], ['#164f18', '#26652a']]
     ];
 
-    function drawScene() {
-        /* Green background (forest floor) */
-        ctx.fillStyle = '#2E7D32';
-        ctx.fillRect(0, 0, W, H);
+    function drawTrees() {
+        var trees = game.trees;
+        for (var i = 0; i < trees.length; i++) {
+            var t = trees[i];
+            var ly = toScreen(t.worldY);
+            if (ly < yFar || ly > yNear + H * 0.2) continue;
+            var pr = project(t.x, ly);
+            if (!pr.ok) continue;
+            var r = t.r * pr.s;
+            if (r < 0.7) continue;
+            var x = pr.x, y = pr.y;
+            var cols = treePalette[pr.d < 0.35 ? 0 : (pr.d < 0.7 ? 1 : 2)][t.shade];
+            var lift = r * 1.15;
 
-        /* Draw river water band */
-        var visibleStart = game.boatWorldY - game.boat.baseScreenY;
-        var visibleEnd = game.boatWorldY + (H - game.boat.baseScreenY);
-        var idxStart = Math.max(0, Math.floor(visibleStart / 4) - 2);
-        var idxEnd = Math.min(game.river.length - 1, Math.floor(visibleEnd / 4) + 2);
+            ctx.fillStyle = '#3E2723';
+            ctx.fillRect(x - r * 0.15, y - lift, Math.max(1, r * 0.3), lift + 1);
 
-        for (var i = idxStart; i <= idxEnd; i++) {
-            var seg2 = game.river[i];
-            var wy = i * 4;
-            var sy = toScreen(wy);
-            if (sy < -10 || sy > H + 10) continue;
-
-            var shade = (i % 50 < 25) ? '#42A5F5' : '#3B96D8';
-            ctx.fillStyle = shade;
-            ctx.fillRect(seg2.left, sy, seg2.w, 5);
-
-            /* Shimmer */
-            if (i % 18 === 0) {
-                ctx.fillStyle = 'rgba(255,255,255,0.12)';
-                var shimX = seg2.cx + Math.sin(i * 0.1 + game.ticks * 0.04) * (seg2.w * 0.2);
-                ctx.fillRect(shimX - 12, sy, 24, 4);
-            }
-        }
-
-        /* Bank edge lines */
-        ctx.strokeStyle = '#1B5E20';
-        ctx.lineWidth = 3;
-        ctx.beginPath();
-        var started = false;
-        for (var j = idxStart; j <= idxEnd; j += 2) {
-            var segJ = game.river[j];
-            var syJ = toScreen(j * 4);
-            if (!started) { ctx.moveTo(segJ.left, syJ); started = true; } else { ctx.lineTo(segJ.left, syJ); }
-        }
-        ctx.stroke();
-
-        ctx.beginPath();
-        started = false;
-        for (var k = idxStart; k <= idxEnd; k += 2) {
-            var segK = game.river[k];
-            var syK = toScreen(k * 4);
-            if (!started) { ctx.moveTo(segK.right, syK); started = true; } else { ctx.lineTo(segK.right, syK); }
-        }
-        ctx.stroke();
-
-        /* Draw trees (pre-generated, deterministic) */
-        for (var ti = 0; ti < game.trees.length; ti++) {
-            var t = game.trees[ti];
-            var tsy = toScreen(t.worldY);
-            if (tsy < -20 || tsy > H + 20) continue;
-
-            var cols = treeColors[t.shade];
             ctx.fillStyle = cols[0];
             ctx.beginPath();
-            ctx.arc(t.x, tsy, t.r, 0, Math.PI * 2);
+            ctx.arc(x, y - lift - r * 0.35, r, 0, Math.PI * 2);
             ctx.fill();
             ctx.fillStyle = cols[1];
             ctx.beginPath();
-            ctx.arc(t.x + 2, tsy - 2, t.r * 0.6, 0, Math.PI * 2);
+            ctx.arc(x + r * 0.3, y - lift - r * 0.75, r * 0.6, 0, Math.PI * 2);
             ctx.fill();
         }
     }
 
-    function drawBoat() {
-        var bx = game.boat.x;
-        var by = game.boat.screenY;
-
-        if (game.hitFlash > 0 && game.hitFlash % 4 < 2) return;
-        if (game.invulnTimer > 0 && game.invulnTimer % 3 === 0) return;
-
-        /* Wake ripples behind boat (below = further down screen) */
-        ctx.strokeStyle = 'rgba(255,255,255,0.3)';
-        ctx.lineWidth = 1;
-        for (var w = 1; w <= 3; w++) {
-            ctx.beginPath();
-            ctx.arc(bx, by + 24 + w * 10, 4 + w * 3, 0.3, Math.PI - 0.3);
-            ctx.stroke();
-        }
-
-        ctx.save();
-        ctx.translate(bx, by);
-
-        /* Boat shadow */
-        ctx.fillStyle = 'rgba(0,0,0,0.15)';
-        ctx.beginPath();
-        ctx.ellipse(2, 4, 14, 6, 0, 0, Math.PI * 2);
-        ctx.fill();
-
-        /* Boat hull — bow points UP (negative Y) */
-        ctx.beginPath();
-        ctx.moveTo(0, -24);
-        ctx.quadraticCurveTo(16, -10, 14, 18);
-        ctx.lineTo(6, 24);
-        ctx.lineTo(-6, 24);
-        ctx.lineTo(-14, 18);
-        ctx.quadraticCurveTo(-16, -10, 0, -24);
-        ctx.closePath();
-
-        var hullGrad = ctx.createLinearGradient(-14, 0, 14, 0);
-        hullGrad.addColorStop(0, '#6D4C41');
-        hullGrad.addColorStop(0.5, '#8D6E63');
-        hullGrad.addColorStop(1, '#6D4C41');
-        ctx.fillStyle = hullGrad;
-        ctx.fill();
-        ctx.strokeStyle = '#4E342E';
-        ctx.lineWidth = 1.5;
-        ctx.stroke();
-
-        /* Inner hull */
-        ctx.beginPath();
-        ctx.moveTo(0, -18);
-        ctx.quadraticCurveTo(10, -6, 9, 14);
-        ctx.lineTo(-9, 14);
-        ctx.quadraticCurveTo(-10, -6, 0, -18);
-        ctx.closePath();
-        ctx.fillStyle = '#A1887F';
-        ctx.fill();
-
-        /* Seat planks */
-        ctx.fillStyle = '#5D4037';
-        ctx.fillRect(-9, -2, 18, 3);
-        ctx.fillRect(-8, 8, 16, 3);
-
-        /* Cowboy Declan */
-        ctx.font = '16px serif';
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
-        ctx.fillText('🤠', 0, 2);
-
-        ctx.restore();
-
-        /* Shield effect */
-        if (game.shieldTimer > 0) {
-            ctx.strokeStyle = 'rgba(33,150,243,' + (0.4 + Math.sin(game.ticks * 0.1) * 0.2) + ')';
-            ctx.lineWidth = 2.5;
-            ctx.beginPath();
-            ctx.arc(bx, by, 28, 0, Math.PI * 2);
-            ctx.stroke();
-        }
-
-        /* Boost effect */
-        if (game.boostTimer > 0) {
-            ctx.fillStyle = 'rgba(255,215,0,' + (0.2 + Math.sin(game.ticks * 0.15) * 0.15) + ')';
-            ctx.beginPath();
-            ctx.arc(bx, by, 30, 0, Math.PI * 2);
-            ctx.fill();
-        }
-    }
-
+    /* ── Entities ── */
     function drawRock(rock) {
-        var sy = toScreen(rock.worldY);
-        if (sy < -40 || sy > H + 40 || rock.hit) return;
+        var pr = project(rock.x, rock._sy);
+        if (!pr.ok) return;
+        var s = pr.s;
+        var rw = rock.w * 0.5 * s, rh = rock.h * 0.5 * s;
+        if (rw < 0.6 || rh < 0.4) return;
 
         ctx.save();
-        ctx.translate(rock.x, sy);
-        ctx.fillStyle = '#757575';
+        ctx.translate(pr.x, pr.y);
+        ctx.fillStyle = 'rgba(255,255,255,0.22)';
         ctx.beginPath();
-        ctx.ellipse(0, 0, rock.w / 2, rock.h / 2, 0.2, 0, Math.PI * 2);
+        ctx.ellipse(0, rh * 0.6, rw * 1.35, rh * 0.45, 0, 0, Math.PI * 2);
         ctx.fill();
-        ctx.strokeStyle = '#616161';
-        ctx.lineWidth = 1.5;
-        ctx.stroke();
-        ctx.fillStyle = 'rgba(255,255,255,0.2)';
+        ctx.fillStyle = '#7d7d7d';
         ctx.beginPath();
-        ctx.ellipse(-rock.w * 0.15, -rock.h * 0.15, rock.w * 0.2, rock.h * 0.15, -0.3, 0, Math.PI * 2);
+        ctx.ellipse(0, 0, rw, rh, 0.2, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.strokeStyle = '#585858';
+        ctx.lineWidth = Math.max(0.5, 1.5 * s);
+        ctx.stroke();
+        ctx.fillStyle = 'rgba(255,255,255,0.25)';
+        ctx.beginPath();
+        ctx.ellipse(-rw * 0.3, -rh * 0.32, rw * 0.36, rh * 0.28, -0.3, 0, Math.PI * 2);
         ctx.fill();
         ctx.restore();
     }
 
     function drawFishItem(fish) {
-        var sy = toScreen(fish.worldY) + Math.sin(fish.bobPhase) * 4;
-        if (sy < -40 || sy > H + 40 || fish.collected) return;
+        var pr = project(fish.x, fish._sy);
+        if (!pr.ok) return;
+        var s = pr.s;
 
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
 
         if (fish.big) {
-            /* Big fish: golden glow + larger emoji */
             ctx.fillStyle = 'rgba(255,215,0,' + (0.2 + Math.sin(fish.bobPhase * 2) * 0.12) + ')';
             ctx.beginPath();
-            ctx.arc(fish.x, sy, 24, 0, Math.PI * 2);
+            ctx.arc(pr.x, pr.y, Math.max(1, 24 * s), 0, Math.PI * 2);
             ctx.fill();
-            ctx.font = '38px serif';
-            ctx.fillText('🐠', fish.x, sy);
+            ctx.fillStyle = '#fff';
+            ctx.font = Math.max(6, 38 * s).toFixed(1) + 'px serif';
+            ctx.fillText('🐠', pr.x, pr.y);
         } else {
-            ctx.font = '20px serif';
-            ctx.fillText('🐟', fish.x, sy);
+            ctx.fillStyle = '#fff';
+            ctx.font = Math.max(5, 20 * s).toFixed(1) + 'px serif';
+            ctx.fillText('🐟', pr.x, pr.y);
         }
     }
 
     function drawPiranha(pir) {
-        var sy = toScreen(pir.worldY) + Math.sin(pir.bobPhase) * 3;
-        if (sy < -40 || sy > H + 40 || pir.hit) return;
+        var pr = project(pir.x, pir._sy);
+        if (!pr.ok) return;
+        var s = pr.s;
 
-        /* Red halo */
         var pulse = 0.25 + Math.sin(pir.bobPhase * 1.5) * 0.1;
         ctx.fillStyle = 'rgba(220,20,20,' + pulse + ')';
         ctx.beginPath();
-        ctx.arc(pir.x, sy, 22, 0, Math.PI * 2);
+        ctx.arc(pr.x, pr.y, Math.max(1, 22 * s), 0, Math.PI * 2);
         ctx.fill();
 
-        /* Red ring */
         ctx.strokeStyle = 'rgba(255,0,0,' + (0.5 + Math.sin(pir.bobPhase * 2) * 0.2) + ')';
-        ctx.lineWidth = 2;
+        ctx.lineWidth = Math.max(0.6, 2 * s);
         ctx.beginPath();
-        ctx.arc(pir.x, sy, 18, 0, Math.PI * 2);
+        ctx.arc(pr.x, pr.y, Math.max(1, 18 * s), 0, Math.PI * 2);
         ctx.stroke();
 
-        ctx.font = '24px serif';
+        ctx.fillStyle = '#fff';
+        ctx.font = Math.max(6, 24 * s).toFixed(1) + 'px serif';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
-        ctx.fillText('🐡', pir.x, sy);
+        ctx.fillText('🐡', pr.x, pr.y);
     }
 
     function drawArrow(a) {
-        if (!a.alive) return;
-        var asy = toScreen(a.worldY);
-        if (asy < -40 || asy > H + 40) return;
+        var pr = project(a.x, a._sy);
+        if (!pr.ok) return;
+        var s = pr.s;
+        if (s < 0.08) return;
 
         var angle = Math.atan2(a.vy, a.vx);
         ctx.save();
-        ctx.translate(a.x, asy);
+        ctx.translate(pr.x, pr.y);
         ctx.rotate(angle);
+        ctx.scale(s, s);
 
         ctx.fillStyle = '#5D4037';
         ctx.fillRect(-18, -2, 30, 4);
@@ -894,39 +1000,138 @@
     }
 
     function drawParrot() {
-        var psy = toScreen(game.parrotWorldY);
-        if (psy < -60 || psy > H + 60) return;
-
         var seg = getRiverAt(game.parrotWorldY);
         var px = seg ? seg.cx : W / 2;
+        var pr = project(px, PARROT_ITEM._sy);
+        if (!pr.ok) return;
+        var s = pr.s;
 
-        /* Pulsing golden glow */
         var pulse = Math.sin(game.ticks * 0.08) * 0.15 + 0.35;
         ctx.fillStyle = 'rgba(255,215,0,' + pulse + ')';
         ctx.beginPath();
-        ctx.arc(px, psy, 36 + Math.sin(game.ticks * 0.06) * 4, 0, Math.PI * 2);
+        ctx.arc(pr.x, pr.y, Math.max(1, (36 + Math.sin(game.ticks * 0.06) * 4) * s), 0, Math.PI * 2);
         ctx.fill();
 
-        /* Inner white glow */
         ctx.fillStyle = 'rgba(255,255,255,' + (pulse * 0.6) + ')';
         ctx.beginPath();
-        ctx.arc(px, psy, 22, 0, Math.PI * 2);
+        ctx.arc(pr.x, pr.y, Math.max(1, 22 * s), 0, Math.PI * 2);
         ctx.fill();
 
-        /* Parrot emoji */
-        ctx.font = '36px serif';
+        ctx.fillStyle = '#fff';
+        ctx.font = Math.max(7, 36 * s).toFixed(1) + 'px serif';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
-        ctx.fillText('🦜', px, psy);
+        ctx.fillText('🦜', pr.x, pr.y);
+    }
+
+    function drawBoat() {
+        if (game.hitFlash > 0 && game.hitFlash % 4 < 2) return;
+        if (game.invulnTimer > 0 && game.invulnTimer % 3 === 0) return;
+
+        var pr = project(game.boat.x, game.boat.screenY);
+        if (!pr.ok) return;
+        var bx = pr.x, by = pr.y, s = pr.s;
+
+        /* Wake ripples trailing behind (further down the screen) */
+        ctx.strokeStyle = 'rgba(255,255,255,0.35)';
+        ctx.lineWidth = Math.max(0.6, 1.2 * s);
+        for (var w = 1; w <= 3; w++) {
+            ctx.beginPath();
+            ctx.arc(bx, by + (24 + w * 10) * s, (4 + w * 4) * s, 0.3, Math.PI - 0.3);
+            ctx.stroke();
+        }
+
+        ctx.save();
+        ctx.translate(bx, by);
+        ctx.scale(s, s);
+        /* Lean into the turn */
+        var lean = game.boat.vx * 0.045;
+        if (lean > 0.28) lean = 0.28;
+        if (lean < -0.28) lean = -0.28;
+        ctx.rotate(lean);
+
+        ctx.fillStyle = 'rgba(0,0,0,0.18)';
+        ctx.beginPath();
+        ctx.ellipse(2, 6, 15, 6, 0, 0, Math.PI * 2);
+        ctx.fill();
+
+        /* Hull — bow points UP (negative Y) */
+        ctx.beginPath();
+        ctx.moveTo(0, -24);
+        ctx.quadraticCurveTo(16, -10, 14, 18);
+        ctx.lineTo(6, 24);
+        ctx.lineTo(-6, 24);
+        ctx.lineTo(-14, 18);
+        ctx.quadraticCurveTo(-16, -10, 0, -24);
+        ctx.closePath();
+
+        /* Hull gradient lives in fixed local coords (ctx.scale handles depth),
+           so it is built once instead of every frame. */
+        if (!hullGrad) {
+            hullGrad = ctx.createLinearGradient(-14, 0, 14, 0);
+            hullGrad.addColorStop(0, '#5D4037');
+            hullGrad.addColorStop(0.45, '#9C7B6B');
+            hullGrad.addColorStop(1, '#5D4037');
+        }
+        ctx.fillStyle = hullGrad;
+        ctx.fill();
+        ctx.strokeStyle = '#4E342E';
+        ctx.lineWidth = 1.5;
+        ctx.stroke();
+
+        /* Inner hull, lifted slightly to read as an open boat seen from above/behind */
+        ctx.beginPath();
+        ctx.moveTo(0, -17);
+        ctx.quadraticCurveTo(10, -6, 9, 14);
+        ctx.lineTo(-9, 14);
+        ctx.quadraticCurveTo(-10, -6, 0, -17);
+        ctx.closePath();
+        ctx.fillStyle = '#B08D7C';
+        ctx.fill();
+
+        ctx.fillStyle = '#5D4037';
+        ctx.fillRect(-9, -2, 18, 3);
+        ctx.fillRect(-8, 8, 16, 3);
+
+        /* Bow spray */
+        ctx.fillStyle = 'rgba(255,255,255,0.5)';
+        ctx.beginPath();
+        ctx.ellipse(0, -26, 10, 4, 0, 0, Math.PI * 2);
+        ctx.fill();
+
+        ctx.font = '17px serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillStyle = '#fff';
+        ctx.fillText('🤠', 0, 2);
+
+        ctx.restore();
+
+        if (game.shieldTimer > 0) {
+            ctx.strokeStyle = 'rgba(33,150,243,' + (0.4 + Math.sin(game.ticks * 0.1) * 0.2) + ')';
+            ctx.lineWidth = Math.max(1, 2.5 * s);
+            ctx.beginPath();
+            ctx.arc(bx, by, 28 * s, 0, Math.PI * 2);
+            ctx.stroke();
+        }
+
+        if (game.boostTimer > 0) {
+            ctx.fillStyle = 'rgba(255,215,0,' + (0.2 + Math.sin(game.ticks * 0.15) * 0.15) + ')';
+            ctx.beginPath();
+            ctx.arc(bx, by, 30 * s, 0, Math.PI * 2);
+            ctx.fill();
+        }
     }
 
     function drawParticles() {
         for (var i = 0; i < game.particles.length; i++) {
             var p = game.particles[i];
+            var pr = project(p.x, p.y);
+            if (!pr.ok) continue;
             ctx.globalAlpha = Math.min(1, p.life / 15);
             ctx.fillStyle = p.color;
             ctx.beginPath();
-            ctx.arc(p.x, p.y, 3, 0, Math.PI * 2);
+            ctx.arc(pr.x, pr.y, Math.max(0.8, 3 * pr.s), 0, Math.PI * 2);
             ctx.fill();
         }
         ctx.globalAlpha = 1;
@@ -948,26 +1153,73 @@
         ctx.fillStyle = barGrad;
         ctx.fillRect(barX, barY, barW * Math.min(1, progress), barH);
 
+        ctx.fillStyle = '#fff';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'alphabetic';
         ctx.font = '12px serif';
-        ctx.fillText('🚣', barX + barW * Math.min(1, progress) - 6, barY - 4);
-        ctx.fillText('🦜', barX + barW - 6, barY - 4);
+        ctx.fillText('🚣', barX + barW * Math.min(1, progress), barY - 4);
+        ctx.fillText('🦜', barX + barW, barY - 4);
     }
 
-    /* ── Main draw ── */
+    /* ── Main draw: build a depth-sorted list, far to near ── */
     function draw() {
         if (!game) return;
         ctx.clearRect(0, 0, W, H);
 
-        drawScene();
+        /* Gentle river curvature — presentation only, shifts every projected
+           object identically so nothing desyncs from its hitbox. */
+        game.curveAmt = Math.sin(game.boatWorldY * 0.0009) * W * 0.22;
 
-        for (var ri = 0; ri < game.rocks.length; ri++) drawRock(game.rocks[ri]);
-        for (var fi = 0; fi < game.fish.length; fi++) drawFishItem(game.fish[fi]);
-        for (var pi2 = 0; pi2 < game.piranhas.length; pi2++) drawPiranha(game.piranhas[pi2]);
+        drawSky();
+        drawRiver();
+        drawTrees();
 
-        drawParrot();
-        drawBoat();
+        var L = drawList;
+        L.length = 0;
+        var i, e;
 
-        for (var ai = 0; ai < game.arrows.length; ai++) drawArrow(game.arrows[ai]);
+        for (i = 0; i < game.rocks.length; i++) {
+            e = game.rocks[i];
+            if (e.hit) continue;
+            e._sy = toScreen(e.worldY);
+            L.push(e);
+        }
+        for (i = 0; i < game.fish.length; i++) {
+            e = game.fish[i];
+            if (e.collected) continue;
+            e._sy = toScreen(e.worldY) + Math.sin(e.bobPhase) * 4;
+            L.push(e);
+        }
+        for (i = 0; i < game.piranhas.length; i++) {
+            e = game.piranhas[i];
+            if (e.hit) continue;
+            e._sy = toScreen(e.worldY) + Math.sin(e.bobPhase) * 3;
+            L.push(e);
+        }
+        for (i = 0; i < game.arrows.length; i++) {
+            e = game.arrows[i];
+            if (!e.alive) continue;
+            e._sy = toScreen(e.worldY);
+            L.push(e);
+        }
+        PARROT_ITEM._sy = toScreen(game.parrotWorldY);
+        L.push(PARROT_ITEM);
+        BOAT_ITEM._sy = game.boat.screenY;
+        L.push(BOAT_ITEM);
+
+        L.sort(bySy);
+
+        for (i = 0; i < L.length; i++) {
+            e = L[i];
+            switch (e.kind) {
+                case 'rock':    drawRock(e); break;
+                case 'fish':    drawFishItem(e); break;
+                case 'piranha': drawPiranha(e); break;
+                case 'arrow':   drawArrow(e); break;
+                case 'parrot':  drawParrot(); break;
+                case 'boat':    drawBoat(); break;
+            }
+        }
 
         drawParticles();
         drawDistanceBar();

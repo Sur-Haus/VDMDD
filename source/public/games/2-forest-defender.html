@@ -2,24 +2,27 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Forest Defender</title>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
 
-        body {
+        html, body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
             overflow: hidden;
-            height: 100vh;
-            background: #1a3a1a;
+            height: 100%;
+            background: #10240f;
             user-select: none;
             -webkit-user-select: none;
+            -webkit-tap-highlight-color: transparent;
+            touch-action: none;
         }
 
         #game-container {
             position: relative;
             width: 100vw;
             height: 100vh;
+            overflow: hidden;
         }
 
         #hud {
@@ -45,14 +48,13 @@
             position: absolute;
             top: 44px;
             left: 0;
-            width: 100%;
-            height: calc(100vh - 44px);
+            display: block;
         }
 
         .overlay {
             position: absolute;
             inset: 0;
-            background: rgba(0,0,0,0.85);
+            background: rgba(0,0,0,0.88);
             display: flex;
             flex-direction: column;
             justify-content: center;
@@ -61,14 +63,15 @@
             color: #fff;
             text-align: center;
             padding: 24px;
+            overflow-y: auto;
         }
 
-        .overlay h1 { font-size: 42px; margin-bottom: 8px; }
-        .overlay h2 { font-size: 28px; margin-bottom: 16px; color: #8f8; }
-        .overlay p { font-size: 16px; max-width: 500px; line-height: 1.5; margin-bottom: 8px; color: #ccc; }
+        .overlay h1 { font-size: 38px; margin-bottom: 8px; }
+        .overlay h2 { font-size: 24px; margin-bottom: 16px; color: #8f8; }
+        .overlay p { font-size: 16px; max-width: 520px; line-height: 1.5; margin-bottom: 8px; color: #ccc; }
 
         .overlay button {
-            margin-top: 24px;
+            margin-top: 22px;
             padding: 14px 40px;
             font-size: 20px;
             font-weight: 700;
@@ -84,17 +87,18 @@
 
         .wave-banner {
             position: absolute;
-            top: 50%;
+            top: 46%;
             left: 50%;
             transform: translate(-50%, -50%);
-            font-size: 48px;
+            font-size: 44px;
             font-weight: 800;
             color: #fff;
-            text-shadow: 0 0 20px rgba(0,0,0,0.8);
+            text-shadow: 0 0 20px rgba(0,0,0,0.9);
             z-index: 250;
             opacity: 0;
             transition: opacity 0.3s;
             pointer-events: none;
+            white-space: nowrap;
         }
         .wave-banner.show { opacity: 1; }
 
@@ -107,10 +111,35 @@
         }
         .tree-bar-fill {
             height: 100%;
+            width: 100%;
             background: #4caf50;
             border-radius: 5px;
             transition: width 0.3s;
         }
+
+        /* THROW button (mobile + desktop) */
+        #throw-btn {
+            display: none;
+            position: absolute;
+            right: 18px;
+            bottom: 26px;
+            width: 104px;
+            height: 104px;
+            border-radius: 50%;
+            border: 4px solid rgba(255,255,255,0.85);
+            background: rgba(233,116,42,0.92);
+            color: #fff;
+            font-size: 17px;
+            font-weight: 800;
+            letter-spacing: 1px;
+            z-index: 210;
+            cursor: pointer;
+            box-shadow: 0 6px 18px rgba(0,0,0,0.45);
+            line-height: 1.15;
+        }
+        #throw-btn.show { display: block; }
+        #throw-btn:active { transform: scale(0.93); background: rgba(255,150,60,0.98); }
+        #throw-btn .tb-emoji { display: block; font-size: 30px; }
 
         /* Quiz modal */
         #quiz-backdrop {
@@ -134,9 +163,11 @@
             z-index: 350;
             color: #fff;
             text-align: center;
-            padding: 28px 32px;
-            width: 90%;
+            padding: 26px 30px;
+            width: 92%;
             max-width: 460px;
+            max-height: 92vh;
+            overflow-y: auto;
             box-shadow: 0 20px 60px rgba(0,0,0,0.5);
         }
         #quiz-modal.show { display: block; }
@@ -149,27 +180,12 @@
             margin-bottom: 4px;
         }
 
-        .quiz-wave-title {
-            font-size: 22px;
-            font-weight: 800;
-            margin-bottom: 14px;
-        }
+        .quiz-wave-title { font-size: 22px; font-weight: 800; margin-bottom: 12px; }
+        .quiz-upgrade-icon { font-size: 48px; margin-bottom: 4px; }
+        .quiz-upgrade-label { font-size: 14px; color: #4caf50; margin-bottom: 16px; font-weight: 600; }
 
-        .quiz-upgrade-icon { font-size: 52px; margin-bottom: 4px; }
-        .quiz-upgrade-label { font-size: 14px; color: #4caf50; margin-bottom: 18px; font-weight: 600; }
-
-        .quiz-question {
-            font-size: 16px;
-            font-weight: 600;
-            line-height: 1.4;
-            margin-bottom: 16px;
-        }
-
-        .quiz-options {
-            display: flex;
-            flex-direction: column;
-            gap: 8px;
-        }
+        .quiz-question { font-size: 16px; font-weight: 600; line-height: 1.4; margin-bottom: 16px; }
+        .quiz-options { display: flex; flex-direction: column; gap: 8px; }
 
         .quiz-option {
             padding: 10px 16px;
@@ -190,12 +206,7 @@
         .quiz-option.disabled { pointer-events: none; opacity: 0.5; }
         .quiz-option.disabled.correct { opacity: 1; }
 
-        .quiz-result {
-            margin-top: 14px;
-            font-size: 15px;
-            font-weight: 700;
-            min-height: 24px;
-        }
+        .quiz-result { margin-top: 14px; font-size: 15px; font-weight: 700; min-height: 24px; }
 
         .quiz-continue {
             margin-top: 12px;
@@ -209,8 +220,18 @@
             cursor: pointer;
             display: none;
         }
-
         .quiz-continue:hover { background: #388e3c; }
+
+        @media (max-width: 520px) {
+            #hud { font-size: 12px; padding: 0 8px; }
+            #hud .hud-section { gap: 8px; }
+            .tree-bar-bg { width: 54px; }
+            .overlay h1 { font-size: 28px; }
+            .overlay h2 { font-size: 19px; }
+            .overlay p { font-size: 14px; }
+            .wave-banner { font-size: 32px; }
+            #throw-btn { width: 92px; height: 92px; right: 14px; bottom: 20px; font-size: 15px; }
+        }
     </style>
 </head>
 <body>
@@ -218,8 +239,8 @@
     <div id="hud">
         <div class="hud-section">
             <span>🧑‍🌾 Finn</span>
-            <span id="hud-weapon">💨</span>
-            <span>🌳 <span id="hud-trees">0</span>%</span>
+            <span id="hud-weapon">🌰</span>
+            <span>🌳 <span id="hud-trees">100</span>%</span>
             <div class="tree-bar-bg"><div class="tree-bar-fill" id="tree-bar"></div></div>
         </div>
         <div class="hud-section">
@@ -233,13 +254,17 @@
     <canvas id="grid-canvas"></canvas>
     <div class="wave-banner" id="wave-banner"></div>
 
+    <button id="throw-btn"><span class="tb-emoji">🎯</span>THROW</button>
+
     <div class="overlay" id="start-screen">
-        <h1>🌳 Forest Defender 🪃</h1>
+        <h1>🌳 Forest Defender 🎯</h1>
         <h2>Finn the Jungle Keeper</h2>
-        <p>Loggers are coming to clear-cut the sacred forest! Guide Finn left and right to scare them away before every tree is gone.</p>
-        <p>🪓 Loggers chop trees as they wander<br>🌳 Once a tree is gone, it's gone &nbsp;|&nbsp; 5 waves of increasing chaos</p>
-        <p>Answer questions about deforestation between waves to upgrade your weapon!</p>
-        <p style="margin-top:12px; font-size:14px; color:#aaa;">Arrow keys or touch to move &nbsp;|&nbsp; Space or tap to throw</p>
+        <p>Loggers are marching deep into the rainforest to chop it down. Finn throws things at them — but you have to <b>aim</b>.</p>
+        <p>🎯 Move the glowing target ring around the forest floor<br>
+           🪨 Your throw lands <b>exactly</b> where the ring is<br>
+           ⏱️ But it takes time to fly — so <b>lead your target</b>!</p>
+        <p>🌳 Once a tree is gone, it's gone &nbsp;|&nbsp; 5 waves &nbsp;|&nbsp; Answer rainforest questions between waves to upgrade your throw</p>
+        <p style="margin-top:12px; font-size:14px; color:#aaa;">Arrows / WASD move the target &nbsp;|&nbsp; Space throws<br>On phone: drag anywhere to aim, tap THROW</p>
         <button onclick="startGame()">Defend the Forest</button>
         <p style="margin-top:20px; font-size:12px; color:#666;">Designed and built by Finn from San Diego</p>
     </div>
@@ -274,17 +299,72 @@
 </div>
 
 <script>
+'use strict';
+
 const canvas = document.getElementById('grid-canvas');
 const ctx = canvas.getContext('2d');
 
-const HIT_RADIUS = 1.8;
+/* ------------------------------------------------------------------ *
+ *  PERSPECTIVE PROJECTION
+ *  World position is (x, depth):
+ *     x     in [-1, 1]  lateral, 0 = straight ahead
+ *     depth in [0, 1]   0 = nearest (bottom of screen), 1 = at horizon
+ *  scale(d) = 1 / (1 + d*K)      sprite shrink + lateral convergence
+ *  yFrac(d) = (1 - scale(d)) / (1 - scale(1))   normalized so
+ *             yFrac(0)=0 (screen bottom) and yFrac(1)=1 (horizon)
+ * ------------------------------------------------------------------ */
+const PROJ_K = 2;
+const SCALE_FAR = 1 / (1 + PROJ_K);       // 1/3
+const YFRAC_DEN = 1 - SCALE_FAR;          // 2/3
+const HORIZON_FRAC = 0.35;                // horizon at 35% of canvas height
+const X_SPAN = 0.47;                      // half-width of world x=1 at depth 0
 
+let VW = 800, VH = 600, HORIZON_Y = 210, UNIT = 600;
+
+function scaleAt(d) { return 1 / (1 + d * PROJ_K); }
+function depthToY(d) {
+    const f = (1 - scaleAt(d)) / YFRAC_DEN;
+    return VH + (HORIZON_Y - VH) * f;
+}
+function worldToX(x, d) { return VW * 0.5 + x * (VW * X_SPAN) * scaleAt(d); }
+
+/* ------------------------------------------------------------------ *
+ *  TUNING
+ * ------------------------------------------------------------------ */
+const TREE_COLS = 11;
+const TREE_ROWS = 7;
+const TREE_X_MIN = -0.90, TREE_X_MAX = 0.90;
+const TREE_D_MIN = 0.20,  TREE_D_MAX = 0.97;
+
+const RETICLE_X_MIN = -0.95, RETICLE_X_MAX = 0.95;
+const RETICLE_D_MIN = 0.06,  RETICLE_D_MAX = 0.99;
+const RETICLE_SPEED_X = 0.85;   // world x units / sec
+const RETICLE_SPEED_D = 0.46;   // depth units / sec
+
+// Forgiving landing ellipse (world units), multiplied by weapon radius
+const LAND_RX = 0.165;
+const LAND_RD = 0.105;
+
+const THROW_COOLDOWN = 430;     // ms
+const MAX_IN_FLIGHT = 3;
+
+const RANGER_X = 0.06;          // where throws originate in world x
+
+// One aimed projectile; the "weapon" tiers now scale the blast radius.
 const WEAPONS = [
-    { name: 'Air Puff',   emoji: '💨', speed: 4.2,  range: 0.5, spread: false },
-    { name: 'Bell',        emoji: '🔔', speed: 0.84, range: 1.0, spread: false },
-    { name: 'Boomerang',   emoji: '🪃', speed: 4.2,  range: 1.0, spread: false },
-    { name: 'Rock',        emoji: '🪨', speed: 8.4,  range: 1.0, spread: false },
-    { name: 'Rock + Boomerangs', emoji: '🪨🪃', speed: 8.4, range: 1.0, spread: true },
+    { name: 'Pinecone',      emoji: '🌰', radius: 1.00 },
+    { name: 'River Rock',    emoji: '🪨', radius: 1.06 },
+    { name: 'Boomerang',     emoji: '🪃', radius: 1.12 },
+    { name: 'Thunder Gourd', emoji: '🥥', radius: 1.18 },
+    { name: 'Storm Melon',   emoji: '🍉', radius: 1.25 },
+];
+
+const WAVE_CONFIG = [
+    { count: 3, speedMin: 0.140, speedMax: 0.190, chopRate: 12000 },
+    { count: 4, speedMin: 0.160, speedMax: 0.210, chopRate: 10500 },
+    { count: 5, speedMin: 0.180, speedMax: 0.240, chopRate: 9200  },
+    { count: 6, speedMin: 0.200, speedMax: 0.270, chopRate: 8000  },
+    { count: 7, speedMin: 0.220, speedMax: 0.300, chopRate: 7000  },
 ];
 
 const ALL_QUESTIONS = [
@@ -310,93 +390,334 @@ const ALL_QUESTIONS = [
     { q: "The Amazon produces roughly what percentage of the world's oxygen?", opts: ["About 6%", "About 15%", "About 28%", "About 40%"], answer: 0 },
 ];
 
-let COLS, ROWS, CELL, TREE_SPACING;
-let trees, totalTrees, loggers, projectiles, player;
-let score, wave, weaponLevel, waveActive, gameRunning, gameOver;
-let lastTime;
-let touchStartX = null;
-let waveCooldown = 0;
+/* ------------------------------------------------------------------ *
+ *  STATE
+ * ------------------------------------------------------------------ */
+let trees = [];
+let totalTrees = 0;
+let aliveTreeCount = 0;
+let loggers = [];
+let projectiles = [];
+let reticle = { x: 0, d: 0.55 };
+let ranger = { throwAnim: 0, cooldown: 0 };
+
+let score = 0, wave = 0, weaponLevel = 0;
+let waveActive = false, gameRunning = false, gameOver = false, quizPending = false;
+let lastTime = 0, rafId = 0;
 let quizQuestions = [];
-let quizPending = false;
+let hudTreePct = 100;
 
-const WAVE_CONFIG = [
-    { count: 8,  speedMin: 0.3, speedMax: 0.7, chopRate: 800  },
-    { count: 12, speedMin: 0.4, speedMax: 0.9, chopRate: 650  },
-    { count: 16, speedMin: 0.5, speedMax: 1.1, chopRate: 500  },
-    { count: 20, speedMin: 0.6, speedMax: 1.3, chopRate: 400  },
-    { count: 26, speedMin: 0.7, speedMax: 1.6, chopRate: 300  },
-];
+const keys = Object.create(null);
 
-function sizeCanvas() {
-    const w = window.innerWidth;
-    const h = window.innerHeight - 44;
-    canvas.width = w;
-    canvas.height = h;
-    canvas.style.width = w + 'px';
-    canvas.style.height = h + 'px';
-    CELL = Math.floor(Math.min(w, h) / 14);
-    if (CELL < 28) CELL = 28;
-    TREE_SPACING = CELL * 0.6;
-    COLS = Math.floor(w / TREE_SPACING);
-    ROWS = Math.floor(h / TREE_SPACING);
+/* -------------------- particle pool (no per-frame alloc) ---------- */
+const PARTICLE_MAX = 160;
+const particles = [];
+for (let i = 0; i < PARTICLE_MAX; i++) {
+    particles.push({ alive: false, x: 0, y: 0, vx: 0, vy: 0, life: 0, maxLife: 1, size: 4, r: 200, g: 180, b: 120 });
 }
-
-function initTrees() {
-    trees = [];
-    totalTrees = 0;
-    for (let r = 0; r < ROWS; r++) {
-        trees[r] = [];
-        for (let c = 0; c < COLS; c++) {
-            trees[r][c] = true;
-            totalTrees++;
+let particleCursor = 0;
+function emitParticle(x, y, vx, vy, life, size, r, g, b) {
+    for (let n = 0; n < PARTICLE_MAX; n++) {
+        const p = particles[particleCursor];
+        particleCursor = (particleCursor + 1) % PARTICLE_MAX;
+        if (!p.alive) {
+            p.alive = true; p.x = x; p.y = y; p.vx = vx; p.vy = vy;
+            p.life = life; p.maxLife = life; p.size = size;
+            p.r = r; p.g = g; p.b = b;
+            return;
         }
     }
 }
 
-function countTrees() {
-    let count = 0;
-    for (let r = 0; r < ROWS; r++)
-        for (let c = 0; c < COLS; c++)
-            if (trees[r] && trees[r][c]) count++;
-    return count;
+/* -------------------- projectile pool ----------------------------- */
+const PROJ_MAX = 8;
+for (let i = 0; i < PROJ_MAX; i++) {
+    projectiles.push({
+        alive: false, sx: 0, sd: 0, tx: 0, td: 0,
+        t: 0, dur: 1, arc: 0, startY: 0, endY: 0,
+        emoji: '🪨', radius: 1, spin: 0
+    });
 }
 
-function randomBetween(a, b) { return a + Math.random() * (b - a); }
+/* -------------------- render list (depth sorted) ------------------ */
+const renderList = [];
+const renderPool = [];
+let renderCount = 0;
+function pushRender(depth, kind, ref, extra) {
+    let it = renderPool[renderCount];
+    if (!it) { it = { depth: 0, kind: 0, ref: null, extra: 0 }; renderPool[renderCount] = it; }
+    it.depth = depth; it.kind = kind; it.ref = ref; it.extra = extra;
+    renderList[renderCount] = it;
+    renderCount++;
+}
+function byDepthDesc(a, b) { return b.depth - a.depth; }
 
+/* ------------------------------------------------------------------ *
+ *  CANVAS SIZING (resolution independent — world coords never change)
+ * ------------------------------------------------------------------ */
+function sizeCanvas() {
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    VW = Math.max(240, window.innerWidth);
+    VH = Math.max(200, window.innerHeight - 44);
+    canvas.style.width = VW + 'px';
+    canvas.style.height = VH + 'px';
+    canvas.width = Math.round(VW * dpr);
+    canvas.height = Math.round(VH * dpr);
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    HORIZON_Y = Math.round(VH * HORIZON_FRAC);
+    UNIT = Math.min(VW, VH);
+}
+
+/* ------------------------------------------------------------------ *
+ *  HELPERS
+ * ------------------------------------------------------------------ */
+function randomBetween(a, b) { return a + Math.random() * (b - a); }
+function clamp(v, lo, hi) { return v < lo ? lo : (v > hi ? hi : v); }
 function shuffle(arr) {
     for (let i = arr.length - 1; i > 0; i--) {
         const j = Math.floor(Math.random() * (i + 1));
-        [arr[i], arr[j]] = [arr[j], arr[i]];
+        const tmp = arr[i]; arr[i] = arr[j]; arr[j] = tmp;
     }
     return arr;
 }
 
+/* ------------------------------------------------------------------ *
+ *  TREES
+ * ------------------------------------------------------------------ */
+function initTrees() {
+    trees.length = 0;
+    for (let r = 0; r < TREE_ROWS; r++) {
+        const d = TREE_D_MIN + (r / (TREE_ROWS - 1)) * (TREE_D_MAX - TREE_D_MIN);
+        // stagger alternate rows so the grid doesn't look like a checkerboard
+        const jitter = (r % 2) ? 0.5 : 0;
+        for (let c = 0; c < TREE_COLS; c++) {
+            const x = TREE_X_MIN + ((c + jitter) / (TREE_COLS - 1)) * (TREE_X_MAX - TREE_X_MIN);
+            if (x > TREE_X_MAX + 0.001) continue;
+            trees.push({ x: x, d: d, alive: true, shake: 0, sway: Math.random() * 6.28 });
+        }
+    }
+    totalTrees = trees.length;
+    aliveTreeCount = totalTrees;
+}
+
+function fellTree(t) {
+    if (!t.alive) return;
+    t.alive = false;
+    aliveTreeCount--;
+    const sx = worldToX(t.x, t.d);
+    const sy = depthToY(t.d);
+    const s = scaleAt(t.d);
+    for (let i = 0; i < 8; i++) {
+        emitParticle(sx, sy - UNIT * 0.05 * s,
+            randomBetween(-70, 70) * s, randomBetween(-110, -20) * s,
+            520, Math.max(2, 5 * s), 150, 96, 52);
+    }
+}
+
+/* ------------------------------------------------------------------ *
+ *  LOGGERS
+ * ------------------------------------------------------------------ */
+function pickTarget(l) {
+    // Weighted reservoir sample favouring nearby living trees. No allocation.
+    let chosen = -1, total = 0;
+    for (let i = 0; i < trees.length; i++) {
+        const t = trees[i];
+        if (!t.alive) continue;
+        const dx = t.x - l.x;
+        const dd = (t.d - l.d) * 1.6;
+        const w = 1 / (0.08 + dx * dx + dd * dd);
+        total += w;
+        if (Math.random() * total < w) chosen = i;
+    }
+    if (chosen === -1) {
+        // fall back to any living tree
+        for (let i = 0; i < trees.length; i++) if (trees[i].alive) { chosen = i; break; }
+    }
+    return chosen;
+}
+
+function spawnWave(waveIndex) {
+    const cfg = WAVE_CONFIG[waveIndex];
+    loggers.length = 0;
+    for (let i = 0; i < cfg.count; i++) {
+        loggers.push({
+            x: randomBetween(-0.85, 0.85),
+            d: 1.0 + Math.random() * 0.06,
+            speed: randomBetween(cfg.speedMin, cfg.speedMax),
+            chopRate: cfg.chopRate * randomBetween(0.85, 1.15),
+            chopT: 0,
+            targetIdx: -1,
+            paceT: Math.random() * 4000,
+            state: 'walk',
+            alive: true,
+            scared: false,
+            scaredT: 0,
+            fleeX: 0,
+            entryDelay: i * randomBetween(500, 1100),
+            bob: Math.random() * 6.28
+        });
+    }
+    waveActive = true;
+}
+
+/* ------------------------------------------------------------------ *
+ *  THROWING
+ * ------------------------------------------------------------------ */
+function rangerHandY() {
+    return depthToY(0) - UNIT * 0.20;
+}
+
+function flightDuration(tx, td) {
+    return (0.5 + 0.5 * td + 0.12 * Math.abs(tx - RANGER_X)) * 1000;
+}
+function arcHeightFor(td) {
+    return VH * (0.22 + 0.14 * td);
+}
+
+function countInFlight() {
+    let n = 0;
+    for (let i = 0; i < PROJ_MAX; i++) if (projectiles[i].alive) n++;
+    return n;
+}
+
+function shoot() {
+    if (!gameRunning || gameOver || quizPending) return;
+    if (ranger.cooldown > 0) return;
+    if (countInFlight() >= MAX_IN_FLIGHT) return;
+
+    let p = null;
+    for (let i = 0; i < PROJ_MAX; i++) if (!projectiles[i].alive) { p = projectiles[i]; break; }
+    if (!p) return;
+
+    const w = WEAPONS[weaponLevel];
+    p.alive = true;
+    p.sx = RANGER_X; p.sd = 0;
+    p.tx = reticle.x; p.td = reticle.d;
+    p.t = 0;
+    p.dur = flightDuration(p.tx, p.td);
+    p.arc = arcHeightFor(p.td);
+    p.startY = rangerHandY();
+    p.endY = depthToY(p.td);
+    p.emoji = w.emoji;
+    p.radius = w.radius;
+    p.spin = 0;
+
+    ranger.cooldown = THROW_COOLDOWN;
+    ranger.throwAnim = 300;
+}
+
+function land(p) {
+    const sx = worldToX(p.tx, p.td);
+    const sy = depthToY(p.td);
+    const s = scaleAt(p.td);
+
+    for (let i = 0; i < 14; i++) {
+        const a = (i / 14) * Math.PI * 2;
+        emitParticle(sx, sy,
+            Math.cos(a) * randomBetween(40, 130) * s,
+            Math.sin(a) * randomBetween(14, 46) * s - 26 * s,
+            460, Math.max(2, 6 * s), 214, 196, 150);
+    }
+
+    const rx = LAND_RX * p.radius;
+    const rd = LAND_RD * p.radius;
+    for (let i = 0; i < loggers.length; i++) {
+        const l = loggers[i];
+        if (!l.alive || l.scared) continue;
+        const dx = (l.x - p.tx) / rx;
+        const dd = (l.d - p.td) / rd;
+        if (dx * dx + dd * dd <= 1) {
+            l.scared = true;
+            l.scaredT = 1300;
+            l.fleeX = (l.x < 0) ? -1 : 1;
+            l.state = 'flee';
+            score += 100 + wave * 50;
+            const lx = worldToX(l.x, l.d), ly = depthToY(l.d), ls = scaleAt(l.d);
+            for (let k = 0; k < 6; k++) {
+                emitParticle(lx, ly - UNIT * 0.06 * ls,
+                    randomBetween(-60, 60) * ls, randomBetween(-140, -50) * ls,
+                    600, Math.max(2, 4 * ls), 255, 232, 120);
+            }
+        }
+    }
+    p.alive = false;
+}
+
+/* ------------------------------------------------------------------ *
+ *  GAME FLOW
+ * ------------------------------------------------------------------ */
+function startGame() {
+    if (rafId) { cancelAnimationFrame(rafId); rafId = 0; }
+
+    document.getElementById('start-screen').style.display = 'none';
+    document.getElementById('win-screen').style.display = 'none';
+    document.getElementById('lose-screen').style.display = 'none';
+    document.getElementById('quiz-backdrop').classList.remove('show');
+    document.getElementById('quiz-modal').classList.remove('show');
+    document.getElementById('throw-btn').classList.add('show');
+
+    sizeCanvas();
+    initTrees();
+    pickQuestions();
+
+    for (let i = 0; i < PROJ_MAX; i++) projectiles[i].alive = false;
+    for (let i = 0; i < PARTICLE_MAX; i++) particles[i].alive = false;
+    loggers.length = 0;
+
+    reticle.x = 0;
+    reticle.d = 0.55;
+    ranger.cooldown = 0;
+    ranger.throwAnim = 0;
+
+    score = 0;
+    wave = 0;
+    weaponLevel = 0;
+    gameRunning = true;
+    gameOver = false;
+    waveActive = false;
+    quizPending = false;
+
+    updateHUD();
+
+    spawnWave(0);
+    showWaveBanner('Wave 1');
+    lastTime = performance.now();
+    rafId = requestAnimationFrame(gameLoop);
+}
+
+function showWaveBanner(text) {
+    const banner = document.getElementById('wave-banner');
+    banner.textContent = text;
+    banner.classList.add('show');
+    setTimeout(function () { banner.classList.remove('show'); }, 1900);
+}
+
 function pickQuestions() {
-    const indices = shuffle([...Array(ALL_QUESTIONS.length).keys()]);
-    quizQuestions = indices.slice(0, 4).map(i => ALL_QUESTIONS[i]);
+    const indices = shuffle(Array.from({ length: ALL_QUESTIONS.length }, function (_, i) { return i; }));
+    quizQuestions = indices.slice(0, 4).map(function (i) { return ALL_QUESTIONS[i]; });
 }
 
 function showQuiz() {
     quizPending = true;
     const qIndex = wave - 1;
-    const q = quizQuestions[qIndex];
+    const q = quizQuestions[qIndex] || quizQuestions[0];
     const nextWeapon = WEAPONS[Math.min(weaponLevel + 1, WEAPONS.length - 1)];
 
     document.getElementById('quiz-wave-label').textContent = 'INCOMING';
-    document.getElementById('quiz-wave-title').textContent = `Wave ${wave + 1} Approaching`;
+    document.getElementById('quiz-wave-title').textContent = 'Wave ' + (wave + 1) + ' Approaching';
     document.getElementById('quiz-upgrade-icon').textContent = nextWeapon.emoji;
-    document.getElementById('quiz-upgrade-label').textContent = `Upgrade to ${nextWeapon.name}`;
+    document.getElementById('quiz-upgrade-label').textContent = 'Upgrade to ' + nextWeapon.name + ' (bigger splash!)';
     document.getElementById('quiz-question').textContent = q.q;
     document.getElementById('quiz-result').textContent = '';
     document.getElementById('quiz-continue').style.display = 'none';
 
     const optsContainer = document.getElementById('quiz-options');
     optsContainer.innerHTML = '';
-    q.opts.forEach((opt, i) => {
+    q.opts.forEach(function (opt, i) {
         const btn = document.createElement('button');
         btn.className = 'quiz-option';
         btn.textContent = opt;
-        btn.onclick = () => answerQuiz(i);
+        btn.onclick = function () { answerQuiz(i); };
         optsContainer.appendChild(btn);
     });
 
@@ -406,12 +727,12 @@ function showQuiz() {
 
 function answerQuiz(chosen) {
     const qIndex = wave - 1;
-    const q = quizQuestions[qIndex];
+    const q = quizQuestions[qIndex] || quizQuestions[0];
     const options = document.querySelectorAll('.quiz-option');
     const resultEl = document.getElementById('quiz-result');
     const continueBtn = document.getElementById('quiz-continue');
 
-    options.forEach((btn, i) => {
+    options.forEach(function (btn, i) {
         btn.classList.add('disabled');
         if (i === q.answer) btn.classList.add('correct');
         if (i === chosen && i !== q.answer) btn.classList.add('wrong');
@@ -419,11 +740,10 @@ function answerQuiz(chosen) {
 
     if (chosen === q.answer) {
         weaponLevel = Math.min(weaponLevel + 1, WEAPONS.length - 1);
-        const w = WEAPONS[weaponLevel];
-        resultEl.innerHTML = `<span style="color:#4caf50">✓ Correct!</span> Upgraded!`;
+        resultEl.innerHTML = '<span style="color:#4caf50">✓ Correct!</span> ' + WEAPONS[weaponLevel].name + ' unlocked!';
         score += 200;
     } else {
-        resultEl.innerHTML = `<span style="color:#f44336">✗ Not quite.</span> No upgrade.`;
+        resultEl.innerHTML = '<span style="color:#f44336">✗ Not quite.</span> No upgrade this time.';
     }
 
     continueBtn.style.display = 'inline-block';
@@ -435,295 +755,21 @@ function continueAfterQuiz() {
     document.getElementById('quiz-modal').classList.remove('show');
     quizPending = false;
     spawnWave(wave);
-    showWaveBanner(`Wave ${wave + 1}`);
+    showWaveBanner('Wave ' + (wave + 1));
     lastTime = performance.now();
-    if (gameRunning && !gameOver) requestAnimationFrame(gameLoop);
-}
-
-function spawnWave(waveIndex) {
-    const cfg = WAVE_CONFIG[waveIndex];
-    loggers = [];
-
-    for (let i = 0; i < cfg.count; i++) {
-        loggers.push({
-            x: Math.random() * (COLS - 4) + 2,
-            y: -1 - Math.random() * 4,
-            speed: randomBetween(cfg.speedMin, cfg.speedMax),
-            dir: Math.random() < 0.5 ? -1 : 1,
-            chopTimer: 0,
-            chopRate: cfg.chopRate * randomBetween(0.8, 1.2),
-            moveTimer: 0,
-            moveInterval: randomBetween(400, 1200),
-            alive: true,
-            scared: false,
-            scaredTimer: 0,
-            runDir: 0,
-            entered: false,
-        });
-    }
-
-    waveActive = true;
-}
-
-function startGame() {
-    document.getElementById('start-screen').style.display = 'none';
-    document.getElementById('win-screen').style.display = 'none';
-    document.getElementById('lose-screen').style.display = 'none';
-    document.getElementById('quiz-backdrop').classList.remove('show');
-    document.getElementById('quiz-modal').classList.remove('show');
-
-    sizeCanvas();
-    initTrees();
-    pickQuestions();
-
-    player = { col: Math.floor(COLS / 2), shootCooldown: 0 };
-    projectiles = [];
-    loggers = [];
-    score = 0;
-    wave = 0;
-    weaponLevel = 0;
-    gameRunning = true;
-    gameOver = false;
-    waveActive = false;
-    quizPending = false;
-
-    updateHUD();
-
-    // Wave 1 starts immediately — no quiz
-    spawnWave(0);
-    showWaveBanner('Wave 1');
-    lastTime = performance.now();
-    requestAnimationFrame(gameLoop);
-}
-
-function showWaveBanner(text) {
-    const banner = document.getElementById('wave-banner');
-    banner.textContent = text;
-    banner.classList.add('show');
-    setTimeout(() => banner.classList.remove('show'), 2000);
-}
-
-function updateHUD() {
-    document.getElementById('hud-score').textContent = score;
-    document.getElementById('hud-wave').textContent = wave + 1;
-    document.getElementById('hud-weapon').textContent = WEAPONS[weaponLevel].emoji;
-    const current = countTrees();
-    const pct = Math.round((current / totalTrees) * 100);
-    document.getElementById('hud-trees').textContent = pct;
-    document.getElementById('tree-bar').style.width = pct + '%';
-    if (pct < 20) {
-        document.getElementById('tree-bar').style.background = '#f44336';
-    } else if (pct < 50) {
-        document.getElementById('tree-bar').style.background = '#ff9800';
-    } else {
-        document.getElementById('tree-bar').style.background = '#4caf50';
-    }
-}
-
-const keys = {};
-document.addEventListener('keydown', e => {
-    keys[e.key] = true;
-    if (['ArrowLeft','ArrowRight','ArrowUp','ArrowDown',' '].includes(e.key)) e.preventDefault();
-});
-document.addEventListener('keyup', e => { keys[e.key] = false; });
-
-canvas.addEventListener('touchstart', e => {
-    e.preventDefault();
-    const t = e.touches[0];
-    touchStartX = t.clientX;
-    shoot();
-}, { passive: false });
-
-canvas.addEventListener('touchmove', e => {
-    e.preventDefault();
-    if (touchStartX === null) return;
-    const t = e.touches[0];
-    const dx = t.clientX - touchStartX;
-    if (Math.abs(dx) > TREE_SPACING * 0.5) {
-        player.col += dx > 0 ? 1 : -1;
-        player.col = Math.max(0, Math.min(COLS - 1, player.col));
-        touchStartX = t.clientX;
-    }
-}, { passive: false });
-
-canvas.addEventListener('touchend', () => { touchStartX = null; });
-
-window.addEventListener('resize', () => { if (gameRunning) sizeCanvas(); });
-
-function shoot() {
-    if (!gameRunning || gameOver || quizPending) return;
-    if (player.shootCooldown > 0) return;
-
-    const w = WEAPONS[weaponLevel];
-    const startY = (ROWS - 1) * TREE_SPACING;
-
-    if (w.spread) {
-        projectiles.push({ col: player.col, y: startY, speed: w.speed, vx: 0, emoji: '🪨', range: w.range });
-        projectiles.push({ col: player.col, y: startY, speed: w.speed * 0.5, vx: -3, emoji: '🪃', range: w.range });
-        projectiles.push({ col: player.col, y: startY, speed: w.speed * 0.5, vx: 3, emoji: '🪃', range: w.range });
-    } else {
-        projectiles.push({ col: player.col, y: startY, speed: w.speed, vx: 0, emoji: w.emoji, range: w.range });
-    }
-
-    player.shootCooldown = 280;
-}
-
-function destroyTree(row, col) {
-    const r = Math.round(row);
-    const c = Math.round(col);
-    if (r >= 0 && r < ROWS && c >= 0 && c < COLS && trees[r] && trees[r][c]) {
-        trees[r][c] = false;
-    }
-}
-
-function gameLoop(now) {
-    if (!gameRunning || quizPending) return;
-
-    const dt = Math.min(now - lastTime, 50);
-    lastTime = now;
-
-    update(dt);
-    draw();
-    updateHUD();
-
-    if (!gameOver) requestAnimationFrame(gameLoop);
-}
-
-function update(dt) {
-    const dtSec = dt / 1000;
-
-    // Player movement
-    const moveSpeed = Math.min(COLS * 0.15, 1) * dt / 16.67;
-    if (keys['ArrowLeft'] || keys['a']) {
-        player.col -= moveSpeed;
-        if (player.col < 0) player.col = 0;
-    }
-    if (keys['ArrowRight'] || keys['d']) {
-        player.col += moveSpeed;
-        if (player.col > COLS - 1) player.col = COLS - 1;
-    }
-    if (keys[' ']) shoot();
-
-    player.shootCooldown = Math.max(0, player.shootCooldown - dt);
-
-    if (countTrees() <= 0) { endGame(false); return; }
-
-    if (!waveActive) return;
-
-    // Projectiles
-    const maxY = canvas.height;
-    for (let i = projectiles.length - 1; i >= 0; i--) {
-        const p = projectiles[i];
-        const prevY = p.y;
-        p.y -= p.speed * dt * 0.3;
-        p.col += (p.vx || 0) * dtSec;
-
-        const minY = maxY * (1 - p.range);
-        if (p.y < minY || p.col < -2 || p.col > COLS + 2) {
-            projectiles.splice(i, 1);
-            continue;
-        }
-
-        const px = p.col;
-        const pyTop = p.y / TREE_SPACING;
-        const pyBot = prevY / TREE_SPACING;
-
-        let hit = false;
-        for (const l of loggers) {
-            if (!l.alive || l.scared) continue;
-            const dx = l.x - px;
-            const dyMin = l.y - pyBot;
-            const dyMax = l.y - pyTop;
-            const closestDy = (dyMin <= 0 && dyMax >= 0) ? 0 : Math.min(Math.abs(dyMin), Math.abs(dyMax));
-            const dist = Math.sqrt(dx * dx + closestDy * closestDy);
-            if (dist < HIT_RADIUS) {
-                l.scared = true;
-                l.scaredTimer = 1500;
-                l.runDir = (l.x < COLS / 2) ? -1 : 1;
-                projectiles.splice(i, 1);
-                score += 100 + wave * 50;
-                hit = true;
-                break;
-            }
-        }
-    }
-
-    // Logger AI
-    for (const l of loggers) {
-        if (!l.alive || l.scared) continue;
-
-        if (l.y < 0) {
-            l.y += l.speed * dtSec * 2;
-            if (l.y >= 0) { l.y = 0; l.entered = true; }
-            continue;
-        }
-
-        l.moveTimer += dt;
-        if (l.moveTimer >= l.moveInterval) {
-            l.moveTimer = 0;
-            l.moveInterval = randomBetween(300, 1000);
-
-            const moves = [];
-            const dirs = [
-                { dx: 0, dy: 1 }, { dx: 1, dy: 0 }, { dx: -1, dy: 0 },
-                { dx: 1, dy: 1 }, { dx: -1, dy: 1 }, { dx: 0, dy: 0 },
-            ];
-
-            for (const d of dirs) {
-                const nr = Math.round(l.y + d.dy);
-                const nc = Math.round(l.x + d.dx);
-                if (nc < 0 || nc >= COLS || nr < 0 || nr >= ROWS) continue;
-                const hasTree = trees[nr] && trees[nr][nc];
-                moves.push({ dx: d.dx, dy: d.dy, weight: hasTree ? 3 : 1 });
-            }
-
-            if (moves.length > 0) {
-                const totalW = moves.reduce((s, m) => s + m.weight, 0);
-                let r = Math.random() * totalW;
-                let chosen = moves[0];
-                for (const m of moves) { r -= m.weight; if (r <= 0) { chosen = m; break; } }
-                l.x += chosen.dx;
-                l.y += chosen.dy;
-                l.x = Math.max(0, Math.min(COLS - 1, l.x));
-                l.y = Math.max(0, Math.min(ROWS - 1, l.y));
-            }
-        }
-
-        l.chopTimer += dt;
-        if (l.chopTimer >= l.chopRate) {
-            l.chopTimer = 0;
-            destroyTree(l.y, l.x);
-            if (Math.random() < 0.3) {
-                destroyTree(l.y, l.x + (Math.random() < 0.5 ? -1 : 1));
-            }
-        }
-    }
-
-    // Scared loggers flee
-    for (const l of loggers) {
-        if (!l.scared || !l.alive) continue;
-        l.scaredTimer -= dt;
-        l.x += l.runDir * 8 * dtSec;
-        l.y -= 3 * dtSec;
-        if (l.x < -3 || l.x > COLS + 3 || l.y < -3) l.alive = false;
-    }
-
-    // Wave complete check
-    if (loggers.filter(l => l.alive).length === 0) {
-        waveActive = false;
-        wave++;
-        if (wave >= 5) {
-            endGame(true);
-        } else {
-            setTimeout(() => { if (gameRunning && !gameOver) showQuiz(); }, 1500);
-        }
+    if (gameRunning && !gameOver) {
+        if (rafId) cancelAnimationFrame(rafId);
+        rafId = requestAnimationFrame(gameLoop);
     }
 }
 
 function endGame(won) {
     gameOver = true;
     gameRunning = false;
-    const pct = Math.round((countTrees() / totalTrees) * 100);
+    if (rafId) { cancelAnimationFrame(rafId); rafId = 0; }
+    document.getElementById('throw-btn').classList.remove('show');
+
+    const pct = Math.round((aliveTreeCount / totalTrees) * 100);
     if (won) {
         document.getElementById('win-score').textContent = score;
         document.getElementById('win-trees').textContent = pct;
@@ -735,97 +781,545 @@ function endGame(won) {
     }
 
     if (window.parent !== window) {
-        setTimeout(() => {
-            window.parent.postMessage({
-                type: 'gameCompletion',
-                completed: won,
-                score: score
-            }, '*');
+        setTimeout(function () {
+            window.parent.postMessage({ type: 'gameCompletion', completed: won, score: score }, '*');
         }, 2000);
     }
 }
 
+function updateHUD() {
+    document.getElementById('hud-score').textContent = score;
+    document.getElementById('hud-wave').textContent = wave + 1;
+    document.getElementById('hud-weapon').textContent = WEAPONS[weaponLevel].emoji;
+    const pct = totalTrees ? Math.round((aliveTreeCount / totalTrees) * 100) : 100;
+    if (pct !== hudTreePct) {
+        hudTreePct = pct;
+        document.getElementById('hud-trees').textContent = pct;
+        const bar = document.getElementById('tree-bar');
+        bar.style.width = pct + '%';
+        bar.style.background = pct < 20 ? '#f44336' : (pct < 50 ? '#ff9800' : '#4caf50');
+    }
+}
+
+/* ------------------------------------------------------------------ *
+ *  INPUT
+ * ------------------------------------------------------------------ */
+document.addEventListener('keydown', function (e) {
+    keys[e.key] = true;
+    if (e.key === ' ' || e.key === 'Spacebar') { keys[' '] = true; }
+    if (['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', ' ', 'Spacebar'].indexOf(e.key) !== -1) e.preventDefault();
+});
+document.addEventListener('keyup', function (e) {
+    keys[e.key] = false;
+    if (e.key === 'Spacebar') keys[' '] = false;
+});
+
+let touchId = null, lastTouchX = 0, lastTouchY = 0;
+
+canvas.addEventListener('touchstart', function (e) {
+    e.preventDefault();
+    if (touchId !== null) return;
+    const t = e.changedTouches[0];
+    touchId = t.identifier;
+    lastTouchX = t.clientX;
+    lastTouchY = t.clientY;
+}, { passive: false });
+
+canvas.addEventListener('touchmove', function (e) {
+    e.preventDefault();
+    if (touchId === null) return;
+    for (let i = 0; i < e.changedTouches.length; i++) {
+        const t = e.changedTouches[i];
+        if (t.identifier !== touchId) continue;
+        const dx = t.clientX - lastTouchX;
+        const dy = t.clientY - lastTouchY;
+        lastTouchX = t.clientX;
+        lastTouchY = t.clientY;
+        reticle.x = clamp(reticle.x + (dx / VW) * 2.4, RETICLE_X_MIN, RETICLE_X_MAX);
+        reticle.d = clamp(reticle.d - (dy / VH) * 1.5, RETICLE_D_MIN, RETICLE_D_MAX);
+    }
+}, { passive: false });
+
+function endTouch(e) {
+    if (touchId === null) return;
+    for (let i = 0; i < e.changedTouches.length; i++) {
+        if (e.changedTouches[i].identifier === touchId) { touchId = null; return; }
+    }
+}
+canvas.addEventListener('touchend', endTouch, { passive: false });
+canvas.addEventListener('touchcancel', endTouch, { passive: false });
+
+// Mouse aiming on desktop (nice-to-have alongside keyboard)
+canvas.addEventListener('mousemove', function (e) {
+    if (!gameRunning || quizPending) return;
+    const rect = canvas.getBoundingClientRect();
+    const my = e.clientY - rect.top;
+    if (my < HORIZON_Y) return;
+    // invert depthToY:  y = VH + (H - VH) * (1 - 1/(1+Kd))/YFRAC_DEN
+    const f = clamp((my - VH) / (HORIZON_Y - VH), 0, 1);
+    const s = 1 - f * YFRAC_DEN;               // = scaleAt(d)
+    const d = clamp((1 / s - 1) / PROJ_K, RETICLE_D_MIN, RETICLE_D_MAX);
+    const mx = e.clientX - rect.left;
+    const x = (mx - VW * 0.5) / (VW * X_SPAN * scaleAt(d));
+    reticle.x = clamp(x, RETICLE_X_MIN, RETICLE_X_MAX);
+    reticle.d = d;
+});
+canvas.addEventListener('mousedown', function (e) { e.preventDefault(); shoot(); });
+
+const throwBtn = document.getElementById('throw-btn');
+throwBtn.addEventListener('touchstart', function (e) { e.preventDefault(); e.stopPropagation(); shoot(); }, { passive: false });
+throwBtn.addEventListener('mousedown', function (e) { e.preventDefault(); shoot(); });
+
+window.addEventListener('resize', function () { sizeCanvas(); });
+window.addEventListener('orientationchange', function () { setTimeout(sizeCanvas, 120); });
+
+/* ------------------------------------------------------------------ *
+ *  LOOP
+ * ------------------------------------------------------------------ */
+function gameLoop(now) {
+    rafId = 0;
+    if (!gameRunning || quizPending) return;
+
+    let dt = now - lastTime;
+    if (!(dt > 0)) dt = 16;
+    if (dt > 60) dt = 60;
+    lastTime = now;
+
+    update(dt);
+    if (!gameRunning) return;   // update() may have ended the game
+    draw();
+    updateHUD();
+
+    if (!gameOver && !quizPending) rafId = requestAnimationFrame(gameLoop);
+}
+
+function update(dt) {
+    const dts = dt / 1000;
+
+    /* ---- reticle (keyboard) ---- */
+    if (keys['ArrowLeft'] || keys['a'] || keys['A']) reticle.x -= RETICLE_SPEED_X * dts;
+    if (keys['ArrowRight'] || keys['d'] || keys['D']) reticle.x += RETICLE_SPEED_X * dts;
+    if (keys['ArrowUp'] || keys['w'] || keys['W']) reticle.d += RETICLE_SPEED_D * dts;
+    if (keys['ArrowDown'] || keys['s'] || keys['S']) reticle.d -= RETICLE_SPEED_D * dts;
+    reticle.x = clamp(reticle.x, RETICLE_X_MIN, RETICLE_X_MAX);
+    reticle.d = clamp(reticle.d, RETICLE_D_MIN, RETICLE_D_MAX);
+
+    ranger.cooldown = Math.max(0, ranger.cooldown - dt);
+    ranger.throwAnim = Math.max(0, ranger.throwAnim - dt);
+    if (keys[' ']) shoot();
+
+    /* ---- projectiles ---- */
+    for (let i = 0; i < PROJ_MAX; i++) {
+        const p = projectiles[i];
+        if (!p.alive) continue;
+        p.t += dt / p.dur;
+        p.spin += dt * 0.012;
+        if (p.t >= 1) { p.t = 1; land(p); }
+    }
+
+    /* ---- particles ---- */
+    for (let i = 0; i < PARTICLE_MAX; i++) {
+        const pa = particles[i];
+        if (!pa.alive) continue;
+        pa.life -= dt;
+        if (pa.life <= 0) { pa.alive = false; continue; }
+        pa.x += pa.vx * dts;
+        pa.y += pa.vy * dts;
+        pa.vy += 190 * dts;
+    }
+
+    /* ---- tree shake decay ---- */
+    for (let i = 0; i < trees.length; i++) {
+        const t = trees[i];
+        if (t.shake > 0) t.shake = Math.max(0, t.shake - dt);
+    }
+
+    if (aliveTreeCount <= 0) { endGame(false); return; }
+    if (!waveActive) return;
+
+    /* ---- loggers ---- */
+    for (let i = 0; i < loggers.length; i++) {
+        const l = loggers[i];
+        if (!l.alive) continue;
+
+        l.bob += dt * 0.011;
+
+        if (l.scared) {
+            l.scaredT -= dt;
+            l.x += l.fleeX * 1.05 * dts;
+            l.d += 0.42 * dts;
+            if (l.scaredT <= 0 || l.d > 1.25 || l.x < -1.8 || l.x > 1.8) l.alive = false;
+            continue;
+        }
+
+        if (l.entryDelay > 0) { l.entryDelay -= dt; continue; }
+
+        // (re)acquire a target
+        if (l.targetIdx < 0 || !trees[l.targetIdx] || !trees[l.targetIdx].alive) {
+            l.targetIdx = pickTarget(l);
+            l.chopT = 0;
+            l.state = 'walk';
+            if (l.targetIdx < 0) continue;
+        }
+
+        const t = trees[l.targetIdx];
+        const dx = t.x - l.x;
+        const dd = (t.d - 0.02) - l.d;
+        const dist = Math.sqrt(dx * dx + dd * dd * 2.56);
+
+        // Hysteresis: once a logger reaches its tree it commits to chopping.
+        // (Without this the chop-pacing motion pushes it back past the arrival
+        //  threshold every frame and chopT never accumulates.)
+        if (l.state !== 'chop' && dist > 0.045) {
+            // WALK — always in motion
+            const inv = 1 / (dist || 1);
+            l.x += dx * inv * l.speed * dts;
+            l.d += dd * inv * l.speed * dts;
+            l.d = clamp(l.d, 0.10, 1.15);
+        } else {
+            // CHOP — pace around the trunk so they never stand still
+            l.state = 'chop';
+            l.paceT += dt;
+            l.x = t.x + Math.sin(l.paceT * 0.0042) * 0.055;
+            l.d = (t.d - 0.02) + Math.cos(l.paceT * 0.0031) * 0.016;
+            t.shake = 90;
+            l.chopT += dt;
+            if (l.chopT >= l.chopRate) {
+                l.chopT = 0;
+                fellTree(t);
+                l.targetIdx = -1;
+                if (aliveTreeCount <= 0) { endGame(false); return; }
+            }
+        }
+    }
+
+    /* ---- wave complete ---- */
+    let anyAlive = false;
+    for (let i = 0; i < loggers.length; i++) if (loggers[i].alive) { anyAlive = true; break; }
+    if (!anyAlive) {
+        waveActive = false;
+        wave++;
+        if (wave >= 5) {
+            endGame(true);
+        } else {
+            setTimeout(function () { if (gameRunning && !gameOver) showQuiz(); }, 1400);
+        }
+    }
+}
+
+/* ------------------------------------------------------------------ *
+ *  DRAWING
+ * ------------------------------------------------------------------ */
+const RENDER_TREE = 0, RENDER_STUMP = 1, RENDER_LOGGER = 2;
+
+function drawBackground() {
+    // sky / canopy
+    const sky = ctx.createLinearGradient(0, 0, 0, HORIZON_Y);
+    sky.addColorStop(0, '#0d2a12');
+    sky.addColorStop(0.55, '#1d5426');
+    sky.addColorStop(1, '#63a552');
+    ctx.fillStyle = sky;
+    ctx.fillRect(0, 0, VW, HORIZON_Y);
+
+    // ground plane
+    const ground = ctx.createLinearGradient(0, HORIZON_Y, 0, VH);
+    ground.addColorStop(0, '#3f6b2e');
+    ground.addColorStop(0.35, '#33702c');
+    ground.addColorStop(1, '#255220');
+    ctx.fillStyle = ground;
+    ctx.fillRect(0, HORIZON_Y, VW, VH - HORIZON_Y);
+
+    // depth scanline bands
+    ctx.fillStyle = 'rgba(0,0,0,0.055)';
+    for (let i = 0; i < 14; i += 2) {
+        const y0 = depthToY(i / 14);
+        const y1 = depthToY((i + 1) / 14);
+        ctx.fillRect(0, y1, VW, y0 - y1);
+    }
+
+    // converging perspective lines
+    ctx.strokeStyle = 'rgba(255,255,255,0.055)';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    for (let gx = -1; gx <= 1.001; gx += 0.25) {
+        ctx.moveTo(worldToX(gx, 0), depthToY(0));
+        ctx.lineTo(worldToX(gx, 1), depthToY(1));
+    }
+    ctx.stroke();
+
+    // distant canopy silhouette along the horizon
+    ctx.fillStyle = 'rgba(10,40,16,0.85)';
+    ctx.beginPath();
+    ctx.moveTo(0, HORIZON_Y);
+    const step = Math.max(18, VW / 34);
+    for (let x = 0; x <= VW + step; x += step) {
+        const h = 10 + 16 * Math.abs(Math.sin(x * 0.037));
+        ctx.lineTo(x, HORIZON_Y - h);
+        ctx.lineTo(x + step * 0.5, HORIZON_Y - h * 0.45);
+    }
+    ctx.lineTo(VW, HORIZON_Y);
+    ctx.closePath();
+    ctx.fill();
+}
+
+function drawShadow(sx, sy, rx) {
+    ctx.fillStyle = 'rgba(0,0,0,0.22)';
+    ctx.beginPath();
+    ctx.ellipse(sx, sy, rx, rx * 0.34, 0, 0, Math.PI * 2);
+    ctx.fill();
+}
+
+function drawPreviewArc() {
+    const s0x = worldToX(RANGER_X, 0);
+    const s0y = rangerHandY();
+    const s1x = worldToX(reticle.x, reticle.d);
+    const s1y = depthToY(reticle.d);
+    const arc = arcHeightFor(reticle.d);
+
+    ctx.save();
+    ctx.strokeStyle = ranger.cooldown > 0 ? 'rgba(255,255,255,0.20)' : 'rgba(255,255,255,0.42)';
+    ctx.lineWidth = Math.max(2, UNIT * 0.005);
+    ctx.setLineDash([UNIT * 0.016, UNIT * 0.020]);
+    ctx.beginPath();
+    for (let i = 0; i <= 22; i++) {
+        const t = i / 22;
+        const x = s0x + (s1x - s0x) * t;
+        const y = s0y + (s1y - s0y) * t - arc * Math.sin(Math.PI * t);
+        if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+    }
+    ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.restore();
+}
+
+function drawReticle(now) {
+    const s = scaleAt(reticle.d);
+    const cx = worldToX(reticle.x, reticle.d);
+    const cy = depthToY(reticle.d);
+    const w = WEAPONS[weaponLevel];
+    const rOuter = LAND_RX * w.radius * (VW * X_SPAN) * s;
+    const ry = rOuter * 0.40;
+    const pulse = 0.86 + 0.14 * Math.sin(now * 0.006);
+    const ready = ranger.cooldown <= 0;
+
+    ctx.save();
+    ctx.lineWidth = Math.max(2, UNIT * 0.006);
+
+    // blast footprint fill
+    ctx.fillStyle = ready ? 'rgba(255,214,90,0.16)' : 'rgba(255,255,255,0.08)';
+    ctx.beginPath();
+    ctx.ellipse(cx, cy, rOuter, ry, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.strokeStyle = ready ? 'rgba(255,226,110,0.95)' : 'rgba(220,220,220,0.6)';
+    ctx.beginPath();
+    ctx.ellipse(cx, cy, rOuter * pulse, ry * pulse, 0, 0, Math.PI * 2);
+    ctx.stroke();
+
+    ctx.strokeStyle = ready ? 'rgba(255,255,255,0.9)' : 'rgba(200,200,200,0.5)';
+    ctx.beginPath();
+    ctx.ellipse(cx, cy, rOuter * 0.46, ry * 0.46, 0, 0, Math.PI * 2);
+    ctx.stroke();
+
+    // crosshair
+    ctx.beginPath();
+    ctx.moveTo(cx - rOuter * 1.22, cy); ctx.lineTo(cx - rOuter * 0.62, cy);
+    ctx.moveTo(cx + rOuter * 0.62, cy); ctx.lineTo(cx + rOuter * 1.22, cy);
+    ctx.moveTo(cx, cy - ry * 1.9); ctx.lineTo(cx, cy - ry * 0.7);
+    ctx.moveTo(cx, cy + ry * 0.7); ctx.lineTo(cx, cy + ry * 1.9);
+    ctx.stroke();
+
+    // centre dot
+    ctx.fillStyle = ready ? '#fff45a' : 'rgba(255,255,255,0.55)';
+    ctx.beginPath();
+    ctx.arc(cx, cy, Math.max(2, rOuter * 0.09), 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+}
+
+function drawRanger(now) {
+    const size = UNIT * 0.20;
+    const cx = worldToX(0, 0);
+    const baseY = depthToY(0) - size * 0.30;
+
+    // throw animation: 0 -> 1 over the anim window
+    const p = ranger.throwAnim > 0 ? (1 - ranger.throwAnim / 300) : -1;
+    let lean = 0, handX = size * 0.34, handY = -size * 0.42;
+    if (p >= 0) {
+        const swing = Math.sin(p * Math.PI);
+        lean = -swing * size * 0.10;
+        handX = size * (0.20 + 0.50 * p);
+        handY = -size * (0.75 - 0.55 * p);
+    }
+
+    drawShadow(cx, depthToY(0) + size * 0.10, size * 0.42);
+
+    ctx.save();
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.font = size + 'px serif';
+    ctx.fillText('🧑‍🌾', cx + lean, baseY);
+
+    // held projectile during wind-up
+    if (p >= 0 && p < 0.55) {
+        ctx.font = (size * 0.34) + 'px serif';
+        ctx.fillText(WEAPONS[weaponLevel].emoji, cx + lean + handX, baseY + handY);
+    }
+
+    ctx.font = 'bold ' + Math.max(11, Math.round(UNIT * 0.026)) + 'px sans-serif';
+    ctx.fillStyle = '#fff';
+    ctx.shadowColor = 'rgba(0,0,0,0.9)';
+    ctx.shadowBlur = 4;
+    ctx.fillText('Finn', cx, baseY + size * 0.56);
+    ctx.shadowBlur = 0;
+
+    // cooldown pip
+    if (ranger.cooldown > 0) {
+        const frac = 1 - ranger.cooldown / THROW_COOLDOWN;
+        ctx.strokeStyle = 'rgba(255,255,255,0.75)';
+        ctx.lineWidth = 4;
+        ctx.beginPath();
+        ctx.arc(cx, baseY - size * 0.72, size * 0.16, -Math.PI / 2, -Math.PI / 2 + frac * Math.PI * 2);
+        ctx.stroke();
+    }
+    ctx.restore();
+}
+
+function drawTree(t, now) {
+    const s = scaleAt(t.d);
+    const size = UNIT * 0.145 * s;
+    const sway = Math.sin(now * 0.0012 + t.sway) * size * 0.03;
+    const shake = t.shake > 0 ? Math.sin(now * 0.055) * size * 0.10 : 0;
+    const x = worldToX(t.x, t.d) + sway + shake;
+    const y = depthToY(t.d);
+    drawShadow(worldToX(t.x, t.d), y + size * 0.06, size * 0.34);
+    ctx.font = size + 'px serif';
+    ctx.fillText('🌳', x, y - size * 0.34);
+}
+
+function drawStump(t) {
+    const s = scaleAt(t.d);
+    const size = UNIT * 0.075 * s;
+    const x = worldToX(t.x, t.d);
+    const y = depthToY(t.d);
+    ctx.globalAlpha = 0.5;
+    ctx.font = size + 'px serif';
+    ctx.fillText('🪵', x, y - size * 0.22);
+    ctx.globalAlpha = 1;
+}
+
+function drawLogger(l, now) {
+    const s = scaleAt(l.d);
+    const size = UNIT * 0.115 * s;
+    const x = worldToX(l.x, l.d);
+    const y = depthToY(l.d);
+    const bob = Math.sin(l.bob) * size * 0.07;
+
+    if (l.scared) ctx.globalAlpha = Math.max(0, Math.min(1, l.scaredT / 1300));
+
+    drawShadow(x, y + size * 0.05, size * 0.34);
+
+    ctx.font = size + 'px serif';
+    if (l.scared) {
+        ctx.fillText('😱', x, y - size * 0.46 + bob);
+    } else {
+        ctx.fillText('😡', x - size * 0.20, y - size * 0.46 + bob);
+        const chopSwing = (l.state === 'chop') ? Math.sin(now * 0.012) * size * 0.22 : 0;
+        ctx.font = (size * 0.85) + 'px serif';
+        ctx.fillText('🪓', x + size * 0.34, y - size * 0.52 + chopSwing);
+    }
+    ctx.globalAlpha = 1;
+}
+
+function drawProjectiles() {
+    for (let i = 0; i < PROJ_MAX; i++) {
+        const p = projectiles[i];
+        if (!p.alive) continue;
+        const t = p.t;
+        const d = p.sd + (p.td - p.sd) * t;
+        const x = p.sx + (p.tx - p.sx) * t;
+        const sx = worldToX(x, d);
+        const sy = p.startY + (p.endY - p.startY) * t - p.arc * Math.sin(Math.PI * t);
+        const s = scaleAt(d);
+        const size = UNIT * 0.085 * s;
+
+        // ground marker under the projectile
+        const gy = depthToY(d);
+        ctx.fillStyle = 'rgba(0,0,0,0.18)';
+        ctx.beginPath();
+        ctx.ellipse(sx, gy, size * 0.30, size * 0.11, 0, 0, Math.PI * 2);
+        ctx.fill();
+
+        ctx.save();
+        ctx.translate(sx, sy);
+        ctx.rotate(p.spin);
+        ctx.font = size + 'px serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(p.emoji, 0, 0);
+        ctx.restore();
+    }
+}
+
+function drawParticles() {
+    for (let i = 0; i < PARTICLE_MAX; i++) {
+        const p = particles[i];
+        if (!p.alive) continue;
+        const a = Math.max(0, p.life / p.maxLife);
+        ctx.globalAlpha = a;
+        ctx.fillStyle = 'rgb(' + p.r + ',' + p.g + ',' + p.b + ')';
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, p.size * (0.4 + 0.6 * a), 0, Math.PI * 2);
+        ctx.fill();
+    }
+    ctx.globalAlpha = 1;
+}
+
 function draw() {
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    const now = performance.now();
 
-    ctx.fillStyle = '#1e4a15';
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    drawBackground();
 
-    const fontSize = Math.max(Math.round(TREE_SPACING * 1.6), 20);
-    ctx.font = `${fontSize}px serif`;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
 
-    // Trees
-    for (let r = 0; r < ROWS; r++) {
-        for (let c = 0; c < COLS; c++) {
-            if (!trees[r][c]) continue;
-            ctx.fillText('🌳', c * TREE_SPACING + TREE_SPACING / 2, r * TREE_SPACING + TREE_SPACING / 2);
-        }
+    // aiming aids sit on the ground, under the sprites
+    drawPreviewArc();
+    drawReticle(now);
+
+    // depth-sorted world sprites (far first)
+    renderCount = 0;
+    for (let i = 0; i < trees.length; i++) {
+        const t = trees[i];
+        pushRender(t.d, t.alive ? RENDER_TREE : RENDER_STUMP, t, 0);
     }
-
-    // Stumps
-    const stumpSize = Math.max(Math.round(TREE_SPACING * 0.7), 10);
-    ctx.font = `${stumpSize}px serif`;
-    for (let r = 0; r < ROWS; r++) {
-        for (let c = 0; c < COLS; c++) {
-            if (trees[r][c]) continue;
-            ctx.globalAlpha = 0.4;
-            ctx.fillText('🪵', c * TREE_SPACING + TREE_SPACING / 2, r * TREE_SPACING + TREE_SPACING / 2);
-            ctx.globalAlpha = 1;
-        }
+    for (let i = 0; i < loggers.length; i++) {
+        const l = loggers[i];
+        if (!l.alive) continue;
+        pushRender(l.d, RENDER_LOGGER, l, 0);
     }
+    renderList.length = renderCount;
+    renderList.sort(byDepthDesc);
 
-    ctx.font = `${fontSize}px serif`;
-
-    // Loggers — 😡 face + big 🪓 axe
-    if (loggers) {
-        const faceSize = Math.round(fontSize * 1.15);
-        const axeSize = Math.round(fontSize * 1.0);
-        for (const l of loggers) {
-            if (!l.alive) continue;
-            const x = l.x * TREE_SPACING + TREE_SPACING / 2;
-            const y = l.y * TREE_SPACING + TREE_SPACING / 2;
-            if (l.scared) {
-                ctx.globalAlpha = Math.max(0, l.scaredTimer / 1500);
-                ctx.font = `${faceSize}px serif`;
-                ctx.fillText('😱', x, y);
-                ctx.globalAlpha = 1;
-            } else {
-                ctx.font = `${faceSize}px serif`;
-                ctx.fillText('😡', x - axeSize * 0.3, y);
-                ctx.font = `${axeSize}px serif`;
-                ctx.fillText('🪓', x + faceSize * 0.35, y - faceSize * 0.1);
-            }
-        }
-        ctx.font = `${fontSize}px serif`;
-    }
-
-    // Projectiles
-    const projSize = Math.round(fontSize * 1.4);
-    ctx.font = `${projSize}px serif`;
-    for (const p of projectiles) {
-        const x = p.col * TREE_SPACING + TREE_SPACING / 2;
-        ctx.fillText(p.emoji, x, p.y + TREE_SPACING / 2);
-    }
-
-    // Player — Finn
-    const playerSize = Math.round(fontSize * 1.4);
-    ctx.font = `${playerSize}px serif`;
-    const px = Math.round(player.col) * TREE_SPACING + TREE_SPACING / 2;
-    const py = (ROWS - 1) * TREE_SPACING + TREE_SPACING / 2;
-    ctx.fillText('🧑‍🌾', px, py);
-
-    ctx.font = 'bold 11px sans-serif';
-    ctx.fillStyle = '#fff';
-    ctx.shadowColor = 'rgba(0,0,0,0.8)';
-    ctx.shadowBlur = 3;
-    ctx.fillText('Finn', px, py + playerSize * 0.55);
-    ctx.shadowBlur = 0;
     ctx.fillStyle = '#000';
+    for (let i = 0; i < renderCount; i++) {
+        const it = renderList[i];
+        if (it.kind === RENDER_TREE) drawTree(it.ref, now);
+        else if (it.kind === RENDER_STUMP) drawStump(it.ref);
+        else drawLogger(it.ref, now);
+    }
+
+    drawProjectiles();
+    drawParticles();
+    drawRanger(now);
 }
 
+/* ------------------------------------------------------------------ *
+ *  BOOT
+ * ------------------------------------------------------------------ */
 sizeCanvas();
+initTrees();
+draw();
 </script>
 </body>
 </html>

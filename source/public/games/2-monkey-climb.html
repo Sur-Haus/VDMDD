@@ -2,22 +2,30 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Monkey Climb</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Monkey Climb 3D</title>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
 
-        body {
+        html, body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
             overflow: hidden;
-            height: 100vh;
+            width: 100%;
+            height: 100%;
             background: #87CEEB;
+            -webkit-user-select: none;
+            user-select: none;
+            -webkit-tap-highlight-color: transparent;
         }
 
-        canvas {
+        #gameCanvas {
+            position: fixed;
+            top: 0; left: 0;
+            width: 100%;
+            height: 100%;
             display: block;
-            margin: 0 auto;
-            background: #87CEEB;
+            z-index: 0;
+            touch-action: none;
         }
 
         .overlay {
@@ -29,27 +37,30 @@
             justify-content: center;
             z-index: 100;
             background: rgba(0,0,0,0.75);
+            padding: 20px;
         }
 
         .overlay.hidden { display: none; }
 
         .overlay h1 {
-            font-size: 48px;
+            font-size: 44px;
             color: #FFD700;
             text-shadow: 2px 2px 8px rgba(0,0,0,0.5);
             margin-bottom: 10px;
+            text-align: center;
         }
 
         .overlay h2 {
-            font-size: 28px;
+            font-size: 26px;
             color: white;
-            margin-bottom: 20px;
+            margin-bottom: 18px;
+            text-align: center;
         }
 
         .overlay p {
             color: #ddd;
             font-size: 16px;
-            max-width: 400px;
+            max-width: 420px;
             text-align: center;
             line-height: 1.6;
             margin-bottom: 8px;
@@ -79,43 +90,132 @@
             left: 50%;
             transform: translateX(-50%);
             display: flex;
-            gap: 24px;
+            gap: 18px;
             z-index: 50;
             background: rgba(0,0,0,0.5);
-            padding: 8px 20px;
+            padding: 8px 18px;
             border-radius: 20px;
             color: white;
-            font-size: 16px;
+            font-size: 15px;
             font-weight: bold;
+            white-space: nowrap;
         }
 
         .hud.hidden { display: none; }
-
         .hud span { display: flex; align-items: center; gap: 4px; }
+
+        /* ── Aim power bar ── */
+        #powerWrap {
+            position: fixed;
+            bottom: 190px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 180px;
+            height: 14px;
+            border-radius: 8px;
+            background: rgba(0,0,0,0.5);
+            z-index: 55;
+            overflow: hidden;
+            border: 2px solid rgba(255,255,255,0.6);
+        }
+        #powerWrap.hidden { display: none; }
+        #powerFill {
+            height: 100%;
+            width: 50%;
+            background: linear-gradient(90deg, #FFD700, #4CAF50);
+        }
+
+        /* ── Touch controls ── */
+        #touchControls {
+            position: fixed;
+            bottom: 0; left: 0;
+            width: 100%;
+            z-index: 60;
+            padding: 0 14px 22px 14px;
+            display: flex;
+            align-items: flex-end;
+            justify-content: space-between;
+            pointer-events: none;
+        }
+        #touchControls.hidden { display: none; }
+
+        .dpad {
+            position: relative;
+            width: 168px;
+            height: 168px;
+            pointer-events: none;
+        }
+
+        .tbtn {
+            position: absolute;
+            width: 56px;
+            height: 56px;
+            border-radius: 14px;
+            border: 2px solid rgba(255,255,255,0.7);
+            background: rgba(0,0,0,0.42);
+            color: white;
+            font-size: 22px;
+            font-weight: bold;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            pointer-events: auto;
+            touch-action: none;
+            cursor: pointer;
+        }
+        .tbtn:active, .tbtn.on {
+            background: rgba(255,215,0,0.65);
+            color: #222;
+        }
+
+        .tbtn.up    { left: 56px; top: 0; }
+        .tbtn.left  { left: 0;    top: 56px; }
+        .tbtn.right { left: 112px; top: 56px; }
+        .tbtn.down  { left: 56px; top: 112px; }
+
+        #throwBtn {
+            position: relative;
+            width: 96px;
+            height: 96px;
+            border-radius: 50%;
+            font-size: 40px;
+            margin-bottom: 24px;
+            background: rgba(140,90,40,0.55);
+            pointer-events: auto;
+        }
+        #throwBtn:disabled { opacity: 0.35; }
+
+        @media (max-height: 620px) {
+            .overlay h1 { font-size: 32px; }
+            .overlay h2 { font-size: 20px; }
+            .overlay p { font-size: 14px; margin-bottom: 4px; }
+        }
     </style>
 </head>
 <body>
+    <canvas id="gameCanvas"></canvas>
+
     <div class="overlay" id="startScreen">
         <h1>🐒 Monkey Climb</h1>
         <h2>Reach the bananas at the top!</h2>
-        <p>Use <strong>← →</strong> to move and <strong>↑</strong> to jump up.</p>
+        <p>Use <strong>← →</strong> to swing around the tree and <strong>↑</strong> to climb up.</p>
         <p>Watch out for <strong>arrows</strong> flying at you!</p>
         <p>If a <strong>jaguar 🐆</strong> is ahead, hold <strong>SPACE</strong> and aim with arrows to throw 💩!</p>
         <p>You only get <strong>6 poops</strong> — aim carefully!</p>
-        <button onclick="startGame()">🌿 Start Climbing!</button>
+        <button id="startBtn">🌿 Start Climbing!</button>
     </div>
 
     <div class="overlay hidden" id="winScreen">
         <h1>🍌 You Made It! 🍌</h1>
         <h2>The monkey got the bananas!</h2>
         <p id="winStats"></p>
-        <button onclick="startGame()">Play Again</button>
+        <button id="winBtn">Play Again</button>
     </div>
 
     <div class="overlay hidden" id="loseScreen">
         <h1 id="loseTitle">💀 Game Over</h1>
         <h2 id="loseReason"></h2>
-        <button onclick="startGame()">Try Again</button>
+        <button id="loseBtn">Try Again</button>
     </div>
 
     <div class="hud hidden" id="hud">
@@ -124,943 +224,877 @@
         <span>❤️ Lives: <b id="hudLives">3</b></span>
     </div>
 
-    <canvas id="gameCanvas"></canvas>
+    <div id="powerWrap" class="hidden"><div id="powerFill"></div></div>
 
-    <script>
-    var canvas = document.getElementById('gameCanvas');
-    var ctx = canvas.getContext('2d');
+    <div id="touchControls" class="hidden">
+        <div class="dpad">
+            <button class="tbtn up"    data-act="up">▲</button>
+            <button class="tbtn left"  data-act="left">◀</button>
+            <button class="tbtn right" data-act="right">▶</button>
+            <button class="tbtn down"  data-act="down">▼</button>
+        </div>
+        <button id="throwBtn" class="tbtn">💩</button>
+    </div>
 
-    /* ══════════════════ CONSTANTS ══════════════════ */
-    var W, H;
-    var BRANCH_COUNT = 12;
-    var TOTAL_POOPS = 6;
-    var TOTAL_LIVES = 3;
-    var JAGUAR_COUNT = 3;
-    var TRUNK_HALF = 38;
-    var LEAF_COLORS = ['#1B5E20','#2E7D32','#388E3C','#43A047','#4CAF50','#66BB6A','#81C784'];
-    var MONKEY_SIZE = 64;
-    var JAGUAR_SIZE = 140;
+<script type="module">
+import * as THREE from '../vendor/three.module.js';
 
-    var game = null;
-    var keys = {};
-    var animFrame = null;
+/* ══════════════════ CONSTANTS (game rules preserved) ══════════════════ */
+const BRANCH_COUNT  = 12;
+const TOTAL_POOPS   = 6;   // exactly six poops — unchanged
+const TOTAL_LIVES   = 3;
+const JAGUAR_COUNT  = 3;
 
-    function resize() {
-        W = Math.min(document.documentElement.clientWidth || window.innerWidth || 500, 500);
-        if (W < 100) W = 500;
-        H = document.documentElement.clientHeight || window.innerHeight || 800;
-        if (H < 200) H = 800;
-        canvas.width = W;
-        canvas.height = H;
+const TRUNK_R       = 2.2;   // uniform trunk radius (a flared root sits at the base)
+const RIDE_R        = 2.75;  // radius the monkey clings at — must stay OUTSIDE TRUNK_R
+const FLOOR_Y       = 4.0;   // lowest the monkey can slide to (above the root flare)
+const BRANCH_SPACING = 9;
+const BASE_Y        = 6;                                    // y of branch 0
+const TOP_Y         = BASE_Y + BRANCH_COUNT * BRANCH_SPACING; // y of the bananas
+const TRUNK_H       = TOP_Y + 22;
+
+const CLIMB_SPEED   = 7.0;    // world units / sec
+const ORBIT_SPEED   = 1.5;    // radians / sec
+const SLIDE_SPEED   = 0.5;    // gentle slide-back when not climbing
+const GRAVITY       = 18;     // for poop projectiles
+
+const CAM_R         = 10.5;
+const CAM_LERP      = 0.10;
+
+const ARROW_SPEED   = 12;
+const ARROW_HIT_R   = 1.15;   // small = forgiving for the player
+const POOP_SPEED_MIN = 15;
+const POOP_SPEED_MAX = 29;
+const POOP_HIT_R     = 3.0;   // generous 3D radius
+const JAGUAR_TOUCH_R = 1.7;
+const INVULN_TIME    = 1.3;
+
+/* ══════════════════ DOM ══════════════════ */
+const canvas      = document.getElementById('gameCanvas');
+const startScreen = document.getElementById('startScreen');
+const winScreen   = document.getElementById('winScreen');
+const loseScreen  = document.getElementById('loseScreen');
+const hudEl       = document.getElementById('hud');
+const hudBranch   = document.getElementById('hudBranch');
+const hudAmmo     = document.getElementById('hudAmmo');
+const hudLives    = document.getElementById('hudLives');
+const winStats    = document.getElementById('winStats');
+const loseReason  = document.getElementById('loseReason');
+const powerWrap   = document.getElementById('powerWrap');
+const powerFill   = document.getElementById('powerFill');
+const touchCtl    = document.getElementById('touchControls');
+const throwBtn    = document.getElementById('throwBtn');
+
+/* ══════════════════ RENDERER / SCENE ══════════════════ */
+const renderer = new THREE.WebGLRenderer({ canvas: canvas, antialias: true });
+renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+renderer.setSize(window.innerWidth, window.innerHeight, false);
+
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x8ed2ee);
+scene.fog = new THREE.Fog(0x9fd8ea, 34, 150);
+
+const camera = new THREE.PerspectiveCamera(58, window.innerWidth / window.innerHeight, 0.1, 500);
+camera.position.set(0, 6, CAM_R);
+
+const ambient = new THREE.AmbientLight(0xffffff, 0.72);
+scene.add(ambient);
+const sun = new THREE.DirectionalLight(0xfff3d0, 0.95);
+sun.position.set(12, 30, 14);
+scene.add(sun);
+
+/* ══════════════════ TEXTURE / SPRITE HELPERS ══════════════════ */
+const emojiTexCache = {};
+
+function emojiTexture(char) {
+    if (emojiTexCache[char]) return emojiTexCache[char];
+    const c = document.createElement('canvas');
+    c.width = 128; c.height = 128;
+    const g = c.getContext('2d');
+    g.clearRect(0, 0, 128, 128);
+    g.font = '96px serif';
+    g.textAlign = 'center';
+    g.textBaseline = 'middle';
+    g.fillText(char, 64, 70);
+    const tex = new THREE.CanvasTexture(c);
+    tex.needsUpdate = true;
+    emojiTexCache[char] = tex;
+    return tex;
+}
+
+function killSprite(s) {
+    scene.remove(s);
+    if (s.material) s.material.dispose();   // texture is shared/cached, don't dispose it
+}
+
+/** Render an emoji to a canvas texture and wrap it in a camera-facing sprite. */
+function emojiSprite(char, size) {
+    const mat = new THREE.SpriteMaterial({
+        map: emojiTexture(char),
+        transparent: true,
+        depthWrite: false
+    });
+    const s = new THREE.Sprite(mat);
+    s.scale.set(size, size, 1);
+    return s;
+}
+
+function barkTexture() {
+    const c = document.createElement('canvas');
+    c.width = 64; c.height = 256;
+    const g = c.getContext('2d');
+    g.fillStyle = '#6D4C41';
+    g.fillRect(0, 0, 64, 256);
+    for (let i = 0; i < 140; i++) {
+        const x = Math.random() * 64;
+        const y = Math.random() * 256;
+        const h = 10 + Math.random() * 40;
+        g.fillStyle = ['rgba(78,52,46,0.55)', 'rgba(121,85,72,0.5)', 'rgba(93,64,55,0.5)'][i % 3];
+        g.fillRect(x, y, 1.5 + Math.random() * 3, h);
     }
-    resize();
-    window.addEventListener('resize', resize);
+    for (let i = 0; i < 26; i++) {
+        g.fillStyle = 'rgba(76,175,80,0.16)';
+        g.beginPath();
+        g.ellipse(Math.random() * 64, Math.random() * 256, 5 + Math.random() * 8, 9 + Math.random() * 12, 0, 0, Math.PI * 2);
+        g.fill();
+    }
+    const tex = new THREE.CanvasTexture(c);
+    tex.wrapS = THREE.RepeatWrapping;
+    tex.wrapT = THREE.RepeatWrapping;
+    tex.repeat.set(4, 10);
+    return tex;
+}
 
-    /* ══════════════════ GAME INIT ══════════════════ */
-    function startGame() {
-        document.getElementById('startScreen').classList.add('hidden');
-        document.getElementById('winScreen').classList.add('hidden');
-        document.getElementById('loseScreen').classList.add('hidden');
-        document.getElementById('hud').classList.remove('hidden');
+function skyTexture() {
+    const c = document.createElement('canvas');
+    c.width = 4; c.height = 256;
+    const g = c.getContext('2d');
+    const grad = g.createLinearGradient(0, 0, 0, 256);
+    grad.addColorStop(0.0, '#3FA9D8');
+    grad.addColorStop(0.35, '#7EC8E8');
+    grad.addColorStop(0.7, '#A8E6CF');
+    grad.addColorStop(1.0, '#5FA96A');
+    g.fillStyle = grad;
+    g.fillRect(0, 0, 4, 256);
+    return new THREE.CanvasTexture(c);
+}
 
-        var jaguarBranches = [];
-        while (jaguarBranches.length < JAGUAR_COUNT) {
-            var b = 2 + Math.floor(Math.random() * (BRANCH_COUNT - 3));
-            if (jaguarBranches.indexOf(b) === -1) jaguarBranches.push(b);
+/* ══════════════════ SHARED GEOMETRY / MATERIALS ══════════════════ */
+const barkMat    = new THREE.MeshLambertMaterial({ map: barkTexture() });
+const branchGeo  = new THREE.CylinderGeometry(0.16, 0.34, 1, 6);
+const leafGeo    = new THREE.IcosahedronGeometry(1, 0);
+const LEAF_MATS  = [0x1B5E20, 0x2E7D32, 0x388E3C, 0x43A047, 0x4CAF50, 0x66BB6A]
+    .map(function (hex) { return new THREE.MeshLambertMaterial({ color: hex, flatShading: true }); });
+const arrowGeo   = new THREE.CylinderGeometry(0.06, 0.06, 1.6, 5);
+const arrowMat   = new THREE.MeshLambertMaterial({ color: 0x5c3d1e });
+
+/* ══════════════════ STATIC WORLD ══════════════════ */
+// Sky dome
+const sky = new THREE.Mesh(
+    new THREE.SphereGeometry(240, 16, 12),
+    new THREE.MeshBasicMaterial({ map: skyTexture(), side: THREE.BackSide, fog: false, depthWrite: false })
+);
+sky.position.y = 40;
+scene.add(sky);
+
+// Ground
+const ground = new THREE.Mesh(
+    new THREE.CircleGeometry(90, 28),
+    new THREE.MeshLambertMaterial({ color: 0x3E8E41 })
+);
+ground.rotation.x = -Math.PI / 2;
+ground.position.y = 0;
+scene.add(ground);
+
+// Trunk — uniform radius so the monkey's ride radius is never swallowed by a taper
+const trunk = new THREE.Mesh(
+    new THREE.CylinderGeometry(TRUNK_R, TRUNK_R, TRUNK_H, 16, 1),
+    barkMat
+);
+trunk.position.y = TRUNK_H / 2 - 3;
+scene.add(trunk);
+
+// Flared root at the base (entirely below FLOOR_Y, so it never clips the monkey)
+const roots = new THREE.Mesh(new THREE.CylinderGeometry(2.3, 4.4, 7, 14, 1), barkMat);
+roots.position.y = 0.5;
+scene.add(roots);
+
+// Forest floor, so the base of the trunk reads as ground rather than void
+const forestFloor = new THREE.Mesh(
+    new THREE.CircleGeometry(160, 32).rotateX(-Math.PI / 2),
+    new THREE.MeshLambertMaterial({ color: 0x2f6b34 })
+);
+forestFloor.position.y = 0;
+scene.add(forestFloor);
+
+// Ambient background canopy — decorative blobs floating past as you ascend
+const bgCanopy = new THREE.Group();
+for (let i = 0; i < 150; i++) {
+    const m = new THREE.Mesh(leafGeo, LEAF_MATS[i % LEAF_MATS.length]);
+    const a = Math.random() * Math.PI * 2;
+    // Must clear the furthest the camera ever dollies (portrait: CAM_R * 1.85) or
+    // blobs spawn on top of the camera and block the view.
+    const r = CAM_R * 1.85 + 7 + Math.random() * 22;
+    const s = 1.1 + Math.random() * 2.6;
+    m.position.set(Math.cos(a) * r, 6 + Math.random() * (TOP_Y + 6), Math.sin(a) * r);
+    m.scale.set(s, s * 0.75, s);
+    m.rotation.set(Math.random() * 3, Math.random() * 3, Math.random() * 3);
+    bgCanopy.add(m);
+}
+scene.add(bgCanopy);
+
+// Level group — rebuilt each game
+const levelGroup = new THREE.Group();
+scene.add(levelGroup);
+
+// Aim arc line + reticle
+const ARC_STEPS = 34;
+const arcGeo = new THREE.BufferGeometry();
+arcGeo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(ARC_STEPS * 3), 3));
+const arcLine = new THREE.Line(arcGeo, new THREE.LineBasicMaterial({ color: 0xffee33 }));
+arcLine.frustumCulled = false;
+arcLine.visible = false;
+scene.add(arcLine);
+
+const reticle = emojiSprite('🎯', 1.6);
+reticle.visible = false;
+scene.add(reticle);
+
+// Monkey + the little "hold SPACE" hint that floats beside it
+const monkeySprite = emojiSprite('🐒', 2.8);
+// The camera always tracks the monkey's angle, so it is never legitimately behind
+// the trunk — draw it over the foliage so branches can't hide the player.
+monkeySprite.material.depthTest = false;
+monkeySprite.renderOrder = 999;
+scene.add(monkeySprite);
+const hintSprite = emojiSprite('💩', 1.3);
+hintSprite.visible = false;
+scene.add(hintSprite);
+
+/* ══════════════════ MATH HELPERS ══════════════════ */
+function posAt(angle, radius, y, out) {
+    const v = out || new THREE.Vector3();
+    v.set(Math.cos(angle) * radius, y, Math.sin(angle) * radius);
+    return v;
+}
+
+function angleDelta(a, b) {
+    let d = a - b;
+    while (d > Math.PI) d -= Math.PI * 2;
+    while (d < -Math.PI) d += Math.PI * 2;
+    return d;
+}
+
+/* ══════════════════ GAME STATE ══════════════════ */
+let game = null;
+let gameId = 0;
+const keys = {};
+const touch = { left: false, right: false, up: false, down: false };
+const clock = new THREE.Clock();
+
+let camAngle = 0;
+let camDist  = CAM_R;   // dollied back on portrait aspects (see onResize)
+let camY = 6;
+const camLook = new THREE.Vector3(0, 6, 0);
+
+const tmpA = new THREE.Vector3();
+const tmpB = new THREE.Vector3();
+
+/* ══════════════════ LEVEL BUILD ══════════════════ */
+function buildLevel() {
+    // clear previous level meshes
+    while (levelGroup.children.length) {
+        const child = levelGroup.children[0];
+        levelGroup.remove(child);
+        if (child.isSprite && child.material) child.material.dispose();
+    }
+
+    // Pick jaguar branches: same range as the original (indices 2 .. BRANCH_COUNT-2)
+    const jaguarBranches = [];
+    while (jaguarBranches.length < JAGUAR_COUNT) {
+        const b = 2 + Math.floor(Math.random() * (BRANCH_COUNT - 3));
+        if (jaguarBranches.indexOf(b) === -1) jaguarBranches.push(b);
+    }
+
+    const branches = [];
+    for (let i = 0; i <= BRANCH_COUNT; i++) {
+        const y = BASE_Y + i * BRANCH_SPACING;
+        // Alternate-ish angles with jitter so the player must orbit to line up
+        const angle = i * 2.05 + (Math.random() - 0.5) * 0.9;
+        const len = 5.5 + Math.random() * 2.5;
+        const hasJaguar = jaguarBranches.indexOf(i) !== -1;
+
+        const g = new THREE.Group();
+        g.position.y = y;
+        g.rotation.y = -angle;   // local +X now points along (cos angle, 0, sin angle)
+
+        const limb = new THREE.Mesh(branchGeo, barkMat);
+        limb.rotation.z = Math.PI / 2;
+        limb.scale.set(1, len, 1);
+        limb.position.x = len / 2 + 1.6;
+        g.add(limb);
+
+        // Leaf cluster at the branch tip
+        const nLeaves = 6 + Math.floor(Math.random() * 4);
+        for (let l = 0; l < nLeaves; l++) {
+            const leaf = new THREE.Mesh(leafGeo, LEAF_MATS[Math.floor(Math.random() * LEAF_MATS.length)]);
+            const s = 1.0 + Math.random() * 1.5;
+            // Keep foliage inside the camera shell (CAM_R) or blobs engulf the camera.
+            const lx = Math.min(len * (0.45 + Math.random() * 0.6) + 1.6, CAM_R - 3.0);
+            leaf.position.set(
+                lx,
+                (Math.random() - 0.4) * 1.6,
+                (Math.random() - 0.5) * 2.2
+            );
+            leaf.scale.set(s, s * 0.7, s);
+            leaf.rotation.set(Math.random() * 3, Math.random() * 3, Math.random() * 3);
+            g.add(leaf);
         }
+        levelGroup.add(g);
 
-        var branchSpacing = Math.floor(H / 2.8);
-        var branches = [];
-        for (var i = 0; i <= BRANCH_COUNT; i++) {
-            var y = H - 80 - i * branchSpacing;
-            var side = (i % 2 === 0) ? 'left' : 'right';
-            var bw = 130 + Math.random() * 50;
-            var bx = side === 'left' ? 0 : W - bw;
-            branches.push({
-                x: bx, y: y, w: bw, h: 22, side: side,
-                hasJaguar: jaguarBranches.indexOf(i) !== -1,
-                jaguarAlive: jaguarBranches.indexOf(i) !== -1
-            });
-        }
-
-        /* ── Pre-generate dense foliage ── */
-        for (var fi = 0; fi <= BRANCH_COUNT; fi++) {
-            var fb = branches[fi];
-            var fTipX = fb.side === 'left' ? fb.x : fb.x + fb.w;
-            var fTrunkEdge = fb.side === 'left' ? W / 2 - TRUNK_HALF : W / 2 + TRUNK_HALF;
-
-            fb.leaves = [];
-            var fLeafCount = 55 + Math.floor(Math.random() * 30);
-            for (var fj = 0; fj < fLeafCount; fj++) {
-                var ft = Math.pow(Math.random(), 0.5);
-                var flx = fTrunkEdge + (fTipX - fTrunkEdge) * ft;
-                flx += (Math.random() - 0.5) * 55;
-                var fly = (Math.random() - 0.55) * 210;
-                var flr = 16 + Math.random() * 30;
-                fb.leaves.push({
-                    x: flx, y: fly, r: flr,
-                    ci: Math.floor(Math.random() * LEAF_COLORS.length),
-                    rot: (Math.random() - 0.5) * 1.2
-                });
-            }
-            fb.leaves.sort(function(a, b) { return b.r - a.r; });
-
-            fb.vines = [];
-            var vineCount = 2 + Math.floor(Math.random() * 4);
-            for (var fv = 0; fv < vineCount; fv++) {
-                var vProg = 0.12 + Math.random() * 0.75;
-                fb.vines.push({
-                    x: fTrunkEdge + (fTipX - fTrunkEdge) * vProg,
-                    len: 70 + Math.random() * 140,
-                    curve: (Math.random() - 0.5) * 30,
-                    thick: 1.5 + Math.random() * 1.5
-                });
-            }
-        }
-
-        /* ── Top canopy (large, centered — banana nest) ── */
-        var topCanopy = [];
-        for (var tci = 0; tci < 85; tci++) {
-            var tcA = (tci / 85) * Math.PI * 2 + Math.random() * 0.5;
-            var tcD = Math.random() * 145 + 10;
-            topCanopy.push({
-                xOff: Math.cos(tcA) * tcD,
-                yOff: Math.sin(tcA) * tcD * 0.5 - 70,
-                r: 22 + Math.random() * 40,
-                ci: Math.floor(Math.random() * LEAF_COLORS.length),
-                rot: Math.random() * Math.PI
-            });
-        }
-        topCanopy.sort(function(a, b) { return b.r - a.r; });
-
-        var startBranch = branches[0];
-        var monkeyStartX = startBranch.side === 'left' ? W / 2 - 55 : W / 2 + 55;
-
-        game = {
-            state: 'climbing',
-            branches: branches,
-            branchSpacing: branchSpacing,
-            monkey: {
-                x: monkeyStartX,
-                y: startBranch.y - 70,
-                w: MONKEY_SIZE, h: MONKEY_SIZE,
-                vx: 0,
-                currentBranch: 0,
-                jumping: false,
-                jumpT: 0,
-                jumpFrom: { x: 0, y: 0 },
-                jumpTo: { x: 0, y: 0 },
-                facingRight: startBranch.side === 'right'
-            },
-            arrows: [],
-            arrowTimer: 0,
-            arrowInterval: 110,
-            poops: [],
-            poopAmmo: TOTAL_POOPS,
-            lives: TOTAL_LIVES,
-            aiming: false,
-            aimAngle: -Math.PI / 2,
-            charging: false,
-            chargeTime: 0,
-            cameraY: 0,
-            targetCameraY: 0,
-            ticks: 0,
-            hitFlash: 0,
-            jaguarsDefeated: 0,
-            leafParticles: [],
-            bananaFloat: 0,
-            topCanopy: topCanopy
+        const branch = {
+            index: i, y: y, angle: angle,
+            hasJaguar: hasJaguar,
+            jaguarAlive: hasJaguar,
+            jaguarSprite: null,
+            pos: posAt(angle, RIDE_R, y + 1.0)
         };
 
-        updateHUD();
-        if (animFrame) cancelAnimationFrame(animFrame);
-        loop();
-    }
-
-    /* ══════════════════ HUD ══════════════════ */
-    function updateHUD() {
-        document.getElementById('hudBranch').textContent = (game.monkey.currentBranch + 1) + '/' + (BRANCH_COUNT + 1);
-        document.getElementById('hudAmmo').textContent = game.poopAmmo;
-        document.getElementById('hudLives').textContent = game.lives;
-    }
-
-    /* ══════════════════ HELPERS ══════════════════ */
-    function getNextBranch() {
-        var idx = game.monkey.currentBranch + 1;
-        if (idx > BRANCH_COUNT) return null;
-        return { branch: game.branches[idx], index: idx };
-    }
-
-    function monkeyCenter() {
-        return { x: game.monkey.x, y: game.monkey.y + game.monkey.h / 2 };
-    }
-
-    function needsAiming() {
-        var next = getNextBranch();
-        if (!next) return false;
-        return next.branch.jaguarAlive;
-    }
-
-    /* ══════════════════ ACTIONS ══════════════════ */
-    function tryJump() {
-        if (game.monkey.jumping) return;
-        if (game.state !== 'climbing') return;
-        if (game.aiming) return;
-        if (needsAiming()) return; // must poop the jaguar first
-
-        var next = getNextBranch();
-        if (!next) {
-            winGame();
-            return;
+        if (hasJaguar) {
+            const js = emojiSprite('🐆', 3.4);
+            js.position.copy(branch.pos);
+            levelGroup.add(js);
+            branch.jaguarSprite = js;
         }
-        doJump(next.index);
+        branches.push(branch);
     }
 
-    function doJump(targetIdx) {
-        var target = game.branches[targetIdx];
-        var landX = target.side === 'left' ? W / 2 - 55 : W / 2 + 55;
+    // Bananas at the very top
+    const bananaGroup = new THREE.Group();
+    bananaGroup.position.y = TOP_Y + 2.0;
+    const offsets = [[-0.9, 0, 0.3], [0.9, 0.5, -0.3], [0, -0.6, 0.9]];
+    for (let b = 0; b < offsets.length; b++) {
+        const bs = emojiSprite('🍌', 2.2);
+        bs.position.set(offsets[b][0], offsets[b][1], offsets[b][2]);
+        bananaGroup.add(bs);
+    }
+    levelGroup.add(bananaGroup);
 
-        game.monkey.jumping = true;
-        game.monkey.jumpT = 0;
-        game.monkey.jumpFrom = { x: game.monkey.x, y: game.monkey.y };
-        game.monkey.jumpTo = { x: landX, y: target.y - 70 };
-        game.monkey.facingRight = target.side === 'right';
+    // Big top canopy ring
+    for (let t = 0; t < 40; t++) {
+        const m = new THREE.Mesh(leafGeo, LEAF_MATS[t % LEAF_MATS.length]);
+        const a = (t / 40) * Math.PI * 2 + Math.random() * 0.4;
+        const r = 2.5 + Math.random() * 6.5;
+        const s = 1.4 + Math.random() * 2.2;
+        m.position.set(Math.cos(a) * r, TOP_Y + 5 + Math.random() * 4, Math.sin(a) * r);
+        m.scale.set(s, s * 0.7, s);
+        m.rotation.set(Math.random() * 3, Math.random() * 3, Math.random() * 3);
+        levelGroup.add(m);
     }
 
-    function enterAimMode() {
-        if (game.aiming || game.monkey.jumping) return;
-        if (!needsAiming()) return;
+    return { branches: branches, bananaGroup: bananaGroup };
+}
 
-        game.aiming = true;
-        game.charging = true;
-        game.chargeTime = 0;
+/* ══════════════════ START ══════════════════ */
+function startGame() {
+    startScreen.classList.add('hidden');
+    winScreen.classList.add('hidden');
+    loseScreen.classList.add('hidden');
+    hudEl.classList.remove('hidden');
+    touchCtl.classList.remove('hidden');
 
-        var next = getNextBranch();
-        if (next) {
-            var mc = monkeyCenter();
-            var jx = next.branch.side === 'left'
-                ? next.branch.x + next.branch.w * 0.4
-                : next.branch.x + next.branch.w * 0.6;
-            var jy = next.branch.y - 80;
-            game.aimAngle = Math.atan2(jy - mc.y, jx - mc.x);
-        }
+    gameId++;
+
+    // clear leftover dynamic objects from a previous run
+    if (game) {
+        game.poops.forEach(function (p) { killSprite(p.sprite); });
+        game.arrows.forEach(function (a) { scene.remove(a.mesh); });
+        game.bits.forEach(function (b) { killSprite(b.sprite); });
     }
 
-    function throwPoop() {
-        if (game.poopAmmo <= 0) return;
-        if (!game.aiming) return;
+    const level = buildLevel();
 
-        game.poopAmmo--;
-        game.aiming = false;
-        game.charging = false;
+    game = {
+        id: gameId,
+        state: 'climbing',
+        branches: level.branches,
+        bananaGroup: level.bananaGroup,
+        monkeyAngle: level.branches[0].angle,
+        monkeyY: BASE_Y,
+        monkeyPos: new THREE.Vector3(),
+        poopAmmo: TOTAL_POOPS,
+        lives: TOTAL_LIVES,
+        aiming: false,
+        aimPower: 0.55,
+        poops: [],
+        arrows: [],
+        bits: [],
+        arrowTimer: 3.0,   // grace period — don't shoot the player before they've moved
+        invuln: 0,
+        jaguarsDefeated: 0,
+        t: 0
+    };
 
-        var next = getNextBranch();
-        if (!next) return;
+    posAt(game.monkeyAngle, RIDE_R, game.monkeyY, game.monkeyPos);
+    camAngle = game.monkeyAngle;
+    camY = game.monkeyY + 3.2;
+    camLook.copy(game.monkeyPos);
 
-        var mc = monkeyCenter();
-        var speed = 10;
+    arcLine.visible = false;
+    reticle.visible = false;
+    powerWrap.classList.add('hidden');
 
-        game.poops.push({
-            x: mc.x, y: mc.y,
-            vx: Math.cos(game.aimAngle) * speed,
-            vy: Math.sin(game.aimAngle) * speed,
-            targetBranch: next.index,
-            alive: true,
-            trail: []
+    hudCache.branch = -1; hudCache.ammo = -1; hudCache.lives = -1;
+    updateHUD();
+}
+
+/* ══════════════════ HUD ══════════════════ */
+const hudCache = { branch: -1, ammo: -1, lives: -1 };
+
+function updateHUD() {
+    if (!game) return;
+    let branchNum = Math.floor((game.monkeyY - BASE_Y) / BRANCH_SPACING) + 1;
+    if (branchNum < 1) branchNum = 1;
+    if (branchNum > BRANCH_COUNT + 1) branchNum = BRANCH_COUNT + 1;
+
+    // Only touch the DOM when a value actually changed (this runs every frame).
+    if (branchNum !== hudCache.branch) {
+        hudCache.branch = branchNum;
+        hudBranch.textContent = branchNum + '/' + (BRANCH_COUNT + 1);
+    }
+    if (game.poopAmmo !== hudCache.ammo) {
+        hudCache.ammo = game.poopAmmo;
+        hudAmmo.textContent = game.poopAmmo;
+        throwBtn.disabled = game.poopAmmo <= 0;
+    }
+    if (game.lives !== hudCache.lives) {
+        hudCache.lives = game.lives;
+        hudLives.textContent = game.lives;
+    }
+}
+
+/* ══════════════════ RULE HELPERS ══════════════════ */
+/** Lowest still-alive jaguar above the monkey — this is the gate that blocks the climb. */
+function blockingJaguar() {
+    if (!game) return null;
+    let best = null;
+    for (let i = 0; i < game.branches.length; i++) {
+        const b = game.branches[i];
+        if (!b.jaguarAlive) continue;
+        if (b.y + 1.0 <= game.monkeyY - 0.4) continue;
+        if (!best || b.y < best.y) best = b;
+    }
+    return best;
+}
+
+/** Same intent as the original needsAiming(): is a jaguar close enough ahead to matter? */
+function needsAiming() {
+    const b = blockingJaguar();
+    if (!b) return false;
+    return (b.y + 1.0) - game.monkeyY < 17;
+}
+
+/* ══════════════════ ACTIONS ══════════════════ */
+function enterAimMode() {
+    if (!game || game.state !== 'climbing') return;
+    if (game.aiming) return;
+    if (game.poopAmmo <= 0) return;
+    if (!needsAiming()) return;   // ammo is precious — no wasting it on empty air
+    game.aiming = true;
+    powerFill.style.width = (game.aimPower * 100).toFixed(0) + '%';
+    powerWrap.classList.remove('hidden');
+}
+
+function poopLaunch(power) {
+    // Mostly straight up the trunk with a small outward lean, so the arc hugs the bark.
+    const speed = POOP_SPEED_MIN + (POOP_SPEED_MAX - POOP_SPEED_MIN) * power;
+    const radial = new THREE.Vector3(Math.cos(game.monkeyAngle), 0, Math.sin(game.monkeyAngle));
+    const dir = new THREE.Vector3(0, 1, 0).addScaledVector(radial, 0.16).normalize();
+    return dir.multiplyScalar(speed);
+}
+
+function throwPoop() {
+    if (!game || game.state !== 'climbing') return;
+    if (!game.aiming) return;
+    if (game.poopAmmo <= 0) return;
+
+    game.poopAmmo--;
+    game.aiming = false;
+    arcLine.visible = false;
+    reticle.visible = false;
+    powerWrap.classList.add('hidden');
+
+    const sprite = emojiSprite('💩', 1.15);
+    sprite.position.copy(game.monkeyPos).y += 0.8;
+    scene.add(sprite);
+
+    game.poops.push({
+        sprite: sprite,
+        pos: sprite.position.clone(),
+        vel: poopLaunch(game.aimPower),
+        alive: true,
+        life: 4.0
+    });
+
+    updateHUD();
+
+    // Original rule: no ammo left and a jaguar still blocks the path → you lose.
+    const myId = game.id;
+    if (game.poopAmmo <= 0) {
+        setTimeout(function () {
+            if (game && game.id === myId && game.state === 'climbing' && game.poops.length === 0 && needsAiming()) {
+                loseGame('Out of ammo! The jaguar blocks the path!');
+            }
+        }, 1500);
+    }
+}
+
+function burst(pos, chars, n) {
+    for (let i = 0; i < n; i++) {
+        const s = emojiSprite(chars[i % chars.length], 0.9);
+        s.position.copy(pos);
+        s.material.transparent = true;
+        scene.add(s);
+        game.bits.push({
+            sprite: s,
+            vel: new THREE.Vector3((Math.random() - 0.5) * 7, Math.random() * 6, (Math.random() - 0.5) * 7),
+            life: 0.75 + Math.random() * 0.4,
+            max: 1.15
         });
-
-        updateHUD();
-
-        if (game.poopAmmo <= 0 && next.branch.jaguarAlive) {
-            setTimeout(function() {
-                if (game && game.state === 'climbing' && needsAiming()) {
-                    loseGame('Out of ammo! The jaguar blocks the path!');
-                }
-            }, 1500);
-        }
     }
+}
 
-    /* ══════════════════ SPAWNING ══════════════════ */
-    function spawnArrow() {
-        var side = Math.random() < 0.5 ? 'left' : 'right';
-        var fromBottom = Math.random() < 0.7;
-        var x, y, vx, vy;
+function hitMonkey(reason, knockdown) {
+    if (game.invuln > 0) return;
+    game.lives--;
+    game.invuln = INVULN_TIME;
+    game.monkeyY = Math.max(0.5, game.monkeyY - knockdown);
+    burst(game.monkeyPos, ['💥', '🍃'], 8);
+    updateHUD();
+    if (game.lives <= 0) loseGame(reason);
+}
 
-        if (fromBottom) {
-            x = side === 'left' ? -30 : W + 30;
-            y = game.cameraY + H + 30;
-            vx = side === 'left' ? (1.5 + Math.random() * 2) : -(1.5 + Math.random() * 2);
-            vy = -(3.5 + Math.random() * 2.5);
+/* ══════════════════ END STATES ══════════════════ */
+function loseGame(reason) {
+    if (!game || game.state !== 'climbing') return;
+    game.state = 'lost';
+    game.aiming = false;
+    arcLine.visible = false;
+    reticle.visible = false;
+    powerWrap.classList.add('hidden');
+    hudEl.classList.add('hidden');
+    touchCtl.classList.add('hidden');
+    loseReason.textContent = reason;
+    loseScreen.classList.remove('hidden');
+}
+
+function winGame() {
+    if (!game || game.state !== 'climbing') return;
+    game.state = 'won';
+    game.aiming = false;
+    arcLine.visible = false;
+    reticle.visible = false;
+    powerWrap.classList.add('hidden');
+    hudEl.classList.add('hidden');
+    touchCtl.classList.add('hidden');
+    winStats.textContent =
+        'Poops used: ' + (TOTAL_POOPS - game.poopAmmo) + '/' + TOTAL_POOPS +
+        '  |  Lives left: ' + game.lives + '/' + TOTAL_LIVES;
+    winScreen.classList.remove('hidden');
+    if (window.parent !== window) {
+        window.parent.postMessage({ type: 'gameCompletion', completed: true }, '*');
+    }
+}
+
+/* ══════════════════ ARROWS ══════════════════ */
+function spawnArrow() {
+    const a = game.monkeyAngle + (Math.random() - 0.5) * 3.2 + Math.PI * (Math.random() < 0.5 ? 0.35 : -0.35);
+    const r = 26;
+    const y = game.monkeyY - 6 + Math.random() * 10;
+    const from = posAt(a, r, y);
+
+    // aim at the monkey with a bit of slop so it's dodgeable
+    const to = game.monkeyPos.clone();
+    to.x += (Math.random() - 0.5) * 2.5;
+    to.y += (Math.random() - 0.5) * 2.0;
+    to.z += (Math.random() - 0.5) * 2.5;
+
+    const vel = to.sub(from).normalize().multiplyScalar(ARROW_SPEED);
+    const mesh = new THREE.Mesh(arrowGeo, arrowMat);
+    mesh.position.copy(from);
+    scene.add(mesh);
+    game.arrows.push({ mesh: mesh, pos: from.clone(), vel: vel, life: 5 });
+}
+
+/* ══════════════════ UPDATE ══════════════════ */
+function update(dt) {
+    if (!game || game.state !== 'climbing') return;
+    game.t += dt;
+    if (game.invuln > 0) game.invuln -= dt;
+
+    const left  = keys['ArrowLeft']  || keys['KeyA'] || touch.left;
+    const right = keys['ArrowRight'] || keys['KeyD'] || touch.right;
+    const up    = keys['ArrowUp']    || keys['KeyW'] || touch.up;
+    const down  = keys['ArrowDown']  || keys['KeyS'] || touch.down;
+
+    /* ── Orbit around the trunk (works while aiming too — that's how you line up a shot) ── */
+    if (left)  game.monkeyAngle += ORBIT_SPEED * dt;
+    if (right) game.monkeyAngle -= ORBIT_SPEED * dt;
+
+    if (game.aiming) {
+        /* ── Up/down trims throwing power while aiming ── */
+        if (up)   game.aimPower = Math.min(1, game.aimPower + 0.75 * dt);
+        if (down) game.aimPower = Math.max(0, game.aimPower - 0.75 * dt);
+        powerFill.style.width = (game.aimPower * 100).toFixed(0) + '%';
+    } else {
+        /* ── Climb ── */
+        if (up) {
+            game.monkeyY += CLIMB_SPEED * dt;
+        } else if (down) {
+            game.monkeyY -= CLIMB_SPEED * 0.8 * dt;
         } else {
-            x = side === 'left' ? -30 : W + 30;
-            y = game.cameraY + Math.random() * H;
-            vx = side === 'left' ? (2.5 + Math.random() * 2) : -(2.5 + Math.random() * 2);
-            vy = -(0.5 + Math.random() * 2);
-        }
-
-        game.arrows.push({ x: x, y: y, vx: vx, vy: vy, alive: true });
-    }
-
-    /* ══════════════════ COLLISION ══════════════════ */
-    function checkArrowHit(arrow) {
-        var mx = game.monkey.x, my = game.monkey.y - game.cameraY;
-        var mw = game.monkey.w, mh = game.monkey.h;
-        var ax = arrow.x, ay = arrow.y - game.cameraY;
-        return ax > mx - mw / 2 && ax < mx + mw / 2 && ay > my - mh / 2 && ay < my + mh / 2;
-    }
-
-    function checkPoopHitJaguar(poop) {
-        var branch = game.branches[poop.targetBranch];
-        if (!branch || !branch.jaguarAlive) return false;
-        var jx = branch.side === 'left' ? branch.x + branch.w * 0.4 : branch.x + branch.w * 0.6;
-        var jy = branch.y - 80;
-        var dx = poop.x - jx;
-        var dy = poop.y - jy;
-        return Math.sqrt(dx * dx + dy * dy) < 85;
-    }
-
-    function hitMonkey() {
-        game.lives--;
-        game.hitFlash = 20;
-        updateHUD();
-        for (var i = 0; i < 10; i++) {
-            game.leafParticles.push({
-                x: game.monkey.x, y: game.monkey.y,
-                vx: (Math.random() - 0.5) * 5,
-                vy: -Math.random() * 4,
-                life: 30 + Math.random() * 20,
-                color: ['#ff4444', '#ff6666', '#ff2222'][Math.floor(Math.random() * 3)]
-            });
-        }
-        if (game.lives <= 0) loseGame('The arrows got you!');
-    }
-
-    /* ══════════════════ END STATES ══════════════════ */
-    function loseGame(reason) {
-        game.state = 'lost';
-        document.getElementById('hud').classList.add('hidden');
-        document.getElementById('loseReason').textContent = reason;
-        document.getElementById('loseScreen').classList.remove('hidden');
-    }
-
-    function winGame() {
-        game.state = 'won';
-        document.getElementById('hud').classList.add('hidden');
-        document.getElementById('winStats').textContent =
-            'Poops used: ' + (TOTAL_POOPS - game.poopAmmo) + '/' + TOTAL_POOPS +
-            '  |  Lives left: ' + game.lives + '/' + TOTAL_LIVES;
-        document.getElementById('winScreen').classList.remove('hidden');
-        if (window.parent !== window) {
-            window.parent.postMessage({ type: 'gameCompletion', completed: true }, '*');
+            game.monkeyY -= SLIDE_SPEED * dt;   // gentle, forgiving slide-back
         }
     }
 
-    /* ══════════════════ UPDATE ══════════════════ */
-    function update() {
-        if (!game || game.state !== 'climbing') return;
-        game.ticks++;
-        game.bananaFloat = Math.sin(game.ticks * 0.04) * 8;
-        if (game.hitFlash > 0) game.hitFlash--;
+    if (game.monkeyY < FLOOR_Y) game.monkeyY = FLOOR_Y;
 
-        /* ── Monkey lateral movement (not while jumping or aiming) ── */
-        if (!game.monkey.jumping && !game.aiming) {
-            var moveSpeed = 3.2;
-            if (keys['ArrowLeft'] || keys['KeyA']) game.monkey.vx = -moveSpeed;
-            else if (keys['ArrowRight'] || keys['KeyD']) game.monkey.vx = moveSpeed;
-            else game.monkey.vx *= 0.78;
-            if (Math.abs(game.monkey.vx) < 0.25) game.monkey.vx = 0;
-            game.monkey.x += game.monkey.vx;
-
-            var cb = game.branches[game.monkey.currentBranch];
-            var minX, maxX;
-            if (cb.side === 'left') {
-                minX = cb.x + 20;
-                maxX = W / 2 - TRUNK_HALF - 5;
-            } else {
-                minX = W / 2 + TRUNK_HALF + 5;
-                maxX = cb.x + cb.w - 20;
-            }
-            if (game.monkey.x < minX) { game.monkey.x = minX; game.monkey.vx = 0; }
-            if (game.monkey.x > maxX) { game.monkey.x = maxX; game.monkey.vx = 0; }
-
-            game.monkey.facingRight = cb.side === 'right';
+    /* ── A live jaguar gates the climb, exactly like the original ── */
+    const gate = blockingJaguar();
+    if (gate) {
+        // Hard ceiling well below the cat, so there is real distance to lob the poop across.
+        const ceiling = gate.y - 4.0;
+        if (game.monkeyY > ceiling) game.monkeyY = ceiling;
+        // Climbing up directly underneath it = it swipes you down.
+        const dA = Math.abs(angleDelta(game.monkeyAngle, gate.angle));
+        if (dA < 0.5 && game.monkeyY > gate.y - 5.2) {
+            hitMonkey('The jaguar knocked you out of the tree!', 7);
         }
+    }
 
-        /* ── Aim adjustment ── */
-        if (game.aiming) {
-            var aimSpeed = 0.035;
-            if (keys['ArrowLeft']) game.aimAngle -= aimSpeed;
-            if (keys['ArrowRight']) game.aimAngle += aimSpeed;
-            if (keys['ArrowUp']) game.aimAngle -= aimSpeed;
-            if (keys['ArrowDown']) game.aimAngle += aimSpeed;
-            if (game.aimAngle < -Math.PI) game.aimAngle = -Math.PI;
-            if (game.aimAngle > 0) game.aimAngle = 0;
-            if (game.charging) game.chargeTime++;
+    posAt(game.monkeyAngle, RIDE_R, game.monkeyY, game.monkeyPos);
+
+    /* ── Win: reach the bananas ── */
+    if (game.monkeyY >= TOP_Y - 0.5) {
+        winGame();
+        return;
+    }
+
+    /* ── Aim preview: real simulated arc + reticle at the landing point ── */
+    if (game.aiming) {
+        const pos = new THREE.Vector3().copy(game.monkeyPos); pos.y += 0.8;
+        const vel = poopLaunch(game.aimPower);
+        const attr = arcGeo.getAttribute('position');
+        const step = 0.055;
+        for (let i = 0; i < ARC_STEPS; i++) {
+            attr.array[i * 3]     = pos.x;
+            attr.array[i * 3 + 1] = pos.y;
+            attr.array[i * 3 + 2] = pos.z;
+            vel.y -= GRAVITY * step;
+            pos.addScaledVector(vel, step);
         }
+        attr.needsUpdate = true;
+        arcGeo.computeBoundingSphere();
+        arcLine.visible = true;
+        reticle.visible = true;
+        reticle.position.set(
+            attr.array[(ARC_STEPS - 1) * 3],
+            attr.array[(ARC_STEPS - 1) * 3 + 1],
+            attr.array[(ARC_STEPS - 1) * 3 + 2]
+        );
+    }
 
-        /* ── Jump arc ── */
-        if (game.monkey.jumping) {
-            game.monkey.jumpT += 0.028;
-            if (game.monkey.jumpT >= 1) {
-                game.monkey.jumpT = 1;
-                game.monkey.jumping = false;
-                game.monkey.currentBranch++;
-                game.monkey.x = game.monkey.jumpTo.x;
-                game.monkey.y = game.monkey.jumpTo.y;
-                game.monkey.vx = 0;
+    /* ── Poops ── */
+    for (let i = game.poops.length - 1; i >= 0; i--) {
+        const p = game.poops[i];
+        p.vel.y -= GRAVITY * dt;
+        p.pos.addScaledVector(p.vel, dt);
+        p.sprite.position.copy(p.pos);
+        p.life -= dt;
 
-                for (var lp = 0; lp < 8; lp++) {
-                    game.leafParticles.push({
-                        x: game.monkey.x, y: game.monkey.y + 30,
-                        vx: (Math.random() - 0.5) * 4,
-                        vy: Math.random() * 3,
-                        life: 25 + Math.random() * 20,
-                        color: ['#3a7d44', '#6abf6e', '#2d8b3a'][Math.floor(Math.random() * 3)]
-                    });
-                }
-
-                if (game.monkey.currentBranch >= BRANCH_COUNT) {
-                    winGame();
-                    return;
-                }
-
-                var landBranch = game.branches[game.monkey.currentBranch];
-                game.monkey.facingRight = landBranch.side === 'right';
-                updateHUD();
-            } else {
-                var t = game.monkey.jumpT;
-                var ease = t < 0.5 ? 2 * t * t : -1 + (4 - 2 * t) * t;
-                game.monkey.x = game.monkey.jumpFrom.x + (game.monkey.jumpTo.x - game.monkey.jumpFrom.x) * ease;
-                var arcH = -game.branchSpacing * 0.45;
-                game.monkey.y = game.monkey.jumpFrom.y + (game.monkey.jumpTo.y - game.monkey.jumpFrom.y) * ease + arcH * Math.sin(Math.PI * t);
-            }
-        }
-
-        /* ── Camera ── */
-        game.targetCameraY = game.monkey.y - H * 0.62;
-        var maxCamY = game.branches[0].y - H * 0.4;
-        if (game.targetCameraY > maxCamY) game.targetCameraY = maxCamY;
-        game.cameraY += (game.targetCameraY - game.cameraY) * 0.08;
-
-        /* ── Arrows ── */
-        game.arrowTimer++;
-        var interval = Math.max(55, game.arrowInterval - game.monkey.currentBranch * 3);
-        if (game.arrowTimer >= interval) {
-            game.arrowTimer = 0;
-            spawnArrow();
-        }
-        for (var ai = game.arrows.length - 1; ai >= 0; ai--) {
-            var a = game.arrows[ai];
-            a.x += a.vx; a.y += a.vy; a.vy += 0.02;
-            if (!game.monkey.jumping && a.alive && checkArrowHit(a)) {
-                a.alive = false;
-                hitMonkey();
-            }
-            if (a.y < game.cameraY - 100 || a.x < -80 || a.x > W + 80) {
-                game.arrows.splice(ai, 1);
-            }
-        }
-
-        /* ── Poops ── */
-        for (var pi = game.poops.length - 1; pi >= 0; pi--) {
-            var p = game.poops[pi];
-            p.trail.push({ x: p.x, y: p.y });
-            if (p.trail.length > 10) p.trail.shift();
-            p.x += p.vx; p.y += p.vy; p.vy += 0.04;
-            if (p.alive && checkPoopHitJaguar(p)) {
-                p.alive = false;
-                game.branches[p.targetBranch].jaguarAlive = false;
-                game.jaguarsDefeated++;
-                for (var sp = 0; sp < 12; sp++) {
-                    game.leafParticles.push({
-                        x: p.x, y: p.y,
-                        vx: (Math.random() - 0.5) * 6,
-                        vy: (Math.random() - 0.5) * 6,
-                        life: 25 + Math.random() * 15,
-                        color: ['#8B6914', '#FFD700', '#FFA500'][Math.floor(Math.random() * 3)]
-                    });
+        if (p.alive) {
+            for (let j = 0; j < game.branches.length; j++) {
+                const b = game.branches[j];
+                if (!b.jaguarAlive) continue;
+                // Two forgiving tests: plain 3D distance, or "same height + same side of trunk".
+                const d3 = p.pos.distanceTo(b.pos);
+                const dy = Math.abs(p.pos.y - b.pos.y);
+                const arc = Math.abs(angleDelta(Math.atan2(p.pos.z, p.pos.x), b.angle)) * RIDE_R;
+                if (d3 < POOP_HIT_R || (dy < 2.6 && arc < 2.8)) {
+                    b.jaguarAlive = false;
+                    if (b.jaguarSprite) levelGroup.remove(b.jaguarSprite);
+                    game.jaguarsDefeated++;
+                    p.alive = false;
+                    burst(p.pos, ['✨', '💫'], 10);
+                    break;
                 }
             }
-            if (p.y > game.cameraY + H + 80 || p.y < game.cameraY - 400 || p.x < -80 || p.x > W + 80) {
-                game.poops.splice(pi, 1);
-            }
         }
 
-        /* ── Particles ── */
-        for (var li = game.leafParticles.length - 1; li >= 0; li--) {
-            var lf = game.leafParticles[li];
-            lf.x += lf.vx; lf.y += lf.vy; lf.vy += 0.1; lf.life--;
-            if (lf.life <= 0) game.leafParticles.splice(li, 1);
+        if (!p.alive || p.life <= 0 || p.pos.y < game.monkeyY - 25) {
+            killSprite(p.sprite);
+            game.poops.splice(i, 1);
         }
     }
 
-    /* ══════════════════ DRAWING ══════════════════ */
+    /* ── Arrows (they get faster/denser the higher you go, like the original) ── */
+    game.arrowTimer -= dt;
+    if (game.arrowTimer <= 0) {
+        const branchNum = Math.floor(game.monkeyY / BRANCH_SPACING);
+        game.arrowTimer = Math.max(0.9, 1.9 - branchNum * 0.05);
+        spawnArrow();
+    }
+    for (let i = game.arrows.length - 1; i >= 0; i--) {
+        const a = game.arrows[i];
+        a.pos.addScaledVector(a.vel, dt);
+        a.mesh.position.copy(a.pos);
+        tmpA.copy(a.pos).add(a.vel);
+        a.mesh.lookAt(tmpA);
+        a.mesh.rotateX(Math.PI / 2);
+        a.life -= dt;
 
-    function drawBackground() {
-        var skyGrad = ctx.createLinearGradient(0, 0, 0, H);
-        skyGrad.addColorStop(0, '#5BC0EB');
-        skyGrad.addColorStop(0.4, '#87CEEB');
-        skyGrad.addColorStop(0.8, '#A8E6CF');
-        skyGrad.addColorStop(1, '#6ABF6E');
-        ctx.fillStyle = skyGrad;
-        ctx.fillRect(0, 0, W, H);
-        ctx.fillStyle = 'rgba(255,255,255,0.5)';
-        for (var si = 0; si < 12; si++) {
-            var sx = (si * 137.5 + 50) % W;
-            var sy = ((si * 97.3 + 20) % (H + 400)) - game.cameraY * 0.05;
-            sy = ((sy % H) + H) % H;
-            ctx.beginPath();
-            ctx.ellipse(sx, sy, 22 + (si % 3) * 12, 9, 0, 0, Math.PI * 2);
-            ctx.fill();
+        if (a.pos.distanceTo(game.monkeyPos) < ARROW_HIT_R) {
+            hitMonkey('The arrows got you!', 1.5);
+            scene.remove(a.mesh);
+            game.arrows.splice(i, 1);
+            continue;
+        }
+        if (a.life <= 0 || Math.abs(a.pos.y - game.monkeyY) > 32) {
+            scene.remove(a.mesh);
+            game.arrows.splice(i, 1);
         }
     }
 
-    function drawTrunk(cx) {
-        var topW = 70, botW = 100;
-        var trunkWorldTop = game.branches[game.branches.length - 1].y - 250;
-        var trunkWorldBot = game.branches[0].y + 300;
-        var topY = trunkWorldTop - game.cameraY;
-        var botY = trunkWorldBot - game.cameraY;
-
-        ctx.beginPath();
-        ctx.moveTo(cx - topW / 2, topY);
-        ctx.lineTo(cx + topW / 2, topY);
-        ctx.lineTo(cx + botW / 2, botY);
-        ctx.lineTo(cx - botW / 2, botY);
-        ctx.closePath();
-        var grad = ctx.createLinearGradient(cx - botW / 2, 0, cx + botW / 2, 0);
-        grad.addColorStop(0, '#4E342E');
-        grad.addColorStop(0.15, '#5D4037');
-        grad.addColorStop(0.4, '#6D4C41');
-        grad.addColorStop(0.6, '#795548');
-        grad.addColorStop(0.85, '#5D4037');
-        grad.addColorStop(1, '#4E342E');
-        ctx.fillStyle = grad;
-        ctx.fill();
-
-        ctx.strokeStyle = 'rgba(0,0,0,0.1)';
-        ctx.lineWidth = 1.2;
-        for (var ky = trunkWorldTop; ky < trunkWorldBot; ky += 16) {
-            var sy = ky - game.cameraY;
-            if (sy < -20 || sy > H + 20) continue;
-            var wAtY = topW + (botW - topW) * Math.max(0, Math.min(1, (sy - topY) / (botY - topY)));
-            ctx.beginPath();
-            ctx.moveTo(cx - wAtY / 2 + 6, sy);
-            ctx.bezierCurveTo(cx - wAtY / 4, sy + Math.sin(ky * 0.13) * 4,
-                              cx + wAtY / 4, sy - Math.sin(ky * 0.11) * 3,
-                              cx + wAtY / 2 - 6, sy);
-            ctx.stroke();
-        }
-
-        /* ── Knots & moss — evenly spaced along full trunk ── */
-        var trunkLen = trunkWorldBot - trunkWorldTop;
-        ctx.fillStyle = 'rgba(62,39,25,0.5)';
-        for (var ki = 0; ki < 14; ki++) {
-            var kwy = trunkWorldTop + trunkLen * (ki + 0.5) / 14;
-            var ksy = kwy - game.cameraY;
-            if (ksy < -20 || ksy > H + 20) continue;
-            ctx.beginPath();
-            ctx.ellipse(cx + (ki % 2 === 0 ? -10 : 11), ksy, 8, 12, 0.2, 0, Math.PI * 2);
-            ctx.fill();
-        }
-
-        ctx.fillStyle = 'rgba(76,175,80,0.22)';
-        for (var mi = 0; mi < 14; mi++) {
-            var mwy = trunkWorldTop + trunkLen * (mi + 0.3) / 14;
-            var msy = mwy - game.cameraY;
-            if (msy < -30 || msy > H + 30) continue;
-            var mSide = mi % 2 === 0 ? -1 : 1;
-            ctx.beginPath();
-            ctx.ellipse(cx + mSide * (topW / 2 - 2), msy, 10, 18, 0.3 * mSide, 0, Math.PI * 2);
-            ctx.fill();
-        }
-
-        var rootY = game.branches[0].y + 45 - game.cameraY;
-        if (rootY > -60 && rootY < H + 120) {
-            ctx.strokeStyle = '#5D4037';
-            ctx.lineCap = 'round';
-            ctx.lineWidth = 12;
-            ctx.beginPath(); ctx.moveTo(cx - 16, rootY);
-            ctx.quadraticCurveTo(cx - 65, rootY + 20, cx - 110, rootY + 40); ctx.stroke();
-            ctx.beginPath(); ctx.moveTo(cx + 16, rootY);
-            ctx.quadraticCurveTo(cx + 60, rootY + 18, cx + 105, rootY + 38); ctx.stroke();
-            ctx.lineWidth = 8;
-            ctx.beginPath(); ctx.moveTo(cx - 8, rootY + 8);
-            ctx.quadraticCurveTo(cx - 44, rootY + 32, cx - 72, rootY + 52); ctx.stroke();
-            ctx.beginPath(); ctx.moveTo(cx + 8, rootY + 8);
-            ctx.quadraticCurveTo(cx + 40, rootY + 30, cx + 68, rootY + 50); ctx.stroke();
+    /* ── Particle bits ── */
+    for (let i = game.bits.length - 1; i >= 0; i--) {
+        const b = game.bits[i];
+        b.vel.y -= 12 * dt;
+        b.sprite.position.addScaledVector(b.vel, dt);
+        b.life -= dt;
+        b.sprite.material.opacity = Math.max(0, b.life / b.max);
+        if (b.life <= 0) {
+            killSprite(b.sprite);
+            game.bits.splice(i, 1);
         }
     }
 
-    function drawBranch(branch, idx) {
-        var screenY = branch.y - game.cameraY;
-        if (screenY < -300 || screenY > H + 300) return;
+    /* ── Monkey sprite + hint ── */
+    monkeySprite.position.copy(game.monkeyPos);
+    monkeySprite.position.y += 0.2;
+    monkeySprite.visible = !(game.invuln > 0 && Math.floor(game.t * 12) % 2 === 0);
 
-        var cx = W / 2;
-        var tipX = branch.side === 'left' ? branch.x : branch.x + branch.w;
-        var trunkEdge = branch.side === 'left' ? cx - TRUNK_HALF : cx + TRUNK_HALF;
-
-        /* ── Thick organic branch ── */
-        var bThick = 22, tipThick = 8;
-        ctx.fillStyle = '#6D4C41';
-        ctx.strokeStyle = '#4E342E';
-        ctx.lineWidth = 2;
-        ctx.beginPath();
-        if (branch.side === 'left') {
-            ctx.moveTo(trunkEdge, screenY - bThick);
-            ctx.quadraticCurveTo((trunkEdge + tipX) * 0.5, screenY - bThick - 7, tipX, screenY - tipThick);
-            ctx.lineTo(tipX - 5, screenY);
-            ctx.quadraticCurveTo((trunkEdge + tipX) * 0.5, screenY + bThick + 4, trunkEdge, screenY + bThick);
-        } else {
-            ctx.moveTo(trunkEdge, screenY - bThick);
-            ctx.quadraticCurveTo((trunkEdge + tipX) * 0.5, screenY - bThick - 7, tipX, screenY - tipThick);
-            ctx.lineTo(tipX + 5, screenY);
-            ctx.quadraticCurveTo((trunkEdge + tipX) * 0.5, screenY + bThick + 4, trunkEdge, screenY + bThick);
-        }
-        ctx.closePath();
-        ctx.fill();
-        ctx.stroke();
-
-        ctx.strokeStyle = 'rgba(0,0,0,0.07)';
-        ctx.lineWidth = 0.8;
-        for (var bg = 0; bg < 5; bg++) {
-            var bgy = screenY - bThick + 5 + bg * 8;
-            ctx.beginPath();
-            ctx.moveTo(trunkEdge + (branch.side === 'left' ? -5 : 5), bgy);
-            ctx.lineTo(tipX + (branch.side === 'left' ? 14 : -14), bgy + Math.sin(bg + 1) * 2);
-            ctx.stroke();
-        }
-
-        /* ── Hanging vines ── */
-        if (branch.vines) {
-            var vineSway = Math.sin(game.ticks * 0.016 + idx * 2.1) * 3;
-            ctx.lineCap = 'round';
-            for (var vi = 0; vi < branch.vines.length; vi++) {
-                var vine = branch.vines[vi];
-                var vsx = vine.x + vineSway;
-                ctx.strokeStyle = '#2E7D32';
-                ctx.lineWidth = vine.thick;
-                ctx.beginPath();
-                ctx.moveTo(vsx, screenY + 8);
-                ctx.quadraticCurveTo(vsx + vine.curve, screenY + vine.len * 0.55,
-                                     vsx + vine.curve * 0.3, screenY + vine.len);
-                ctx.stroke();
-                ctx.fillStyle = '#43A047';
-                ctx.beginPath();
-                ctx.ellipse(vsx + vine.curve * 0.3, screenY + vine.len, 6, 3.5, 0.5, 0, Math.PI * 2);
-                ctx.fill();
-                // extra tiny leaf midway
-                ctx.beginPath();
-                ctx.ellipse(vsx + vine.curve * 0.6, screenY + vine.len * 0.5, 4, 2.5, -0.3, 0, Math.PI * 2);
-                ctx.fill();
-            }
-        }
-
-        /* ── Dense foliage ── */
-        if (branch.leaves) {
-            var sway = Math.sin(game.ticks * 0.02 + idx * 1.3) * 3;
-            for (var li = 0; li < branch.leaves.length; li++) {
-                var leaf = branch.leaves[li];
-                var lsx = leaf.x + sway * (leaf.r / 18);
-                var lsy = screenY + leaf.y;
-                ctx.fillStyle = 'rgba(0,30,0,0.11)';
-                ctx.beginPath();
-                ctx.ellipse(lsx + 2, lsy + 2.5, leaf.r * 1.05, leaf.r * 0.72, leaf.rot, 0, Math.PI * 2);
-                ctx.fill();
-                ctx.fillStyle = LEAF_COLORS[leaf.ci];
-                ctx.beginPath();
-                ctx.ellipse(lsx, lsy, leaf.r, leaf.r * 0.72, leaf.rot, 0, Math.PI * 2);
-                ctx.fill();
-            }
-            ctx.fillStyle = 'rgba(180,255,180,0.13)';
-            for (var di = 0; di < 6; di++) {
-                var dL = branch.leaves[di * 3 % branch.leaves.length];
-                ctx.beginPath();
-                ctx.arc(dL.x + sway * (dL.r / 18) - 2, screenY + dL.y - 2, dL.r * 0.35, 0, Math.PI * 2);
-                ctx.fill();
-            }
-        }
-
-        /* ── Jaguar (BIG) ── */
-        if (branch.jaguarAlive) {
-            var jx = branch.side === 'left' ? branch.x + branch.w * 0.4 : branch.x + branch.w * 0.6;
-            ctx.font = JAGUAR_SIZE + 'px serif';
-            ctx.textAlign = 'center';
-            ctx.textBaseline = 'bottom';
-            ctx.fillText('🐆', jx, screenY - 12);
-        }
+    const showHint = !game.aiming && game.poopAmmo > 0 && needsAiming();
+    hintSprite.visible = showHint;
+    if (showHint) {
+        hintSprite.position.copy(game.monkeyPos);
+        hintSprite.position.y += 2.0 + Math.sin(game.t * 5) * 0.15;
     }
 
-    function drawMonkey() {
-        var screenX = game.monkey.x;
-        var screenY = game.monkey.y - game.cameraY;
-        if (game.hitFlash > 0 && game.hitFlash % 4 < 2) return;
-
-        ctx.save();
-        ctx.translate(screenX, screenY);
-        if (!game.monkey.facingRight) ctx.scale(-1, 1);
-        ctx.font = MONKEY_SIZE + 'px serif';
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
-        ctx.fillText('🐒', 0, 0);
-        ctx.restore();
-
-        /* ── Aim indicator ── */
-        if (game.aiming) {
-            ctx.font = '24px serif';
-            ctx.textAlign = 'center';
-            var poopOff = game.monkey.facingRight ? 24 : -24;
-            ctx.fillText('💩', screenX + poopOff, screenY - 14);
-
-            var aimLen = 60 + Math.min(game.chargeTime / 60, 1) * 50;
-            var ax2 = screenX + Math.cos(game.aimAngle) * aimLen;
-            var ay2 = screenY + Math.sin(game.aimAngle) * aimLen;
-
-            ctx.strokeStyle = 'rgba(255,255,0,0.8)';
-            ctx.lineWidth = 3;
-            ctx.setLineDash([8, 5]);
-            ctx.beginPath();
-            ctx.moveTo(screenX, screenY);
-            ctx.lineTo(ax2, ay2);
-            ctx.stroke();
-            ctx.setLineDash([]);
-
-            // arrowhead
-            var headLen = 10;
-            var ha1 = game.aimAngle + Math.PI * 0.82;
-            var ha2 = game.aimAngle - Math.PI * 0.82;
-            ctx.fillStyle = 'rgba(255,255,0,0.8)';
-            ctx.beginPath();
-            ctx.moveTo(ax2, ay2);
-            ctx.lineTo(ax2 + Math.cos(ha1) * headLen, ay2 + Math.sin(ha1) * headLen);
-            ctx.lineTo(ax2 + Math.cos(ha2) * headLen, ay2 + Math.sin(ha2) * headLen);
-            ctx.closePath();
-            ctx.fill();
-
-            // power bar
-            var pw = 60;
-            var power = Math.min(game.chargeTime / 60, 1);
-            ctx.fillStyle = 'rgba(0,0,0,0.4)';
-            ctx.fillRect(screenX - pw / 2, screenY + 32, pw, 7);
-            ctx.fillStyle = power > 0.7 ? '#4CAF50' : '#FFD700';
-            ctx.fillRect(screenX - pw / 2, screenY + 32, pw * power, 7);
-        }
-
-        /* ── Poop hint when jaguar ahead but not aiming ── */
-        if (!game.aiming && !game.monkey.jumping && needsAiming() && game.poopAmmo > 0) {
-            var hintBob = Math.sin(game.ticks * 0.08) * 6;
-            var hintX = screenX + (game.monkey.facingRight ? 30 : -30);
-            var hintY = screenY - 38 + hintBob;
-            ctx.font = '28px serif';
-            ctx.textAlign = 'center';
-            ctx.textBaseline = 'middle';
-            ctx.fillText('💩', hintX, hintY);
-            // "SPACE" label
-            ctx.font = 'bold 11px sans-serif';
-            ctx.fillStyle = 'rgba(255,255,255,0.9)';
-            ctx.strokeStyle = 'rgba(0,0,0,0.6)';
-            ctx.lineWidth = 2.5;
-            ctx.strokeText('SPACE', hintX, hintY + 22);
-            ctx.fillText('SPACE', hintX, hintY + 22);
-        }
+    if (!game.aiming) {
+        arcLine.visible = false;
+        reticle.visible = false;
     }
 
-    function drawArrow(a) {
-        var sx = a.x;
-        var sy = a.y - game.cameraY;
-        if (sy < -50 || sy > H + 50) return;
-        var angle = Math.atan2(a.vy, a.vx);
-        ctx.save();
-        ctx.translate(sx, sy);
-        ctx.rotate(angle);
-        ctx.fillStyle = '#5c3d1e';
-        ctx.fillRect(-24, -2.5, 40, 5);
-        ctx.fillStyle = '#888';
-        ctx.beginPath();
-        ctx.moveTo(18, -8); ctx.lineTo(28, 0); ctx.lineTo(18, 8);
-        ctx.closePath(); ctx.fill();
-        ctx.fillStyle = '#cc3333';
-        ctx.beginPath();
-        ctx.moveTo(-24, -5); ctx.lineTo(-19, 0); ctx.lineTo(-24, 5); ctx.lineTo(-29, 0);
-        ctx.closePath(); ctx.fill();
-        ctx.restore();
+    // Bananas bob
+    game.bananaGroup.rotation.y += dt * 0.6;
+    game.bananaGroup.position.y = TOP_Y + 2.0 + Math.sin(game.t * 1.6) * 0.4;
+
+    updateHUD();
+}
+
+/* ══════════════════ CAMERA ══════════════════ */
+function updateCamera(dt) {
+    const targetAngle = game ? game.monkeyAngle : 0;
+    const targetY     = game ? game.monkeyY + 3.4 : 8;
+
+    // shortest-path angular lerp so the camera never spins the long way around
+    camAngle += angleDelta(targetAngle, camAngle) * CAM_LERP;
+    camY += (targetY - camY) * CAM_LERP;
+
+    // Camera sits behind the monkey on the SAME side of the trunk, further out.
+    camera.position.set(Math.cos(camAngle) * camDist, camY, Math.sin(camAngle) * camDist);
+
+    if (game) {
+        tmpB.copy(game.monkeyPos);
+        tmpB.y += 1.0;
+    } else {
+        tmpB.set(0, 8, 0);
     }
+    camLook.lerp(tmpB, CAM_LERP);
+    camera.lookAt(camLook);
+}
 
-    function drawPoop(p) {
-        for (var ti = 0; ti < p.trail.length; ti++) {
-            var tp = p.trail[ti];
-            ctx.globalAlpha = (ti / p.trail.length) * 0.3;
-            ctx.font = '14px serif';
-            ctx.fillText('💩', tp.x, tp.y - game.cameraY);
-        }
-        ctx.globalAlpha = 1;
-        ctx.font = '28px serif';
-        ctx.textAlign = 'center';
-        ctx.fillText('💩', p.x, p.y - game.cameraY);
-    }
+/* ══════════════════ LOOP ══════════════════ */
+function animate() {
+    requestAnimationFrame(animate);
+    const dt = Math.min(clock.getDelta(), 0.05);
+    update(dt);
+    updateCamera(dt);
+    renderer.render(scene, camera);
+}
 
-    function drawBananas() {
-        var topBranch = game.branches[BRANCH_COUNT];
-        var bx = W / 2;
-        var by = topBranch.y - game.cameraY - 55 + game.bananaFloat;
-        if (by < -80 || by > H + 80) return;
+/* ══════════════════ RESIZE ══════════════════ */
+function onResize() {
+    const w = window.innerWidth;
+    const h = window.innerHeight;
+    if (w === 0 || h === 0) return;
+    camera.aspect = w / h;
+    // Portrait phones have a much narrower horizontal FOV — dolly back so the trunk
+    // and monkey still fit instead of the near foliage filling the frame.
+    camDist = camera.aspect < 1
+        ? CAM_R * Math.min(1.85, 1 / Math.max(camera.aspect, 0.45))
+        : CAM_R;
+    camera.updateProjectionMatrix();
+    renderer.setSize(w, h, false);
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+}
+window.addEventListener('resize', onResize);
+window.addEventListener('orientationchange', function () { setTimeout(onResize, 200); });
 
-        ctx.font = '52px serif';
-        ctx.textAlign = 'center';
-        ctx.fillText('🍌', bx - 16, by);
-        ctx.fillText('🍌', bx + 16, by - 8);
-        ctx.fillText('🍌', bx, by + 14);
-    }
-
-    function drawGround() {
-        var groundY = game.branches[0].y + 50 - game.cameraY;
-        if (groundY < H) {
-            var gGrad = ctx.createLinearGradient(0, groundY, 0, H);
-            gGrad.addColorStop(0, '#4CAF50');
-            gGrad.addColorStop(0.5, '#388E3C');
-            gGrad.addColorStop(1, '#2E7D32');
-            ctx.fillStyle = gGrad;
-            ctx.fillRect(0, groundY, W, H - groundY);
-        }
-    }
-
-    function drawTopCanopy() {
-        if (!game.topCanopy) return;
-        var topBranch = game.branches[BRANCH_COUNT];
-        var screenY = topBranch.y - game.cameraY - 55;
-        if (screenY < -220 || screenY > H + 80) return;
-
-        var tcx = W / 2;
-        var sway = Math.sin(game.ticks * 0.014) * 3.5;
-
-        for (var ci = 0; ci < game.topCanopy.length; ci++) {
-            var c = game.topCanopy[ci];
-            var csx = tcx + c.xOff + sway * (c.r / 28);
-            var csy = screenY + c.yOff;
-            ctx.fillStyle = 'rgba(0,30,0,0.09)';
-            ctx.beginPath();
-            ctx.ellipse(csx + 2.5, csy + 3, c.r * 1.05, c.r * 0.72, c.rot, 0, Math.PI * 2);
-            ctx.fill();
-            ctx.fillStyle = LEAF_COLORS[c.ci];
-            ctx.beginPath();
-            ctx.ellipse(csx, csy, c.r, c.r * 0.72, c.rot, 0, Math.PI * 2);
-            ctx.fill();
-        }
-    }
-
-    function drawParticles() {
-        for (var i = 0; i < game.leafParticles.length; i++) {
-            var p = game.leafParticles[i];
-            var sy = p.y - game.cameraY;
-            ctx.globalAlpha = Math.min(1, p.life / 15);
-            ctx.fillStyle = p.color;
-            ctx.beginPath();
-            ctx.arc(p.x, sy, 4, 0, Math.PI * 2);
-            ctx.fill();
-        }
-        ctx.globalAlpha = 1;
-    }
-
-    /* ══════════════════ DRAW LOOP ══════════════════ */
-    function draw() {
-        if (!game) return;
-        ctx.clearRect(0, 0, W, H);
-        drawBackground();
-        drawTrunk(W / 2);
-        drawGround();
-        drawTopCanopy();
-        for (var i = 0; i < game.branches.length; i++) {
-            drawBranch(game.branches[i], i);
-        }
-        drawBananas();
-        drawMonkey();
-        for (var ai = 0; ai < game.arrows.length; ai++) {
-            if (game.arrows[ai].alive) drawArrow(game.arrows[ai]);
-        }
-        for (var pi = 0; pi < game.poops.length; pi++) {
-            drawPoop(game.poops[pi]);
-        }
-        drawParticles();
-    }
-
-    function loop() {
-        update();
-        draw();
-        if (game && game.state === 'climbing') {
-            animFrame = requestAnimationFrame(loop);
-        }
-    }
-
-    /* ══════════════════ INPUT ══════════════════ */
-    document.addEventListener('keydown', function(e) {
-        keys[e.code] = true;
-        if (['ArrowUp','ArrowDown','ArrowLeft','ArrowRight','Space','KeyW','KeyA','KeyD'].indexOf(e.code) !== -1) {
-            e.preventDefault();
-        }
-        if (!game || game.state !== 'climbing') return;
-
-        // Space → enter aim mode (only if jaguar ahead)
-        if (e.code === 'Space' && !game.aiming && !game.monkey.jumping) {
-            enterAimMode();
-        }
-
-        // Up / W → jump (only if not aiming)
-        if ((e.code === 'ArrowUp' || e.code === 'KeyW') && !game.aiming && !game.monkey.jumping) {
-            tryJump();
-        }
-    });
-
-    document.addEventListener('keyup', function(e) {
-        keys[e.code] = false;
-        if (!game || game.state !== 'climbing') return;
-
-        if (e.code === 'Space' && game.aiming && game.charging) {
-            throwPoop();
-        }
-    });
-
-    /* ── Touch controls ── */
-    canvas.addEventListener('touchstart', function(e) {
+/* ══════════════════ INPUT — KEYBOARD ══════════════════ */
+document.addEventListener('keydown', function (e) {
+    if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Space', 'KeyW', 'KeyA', 'KeyS', 'KeyD'].indexOf(e.code) !== -1) {
         e.preventDefault();
-        if (!game || game.state !== 'climbing') return;
+    }
+    if (e.repeat) { keys[e.code] = true; return; }
+    keys[e.code] = true;
+    if (!game || game.state !== 'climbing') return;
+    if (e.code === 'Space') enterAimMode();
+});
 
-        if (needsAiming() && !game.aiming) {
-            enterAimMode();
-            var touch = e.touches[0];
-            var rect = canvas.getBoundingClientRect();
-            var tx = touch.clientX - rect.left;
-            var ty = touch.clientY - rect.top;
-            var mc = monkeyCenter();
-            game.aimAngle = Math.atan2(ty - (mc.y - game.cameraY), tx - mc.x);
-            if (game.aimAngle > 0) game.aimAngle = 0;
-        } else if (!game.monkey.jumping && !game.aiming) {
-            tryJump();
-        }
-    });
+document.addEventListener('keyup', function (e) {
+    keys[e.code] = false;
+    if (!game || game.state !== 'climbing') return;
+    if (e.code === 'Space' && game.aiming) throwPoop();
+});
 
-    canvas.addEventListener('touchmove', function(e) {
-        e.preventDefault();
-        if (!game || !game.aiming) return;
-        var touch = e.touches[0];
-        var rect = canvas.getBoundingClientRect();
-        var tx = touch.clientX - rect.left;
-        var ty = touch.clientY - rect.top;
-        var mc = monkeyCenter();
-        game.aimAngle = Math.atan2(ty - (mc.y - game.cameraY), tx - mc.x);
-        if (game.aimAngle > 0) game.aimAngle = 0;
-        if (game.aimAngle < -Math.PI) game.aimAngle = -Math.PI;
-    });
+/* ══════════════════ INPUT — TOUCH ══════════════════ */
+const dpadButtons = touchCtl.querySelectorAll('.tbtn[data-act]');
+dpadButtons.forEach(function (btn) {
+    const act = btn.getAttribute('data-act');
+    const on  = function (e) { e.preventDefault(); touch[act] = true;  btn.classList.add('on'); };
+    const off = function (e) { e.preventDefault(); touch[act] = false; btn.classList.remove('on'); };
+    btn.addEventListener('pointerdown', on);
+    btn.addEventListener('pointerup', off);
+    btn.addEventListener('pointercancel', off);
+    btn.addEventListener('pointerleave', off);
+    btn.addEventListener('contextmenu', function (e) { e.preventDefault(); });
+});
 
-    canvas.addEventListener('touchend', function(e) {
-        e.preventDefault();
-        if (!game || game.state !== 'climbing') return;
-        if (game.aiming && game.charging) throwPoop();
-    });
+throwBtn.addEventListener('pointerdown', function (e) { e.preventDefault(); enterAimMode(); });
+throwBtn.addEventListener('pointerup', function (e) { e.preventDefault(); throwPoop(); });
+throwBtn.addEventListener('pointercancel', function (e) { e.preventDefault(); throwPoop(); });
+throwBtn.addEventListener('contextmenu', function (e) { e.preventDefault(); });
 
-    canvas.addEventListener('click', function(e) {
-        if (!game || game.state !== 'climbing') return;
-        if (!game.monkey.jumping && !game.aiming) tryJump();
-    });
-    </script>
+/* ══════════════════ BUTTONS ══════════════════ */
+document.getElementById('startBtn').addEventListener('click', startGame);
+document.getElementById('winBtn').addEventListener('click', startGame);
+document.getElementById('loseBtn').addEventListener('click', startGame);
+window.startGame = startGame;   // keep the old global entry point working
+
+/* ══════════════════ GO ══════════════════ */
+onResize();
+animate();
+</script>
 </body>
 </html>

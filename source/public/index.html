@@ -221,6 +221,15 @@
             margin-top: 10px;
         }
 
+        /* Hidden test switch — looks like ordinary text, no pointer, no highlight.
+           user-select is off so the triple-tap doesn't select the paragraph. */
+        .secret-switch {
+            cursor: inherit;
+            user-select: none;
+            -webkit-user-select: none;
+            -webkit-tap-highlight-color: transparent;
+        }
+
         .contact-button, .video-button {
             background-color: #3b7a57;
             color: white;
@@ -1206,7 +1215,7 @@
                         </div>
 
                         <div class="footer">
-                            <p>Created with &#10084;&#65039; by young forest lovers across the world.</p>
+                            <p>Created with <span class="secret-switch" onclick="secretHeartTap()">&#10084;&#65039;</span> by young forest lovers across the world.</p>
                             <div class="footer-buttons">
                                 <a href="#" onclick="showVideoModal(); return false;" style="text-decoration: none; font-size: 20px; cursor: pointer;">&#128250;</a>
                             </div>
@@ -1238,7 +1247,7 @@
                         </div>
 
                         <div class="footer">
-                            <p>Created with &#10084;&#65039; by young forest lovers across the world.</p>
+                            <p>Created with <span class="secret-switch" onclick="secretHeartTap()">&#10084;&#65039;</span> by young forest lovers across the world.</p>
                             <div class="footer-buttons">
                                 <a href="#" onclick="showVideoModal(); return false;" style="text-decoration: none; font-size: 20px; cursor: pointer;">&#128250;</a>
                             </div>
@@ -1905,6 +1914,80 @@
             }
             fb.style.opacity = '1';
             setTimeout(function() { fb.style.opacity = '0'; }, 4000);
+        }
+
+        // =============================================
+        // Secret test switch — footer heart
+        // =============================================
+        // Three taps within 800ms toggles "all games beaten". It's a multi-tap
+        // gesture on purpose: a single tap would let any visitor wipe out or skip
+        // their real progress by brushing the footer. Ships in production as a
+        // way to reach the Level 2 games without replaying Level 1.
+        var secretTapCount = 0;
+        var secretTapTimer = null;
+
+        function secretHeartTap() {
+            secretTapCount++;
+            clearTimeout(secretTapTimer);
+            secretTapTimer = setTimeout(function() { secretTapCount = 0; }, 800);
+            if (secretTapCount < 3) return;
+            secretTapCount = 0;
+            toggleAllGamesBeaten();
+        }
+
+        function everyRealGame() {
+            return mainTrailGames.concat(donorTrailGames, level2Games).filter(function(g) {
+                return !g.placeholder;
+            });
+        }
+
+        function toggleAllGamesBeaten() {
+            var games = everyRealGame();
+            var allBeaten = games.every(function(g) {
+                return gameCompletionStatus[g.id] && gameCompletionStatus[g.id].completed;
+            });
+
+            if (allBeaten) {
+                // Second triple-tap clears progress so the normal flow can be retested.
+                gameCompletionStatus = {};
+                localStorage.removeItem('gameCompletionStatus');
+                level2Unlocked = false;
+                goToLevel(0);
+            } else {
+                games.forEach(function(g) {
+                    gameCompletionStatus[g.id] = {
+                        completed: true,
+                        score: null,
+                        timeElapsed: null,
+                        timestamp: new Date().toISOString(),
+                        viaTestSwitch: true
+                    };
+                });
+                localStorage.setItem('gameCompletionStatus', JSON.stringify(gameCompletionStatus));
+            }
+
+            generateTrail();
+            updateArrowVisibility();
+            showSecretToast(allBeaten
+                ? 'Progress cleared — back to the start'
+                : 'All games marked beaten — Level 2 unlocked');
+        }
+
+        function showSecretToast(message) {
+            var t = document.getElementById('secretToast');
+            if (!t) {
+                t = document.createElement('div');
+                t.id = 'secretToast';
+                t.style.cssText = 'position:fixed;bottom:24px;left:50%;transform:translateX(-50%);' +
+                    'padding:12px 20px;border-radius:10px;background:#2d8b3a;color:#fff;font-size:15px;' +
+                    'font-weight:bold;z-index:3000;opacity:0;transition:opacity .25s ease;pointer-events:none;' +
+                    'box-shadow:0 4px 14px rgba(0,0,0,.25);max-width:90vw;text-align:center;';
+                document.body.appendChild(t);
+            }
+            t.textContent = message;
+            t.style.opacity = '1';
+            clearTimeout(t._hideTimer);
+            t._hideTimer = setTimeout(function() { t.style.opacity = '0'; }, 2600);
         }
 
         function loadGameCompletionStatus() {

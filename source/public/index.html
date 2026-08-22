@@ -1204,10 +1204,10 @@
                         </div>
 
                         <div class="fundraising-section">
-                            <button class="fundraising-button" onclick="showOverlayModal()">
-                                <span class="fundraising-label">🌿 Donations for the Rainforest</span>
-                                <span class="fundraising-amount" id="fundraisingTotal">...</span>
-                            </button>
+                            <a class="fundraising-button" href="https://www.junglekeepers.org/donate" target="_blank" rel="noopener" style="text-decoration:none;">
+                                <span class="fundraising-label">💚 Donations for the Rainforest</span>
+                                <span class="fundraising-amount">$100 raised</span>
+                            </a>
                             <button class="fundraising-button game-idea-button" onclick="showGameIdeaModal()">
                                 <span class="fundraising-label">🎮 Got an idea?</span>
                                 <span class="fundraising-amount" style="font-size:16px;">Build Your Own Jungle Game!</span>
@@ -1227,7 +1227,7 @@
             <!-- Level 2 -->
             <div class="level-slide" data-level="2">
                 <div class="container">
-                    <div class="left-section" style="background-image: url('images/intro6.jpg')"></div>
+                    <div class="left-section" style="background-image: url('images/level2-background.jpg')"></div>
                     <div class="divider"></div>
                     <div class="right-section">
                         <div class="trail-section">
@@ -1236,10 +1236,10 @@
                         </div>
 
                         <div class="fundraising-section">
-                            <button class="fundraising-button" onclick="showOverlayModal()">
-                                <span class="fundraising-label">🌿 Donations for the Rainforest</span>
-                                <span class="fundraising-amount" id="fundraisingTotal2">...</span>
-                            </button>
+                            <a class="fundraising-button" href="https://www.junglekeepers.org/donate" target="_blank" rel="noopener" style="text-decoration:none;">
+                                <span class="fundraising-label">💚 Donations for the Rainforest</span>
+                                <span class="fundraising-amount">$100 raised</span>
+                            </a>
                             <button class="fundraising-button game-idea-button" onclick="showGameIdeaModal()">
                                 <span class="fundraising-label">🎮 Got an idea?</span>
                                 <span class="fundraising-amount" style="font-size:16px;">Build Your Own Jungle Game!</span>
@@ -2062,17 +2062,9 @@
                 forestDonors = campaignData.donors || [];
                 campaignGoals = campaignData.goals || campaignGoals;
 
-                var donationCount = forestDonors.length;
-                var totalText = donationCount + ' donation' + (donationCount !== 1 ? 's' : '');
-                document.getElementById('fundraisingTotal').textContent = totalText;
-                var ft2 = document.getElementById('fundraisingTotal2');
-                if (ft2) ft2.textContent = totalText;
-
                 if (forestInitialized) {
                     refreshForest();
                 }
-            }, function(err) {
-                document.getElementById('fundraisingTotal').textContent = '...';
             });
         }
 

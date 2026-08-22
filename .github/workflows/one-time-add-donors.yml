@@ -1,0 +1,21 @@
+name: One-time - add prior donors
+on:
+  workflow_dispatch: {}
+
+jobs:
+  add-donors:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - run: npm install firebase-admin
+      - run: echo "$FIREBASE_SERVICE_ACCOUNT_VDMDD_C7404" > /tmp/service-account.json
+        env:
+          FIREBASE_SERVICE_ACCOUNT_VDMDD_C7404: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_VDMDD_C7404 }}
+      - run: node .github/workflows/scripts/add-donors.js
+        env:
+          GOOGLE_APPLICATION_CREDENTIALS: /tmp/service-account.json
+      - run: rm -f /tmp/service-account.json
+        if: always()
